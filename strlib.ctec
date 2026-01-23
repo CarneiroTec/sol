@@ -1,0 +1,1887 @@
+/*
+** $Id: lstrlib.c $
+** Standard library Para string operations and pattern-matching
+** See Copyright Notice in sol.h
+*/
+
+#Defina strlib_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+
+
+#Inclua <ctype.h>
+#Inclua <float.h>
+#Inclua <limits.h>
+#Inclua <locale.h>
+#Inclua <math.h>
+#Inclua <stddef.h>
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+#Inclua "limits.int"
+
+
+/*
+** maximum number of captures that a pattern can Faça during
+** pattern-matching. This limit is arbitrary, but must fit in
+** an Natural Caractere.
+*/
+#Se !Definido(SOL_MAXCAPTURES)
+#Defina SOL_MAXCAPTURES		32
+#FimSe
+
+
+Fixo Inteiro str_len (sol_State *L) {
+  size_t l;
+  sol_checklstring(L, 1, &l);
+  sol_pushinteger(L, (sol_Integer)l);
+  Retorne 1;
+}
+
+
+/*
+** translate a relative initial string position
+** (negative means back from end): clip result to [1, inf).
+** The length of any string in Sol must fit in a sol_Integer,
+** so there are no overflows in the casts.
+** The inverted comparison avoids a possible overflow
+** computing '-pos'.
+*/
+Fixo size_t posrelatI (sol_Integer pos, size_t len) {
+  Se (pos > 0)
+    Retorne (size_t)pos;
+  Senão Se (pos == 0)
+    Retorne 1;
+  Senão Se (pos < -(sol_Integer)len)  /* inverted comparison */
+    Retorne 1;  /* clip to 1 */
+  Senão Retorne len + (size_t)pos + 1;
+}
+
+
+/*
+** Gets an optional ending string position from argument 'arg',
+** with Padrão value 'def'.
+** Negative means back from end: clip result to [0, len]
+*/
+Fixo size_t getendpos (sol_State *L, Inteiro arg, sol_Integer def,
+                         size_t len) {
+  sol_Integer pos = sol_optinteger(L, arg, def);
+  Se (pos > (sol_Integer)len)
+    Retorne len;
+  Senão Se (pos >= 0)
+    Retorne (size_t)pos;
+  Senão Se (pos < -(sol_Integer)len)
+    Retorne 0;
+  Senão Retorne len + (size_t)pos + 1;
+}
+
+
+Fixo Inteiro str_sub (sol_State *L) {
+  size_t l;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  size_t start = posrelatI(sol_checkinteger(L, 2), l);
+  size_t end = getendpos(L, 3, -1, l);
+  Se (start <= end)
+    sol_pushlstring(L, s + start - 1, (end - start) + 1);
+  Senão sol_pushliteral(L, "");
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_reverse (sol_State *L) {
+  size_t l, i;
+  sol_Buffer b;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  Caractere *p = sol_buffinitsize(L, &b, l);
+  Para (i = 0; i < l; i++)
+    p[i] = s[l - i - 1];
+  sol_pushresultsize(&b, l);
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_lower (sol_State *L) {
+  size_t l;
+  size_t i;
+  sol_Buffer b;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  Caractere *p = sol_buffinitsize(L, &b, l);
+  Para (i=0; i<l; i++)
+    p[i] = cast_char(tolower(cast_uchar(s[i])));
+  sol_pushresultsize(&b, l);
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_upper (sol_State *L) {
+  size_t l;
+  size_t i;
+  sol_Buffer b;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  Caractere *p = sol_buffinitsize(L, &b, l);
+  Para (i=0; i<l; i++)
+    p[i] = cast_char(toupper(cast_uchar(s[i])));
+  sol_pushresultsize(&b, l);
+  Retorne 1;
+}
+
+
+/*
+** MAX_SIZE is limited both by size_t and sol_Integer.
+** When x <= MAX_SIZE, x can be safely cast to size_t or sol_Integer.
+*/
+Fixo Inteiro str_rep (sol_State *L) {
+  size_t len, lsep;
+  Imutável Caractere *s = sol_checklstring(L, 1, &len);
+  sol_Integer n = sol_checkinteger(L, 2);
+  Imutável Caractere *sep = sol_optlstring(L, 3, "", &lsep);
+  Se (n <= 0)
+    sol_pushliteral(L, "");
+  Senão Se (l_unlikely(len > MAX_SIZE - lsep ||
+               cast_st2S(len + lsep) > cast_st2S(MAX_SIZE) / n))
+    Retorne solL_error(L, "resulting string too large");
+  Senão {
+    size_t totallen = (cast_sizet(n) * (len + lsep)) - lsep;
+    sol_Buffer b;
+    Caractere *p = sol_buffinitsize(L, &b, totallen);
+    Enquanto (n-- > 1) {  /* first n-1 copies (followed by separator) */
+      memcpy(p, s, len * Meça(Caractere)); p += len;
+      Se (lsep > 0) {  /* empty 'memcpy' is not that cheap */
+        memcpy(p, sep, lsep * Meça(Caractere)); p += lsep;
+      }
+    }
+    memcpy(p, s, len * Meça(Caractere));  /* last copy without separator */
+    sol_pushresultsize(&b, totallen);
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_byte (sol_State *L) {
+  size_t l;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  sol_Integer pi = sol_optinteger(L, 2, 1);
+  size_t posi = posrelatI(pi, l);
+  size_t pose = getendpos(L, 3, pi, l);
+  Inteiro n, i;
+  Se (posi > pose) Retorne 0;  /* empty interval; Retorne no values */
+  Se (l_unlikely(pose - posi >= (size_t)INT_MAX))  /* arithmetic overflow? */
+    Retorne solL_error(L, "string slice too Longo");
+  n = (Inteiro)(pose -  posi) + 1;
+  solL_checkstack(L, n, "string slice too Longo");
+  Para (i=0; i<n; i++)
+    sol_pushinteger(L, cast_uchar(s[posi + cast_uint(i) - 1]));
+  Retorne n;
+}
+
+
+Fixo Inteiro str_char (sol_State *L) {
+  Inteiro n = sol_gettop(L);  /* number of arguments */
+  Inteiro i;
+  sol_Buffer b;
+  Caractere *p = sol_buffinitsize(L, &b, cast_uint(n));
+  Para (i=1; i<=n; i++) {
+    sol_Unsigned c = (sol_Unsigned)sol_checkinteger(L, i);
+    sol_argcheck(L, c <= (sol_Unsigned)UCHAR_MAX, i, "value out of range");
+    p[i - 1] = cast_char(cast_uchar(c));
+  }
+  sol_pushresultsize(&b, cast_uint(n));
+  Retorne 1;
+}
+
+
+/*
+** Buffer to store the result of 'string.dump'. It must be initialized
+** after the call to 'sol_dump', to ensure that the function is on the
+** top of the stack when 'sol_dump' is called. ('sol_buffinit' might
+** push stuff.)
+*/
+Estrutura str_Writer {
+  Inteiro init;  /* true iff buffer has been initialized */
+  sol_Buffer B;
+};
+
+
+Fixo Inteiro writer (sol_State *L, Imutável Vazio *b, size_t size, Vazio *ud) {
+  Estrutura str_Writer *state = (Estrutura str_Writer *)ud;
+  Se (!state->init) {
+    state->init = 1;
+    sol_buffinit(L, &state->B);
+  }
+  Se (b == NULL) {  /* finishing dump? */
+    sol_pushresult(&state->B);  /* push result */
+    sol_replace(L, 1);  /* move it to reserved slot */
+  }
+  Senão
+    sol_addlstring(&state->B, (Imutável Caractere *)b, size);
+  Retorne 0;
+}
+
+
+Fixo Inteiro str_dump (sol_State *L) {
+  Estrutura str_Writer state;
+  Inteiro strip = sol_toboolean(L, 2);
+  sol_argcheck(L, sol_type(L, 1) == SOL_TFUNCTION && !sol_iscfunction(L, 1),
+                   1, "Sol function expected");
+  /* ensure function is on the top of the stack and vacate slot 1 */
+  sol_pushvalue(L, 1);
+  state.init = 0;
+  sol_dump(L, writer, &state, strip);
+  sol_settop(L, 1);  /* leave final result on top */
+  Retorne 1;
+}
+
+
+
+/*
+** {======================================================
+** METAMETHODS
+** =======================================================
+*/
+
+#Se Definido(SOL_NOCVTS2N)	/* { */
+
+/* no coercion from strings to numbers */
+
+Fixo Imutável sol_Reg stringmetamethods[] = {
+  {"__índice", NULL},  /* placeholder */
+  {NULL, NULL}
+};
+
+#Senão		/* }{ */
+
+Fixo Inteiro tonum (sol_State *L, Inteiro arg) {
+  Se (sol_type(L, arg) == SOL_TNUMBER) {  /* already a number? */
+    sol_pushvalue(L, arg);
+    Retorne 1;
+  }
+  Senão {  /* check whether it is a numerical string */
+    size_t len;
+    Imutável Caractere *s = solL_tolstring(L, arg, &len);
+    Retorne (s != NULL && sol_stringtonumber(L, s) == len + 1);
+  }
+}
+
+
+Fixo Vazio trymt (sol_State *L, Imutável Caractere *mtname) {
+  sol_settop(L, 2);  /* back to the original arguments */
+  Se (l_unlikely(sol_type(L, 2) == SOL_TSTRING ||
+                 !sol_getmetafield(L, 2, mtname)))
+    solL_error(L, "tentativa de %s um '%s' com um '%s'", mtname + 2,
+                  solL_typename(L, -2), solL_typename(L, -1));
+  sol_insert(L, -3);  /* put metamethod before arguments */
+  sol_call(L, 2, 1);  /* call metamethod */
+}
+
+
+Fixo Inteiro arith (sol_State *L, Inteiro op, Imutável Caractere *mtname) {
+  Se (tonum(L, 1) && tonum(L, 2))
+    sol_arith(L, op);  /* result will be on the top */
+  Senão
+    trymt(L, mtname);
+  Retorne 1;
+}
+
+
+Fixo Inteiro arith_add (sol_State *L) {
+  Retorne arith(L, SOL_OPADD, "__soma");
+}
+
+Fixo Inteiro arith_sub (sol_State *L) {
+  Retorne arith(L, SOL_OPSUB, "__subtração");
+}
+
+Fixo Inteiro arith_mul (sol_State *L) {
+  Retorne arith(L, SOL_OPMUL, "__multiplicação");
+}
+
+Fixo Inteiro arith_mod (sol_State *L) {
+  Retorne arith(L, SOL_OPMOD, "__módulo");
+}
+
+Fixo Inteiro arith_pow (sol_State *L) {
+  Retorne arith(L, SOL_OPPOW, "__potência");
+}
+
+Fixo Inteiro arith_div (sol_State *L) {
+  Retorne arith(L, SOL_OPDIV, "__divisão");
+}
+
+Fixo Inteiro arith_idiv (sol_State *L) {
+  Retorne arith(L, SOL_OPIDIV, "__divisão_inteira");
+}
+
+Fixo Inteiro arith_unm (sol_State *L) {
+  Retorne arith(L, SOL_OPUNM, "__negação");
+}
+
+
+Fixo Imutável sol_Reg stringmetamethods[] = {
+  {"__soma", arith_add},
+  {"__subtração", arith_sub},
+  {"__multiplicação", arith_mul},
+  {"__módulo", arith_mod},
+  {"__potência", arith_pow},
+  {"__divisão", arith_div},
+  {"__divisão_inteira", arith_idiv},
+  {"__negação", arith_unm},
+  {"__índice", NULL},  /* placeholder */
+  {NULL, NULL}
+};
+
+#FimSe		/* } */
+
+/* }====================================================== */
+
+/*
+** {======================================================
+** PATTERN MATCHING
+** =======================================================
+*/
+
+
+#Defina CAP_UNFINISHED	(-1)
+#Defina CAP_POSITION	(-2)
+
+
+Pseudônimo Estrutura MatchState {
+  Imutável Caractere *src_init;  /* init of source string */
+  Imutável Caractere *src_end;  /* end ('\0') of source string */
+  Imutável Caractere *p_end;  /* end ('\0') of pattern */
+  sol_State *L;
+  Inteiro matchdepth;  /* control Para recursive depth (to avoid C stack overflow) */
+  Inteiro level;  /* total number of captures (finished or unfinished) */
+  Estrutura {
+    Imutável Caractere *init;
+    ptrdiff_t len;  /* length or special value (CAP_*) */
+  } capture[SOL_MAXCAPTURES];
+} MatchState;
+
+
+/* recursive function */
+Fixo Imutável Caractere *match (MatchState *ms, Imutável Caractere *s, Imutável Caractere *p);
+
+
+/* maximum recursion depth Para 'match' */
+#Se !Definido(MAXCCALLS)
+#Defina MAXCCALLS	200
+#FimSe
+
+
+#Defina L_ESC		'%'
+#Defina SPECIALS	"^$*+?.([%-"
+
+
+Fixo Inteiro check_capture (MatchState *ms, Inteiro l) {
+  l -= '1';
+  Se (l_unlikely(l < 0 || l >= ms->level ||
+                 ms->capture[l].len == CAP_UNFINISHED))
+    Retorne solL_error(ms->L, "invalid capture index %%%d", l + 1);
+  Retorne l;
+}
+
+
+Fixo Inteiro capture_to_close (MatchState *ms) {
+  Inteiro level = ms->level;
+  Para (level--; level>=0; level--)
+    Se (ms->capture[level].len == CAP_UNFINISHED) Retorne level;
+  Retorne solL_error(ms->L, "invalid pattern capture");
+}
+
+
+Fixo Imutável Caractere *classend (MatchState *ms, Imutável Caractere *p) {
+  Troque (*p++) {
+    Caso L_ESC: {
+      Se (l_unlikely(p == ms->p_end))
+        solL_error(ms->L, "malformed pattern (ends with '%%')");
+      Retorne p+1;
+    }
+    Caso '[': {
+      Se (*p == '^') p++;
+      Faça {  /* look Para a ']' */
+        Se (l_unlikely(p == ms->p_end))
+          solL_error(ms->L, "malformed pattern (missing ']')");
+        Se (*(p++) == L_ESC && p < ms->p_end)
+          p++;  /* skip escapes (e.g. '%]') */
+      } Enquanto (*p != ']');
+      Retorne p+1;
+    }
+    Padrão: {
+      Retorne p;
+    }
+  }
+}
+
+
+Fixo Inteiro match_class (Inteiro c, Inteiro cl) {
+  Inteiro res;
+  Troque (tolower(cl)) {
+    Caso 'a' : res = isalpha(c); Interrompa;
+    Caso 'c' : res = iscntrl(c); Interrompa;
+    Caso 'd' : res = isdigit(c); Interrompa;
+    Caso 'g' : res = isgraph(c); Interrompa;
+    Caso 'l' : res = islower(c); Interrompa;
+    Caso 'p' : res = ispunct(c); Interrompa;
+    Caso 's' : res = isspace(c); Interrompa;
+    Caso 'u' : res = isupper(c); Interrompa;
+    Caso 'w' : res = isalnum(c); Interrompa;
+    Caso 'x' : res = isxdigit(c); Interrompa;
+    Caso 'z' : res = (c == 0); Interrompa;  /* deprecated option */
+    Padrão: Retorne (cl == c);
+  }
+  Retorne (islower(cl) ? res : !res);
+}
+
+
+Fixo Inteiro matchbracketclass (Inteiro c, Imutável Caractere *p, Imutável Caractere *ec) {
+  Inteiro sig = 1;
+  Se (*(p+1) == '^') {
+    sig = 0;
+    p++;  /* skip the '^' */
+  }
+  Enquanto (++p < ec) {
+    Se (*p == L_ESC) {
+      p++;
+      Se (match_class(c, cast_uchar(*p)))
+        Retorne sig;
+    }
+    Senão Se ((*(p+1) == '-') && (p+2 < ec)) {
+      p+=2;
+      Se (cast_uchar(*(p-2)) <= c && c <= cast_uchar(*p))
+        Retorne sig;
+    }
+    Senão Se (cast_uchar(*p) == c) Retorne sig;
+  }
+  Retorne !sig;
+}
+
+
+Fixo Inteiro singlematch (MatchState *ms, Imutável Caractere *s, Imutável Caractere *p,
+                        Imutável Caractere *ep) {
+  Se (s >= ms->src_end)
+    Retorne 0;
+  Senão {
+    Inteiro c = cast_uchar(*s);
+    Troque (*p) {
+      Caso '.': Retorne 1;  /* matches any Caractere */
+      Caso L_ESC: Retorne match_class(c, cast_uchar(*(p+1)));
+      Caso '[': Retorne matchbracketclass(c, p, ep-1);
+      Padrão:  Retorne (cast_uchar(*p) == c);
+    }
+  }
+}
+
+
+Fixo Imutável Caractere *matchbalance (MatchState *ms, Imutável Caractere *s,
+                                   Imutável Caractere *p) {
+  Se (l_unlikely(p >= ms->p_end - 1))
+    solL_error(ms->L, "malformed pattern (missing arguments to '%%b')");
+  Se (*s != *p) Retorne NULL;
+  Senão {
+    Inteiro b = *p;
+    Inteiro e = *(p+1);
+    Inteiro cont = 1;
+    Enquanto (++s < ms->src_end) {
+      Se (*s == e) {
+        Se (--cont == 0) Retorne s+1;
+      }
+      Senão Se (*s == b) cont++;
+    }
+  }
+  Retorne NULL;  /* string ends out of balance */
+}
+
+
+Fixo Imutável Caractere *max_expand (MatchState *ms, Imutável Caractere *s,
+                                 Imutável Caractere *p, Imutável Caractere *ep) {
+  ptrdiff_t i = 0;  /* counts maximum expand Para item */
+  Enquanto (singlematch(ms, s + i, p, ep))
+    i++;
+  /* keeps trying to match with the maximum repetitions */
+  Enquanto (i>=0) {
+    Imutável Caractere *res = match(ms, (s+i), ep+1);
+    Se (res) Retorne res;
+    i--;  /* Senão didn't match; reduce 1 repetition to try again */
+  }
+  Retorne NULL;
+}
+
+
+Fixo Imutável Caractere *min_expand (MatchState *ms, Imutável Caractere *s,
+                                 Imutável Caractere *p, Imutável Caractere *ep) {
+  Para (;;) {
+    Imutável Caractere *res = match(ms, s, ep+1);
+    Se (res != NULL)
+      Retorne res;
+    Senão Se (singlematch(ms, s, p, ep))
+      s++;  /* try with one more repetition */
+    Senão Retorne NULL;
+  }
+}
+
+
+Fixo Imutável Caractere *start_capture (MatchState *ms, Imutável Caractere *s,
+                                    Imutável Caractere *p, Inteiro what) {
+  Imutável Caractere *res;
+  Inteiro level = ms->level;
+  Se (level >= SOL_MAXCAPTURES) solL_error(ms->L, "muitas capturas");
+  ms->capture[level].init = s;
+  ms->capture[level].len = what;
+  ms->level = level+1;
+  Se ((res=match(ms, s, p)) == NULL)  /* match failed? */
+    ms->level--;  /* undo capture */
+  Retorne res;
+}
+
+
+Fixo Imutável Caractere *end_capture (MatchState *ms, Imutável Caractere *s,
+                                  Imutável Caractere *p) {
+  Inteiro l = capture_to_close(ms);
+  Imutável Caractere *res;
+  ms->capture[l].len = s - ms->capture[l].init;  /* close capture */
+  Se ((res = match(ms, s, p)) == NULL)  /* match failed? */
+    ms->capture[l].len = CAP_UNFINISHED;  /* undo capture */
+  Retorne res;
+}
+
+
+Fixo Imutável Caractere *match_capture (MatchState *ms, Imutável Caractere *s, Inteiro l) {
+  size_t len;
+  l = check_capture(ms, l);
+  len = cast_sizet(ms->capture[l].len);
+  Se ((size_t)(ms->src_end-s) >= len &&
+      memcmp(ms->capture[l].init, s, len) == 0)
+    Retorne s+len;
+  Senão Retorne NULL;
+}
+
+
+Fixo Imutável Caractere *match (MatchState *ms, Imutável Caractere *s, Imutável Caractere *p) {
+  Se (l_unlikely(ms->matchdepth-- == 0))
+    solL_error(ms->L, "pattern too complex");
+  init: /* using Execute to optimize tail recursion */
+  Se (p != ms->p_end) {  /* end of pattern? */
+    Troque (*p) {
+      Caso '(': {  /* start capture */
+        Se (*(p + 1) == ')')  /* position capture? */
+          s = start_capture(ms, s, p + 2, CAP_POSITION);
+        Senão
+          s = start_capture(ms, s, p + 1, CAP_UNFINISHED);
+        Interrompa;
+      }
+      Caso ')': {  /* end capture */
+        s = end_capture(ms, s, p + 1);
+        Interrompa;
+      }
+      Caso '$': {
+        Se ((p + 1) != ms->p_end)  /* is the '$' the last Caractere in pattern? */
+          Execute dflt;  /* no; go to Padrão */
+        s = (s == ms->src_end) ? s : NULL;  /* check end of string */
+        Interrompa;
+      }
+      Caso L_ESC: {  /* escaped sequences not in the format class[*+?-]? */
+        Troque (*(p + 1)) {
+          Caso 'b': {  /* balanced string? */
+            s = matchbalance(ms, s, p + 2);
+            Se (s != NULL) {
+              p += 4; Execute init;  /* Retorne match(ms, s, p + 4); */
+            }  /* Senão fail (s == NULL) */
+            Interrompa;
+          }
+          Caso 'f': {  /* frontier? */
+            Imutável Caractere *ep; Caractere previous;
+            p += 2;
+            Se (l_unlikely(*p != '['))
+              solL_error(ms->L, "missing '[' after '%%f' in pattern");
+            ep = classend(ms, p);  /* points to what is next */
+            previous = (s == ms->src_init) ? '\0' : *(s - 1);
+            Se (!matchbracketclass(cast_uchar(previous), p, ep - 1) &&
+               matchbracketclass(cast_uchar(*s), p, ep - 1)) {
+              p = ep; Execute init;  /* Retorne match(ms, s, ep); */
+            }
+            s = NULL;  /* match failed */
+            Interrompa;
+          }
+          Caso '0': Caso '1': Caso '2': Caso '3':
+          Caso '4': Caso '5': Caso '6': Caso '7':
+          Caso '8': Caso '9': {  /* capture results (%0-%9)? */
+            s = match_capture(ms, s, cast_uchar(*(p + 1)));
+            Se (s != NULL) {
+              p += 2; Execute init;  /* Retorne match(ms, s, p + 2) */
+            }
+            Interrompa;
+          }
+          Padrão: Execute dflt;
+        }
+        Interrompa;
+      }
+      Padrão: dflt: {  /* pattern class plus optional suffix */
+        Imutável Caractere *ep = classend(ms, p);  /* points to optional suffix */
+        /* does not match at least once? */
+        Se (!singlematch(ms, s, p, ep)) {
+          Se (*ep == '*' || *ep == '?' || *ep == '-') {  /* accept empty? */
+            p = ep + 1; Execute init;  /* Retorne match(ms, s, ep + 1); */
+          }
+          Senão  /* '+' or no suffix */
+            s = NULL;  /* fail */
+        }
+        Senão {  /* matched once */
+          Troque (*ep) {  /* handle optional suffix */
+            Caso '?': {  /* optional */
+              Imutável Caractere *res;
+              Se ((res = match(ms, s + 1, ep + 1)) != NULL)
+                s = res;
+              Senão {
+                p = ep + 1; Execute init;  /* Senão Retorne match(ms, s, ep + 1); */
+              }
+              Interrompa;
+            }
+            Caso '+':  /* 1 or more repetitions */
+              s++;  /* 1 match already done */
+              /* FALLTHROUGH */
+            Caso '*':  /* 0 or more repetitions */
+              s = max_expand(ms, s, p, ep);
+              Interrompa;
+            Caso '-':  /* 0 or more repetitions (minimum) */
+              s = min_expand(ms, s, p, ep);
+              Interrompa;
+            Padrão:  /* no suffix */
+              s++; p = ep; Execute init;  /* Retorne match(ms, s + 1, ep); */
+          }
+        }
+        Interrompa;
+      }
+    }
+  }
+  ms->matchdepth++;
+  Retorne s;
+}
+
+
+
+Fixo Imutável Caractere *lmemfind (Imutável Caractere *s1, size_t l1,
+                               Imutável Caractere *s2, size_t l2) {
+  Se (l2 == 0) Retorne s1;  /* empty strings are everywhere */
+  Senão Se (l2 > l1) Retorne NULL;  /* avoids a negative 'l1' */
+  Senão {
+    Imutável Caractere *init;  /* to search Para a '*s2' inside 's1' */
+    l2--;  /* 1st Caractere will be checked by 'memchr' */
+    l1 = l1-l2;  /* 's2' cannot be found after that */
+    Enquanto (l1 > 0 && (init = (Imutável Caractere *)memchr(s1, *s2, l1)) != NULL) {
+      init++;   /* 1st Caractere is already checked */
+      Se (memcmp(init, s2+1, l2) == 0)
+        Retorne init-1;
+      Senão {  /* correct 'l1' and 's1' to try again */
+        l1 -= ct_diff2sz(init - s1);
+        s1 = init;
+      }
+    }
+    Retorne NULL;  /* not found */
+  }
+}
+
+
+/*
+** get information about the i-th capture. If there are no captures
+** and 'i==0', Retorne information about the whole match, which
+** is the range 's'..'e'. If the capture is a string, Retorne
+** its length and put its address in '*cap'. If it is an integer
+** (a position), push it on the stack and Retorne CAP_POSITION.
+*/
+Fixo ptrdiff_t get_onecapture (MatchState *ms, Inteiro i, Imutável Caractere *s,
+                              Imutável Caractere *e, Imutável Caractere **cap) {
+  Se (i >= ms->level) {
+    Se (l_unlikely(i != 0))
+      solL_error(ms->L, "invalid capture index %%%d", i + 1);
+    *cap = s;
+    Retorne (e - s);
+  }
+  Senão {
+    ptrdiff_t capl = ms->capture[i].len;
+    *cap = ms->capture[i].init;
+    Se (l_unlikely(capl == CAP_UNFINISHED))
+      solL_error(ms->L, "unfinished capture");
+    Senão Se (capl == CAP_POSITION)
+      sol_pushinteger(ms->L,
+          ct_diff2S(ms->capture[i].init - ms->src_init) + 1);
+    Retorne capl;
+  }
+}
+
+
+/*
+** Push the i-th capture on the stack.
+*/
+Fixo Vazio push_onecapture (MatchState *ms, Inteiro i, Imutável Caractere *s,
+                                                    Imutável Caractere *e) {
+  Imutável Caractere *cap;
+  ptrdiff_t l = get_onecapture(ms, i, s, e, &cap);
+  Se (l != CAP_POSITION)
+    sol_pushlstring(ms->L, cap, cast_sizet(l));
+  /* Senão position was already pushed */
+}
+
+
+Fixo Inteiro push_captures (MatchState *ms, Imutável Caractere *s, Imutável Caractere *e) {
+  Inteiro i;
+  Inteiro nlevels = (ms->level == 0 && s) ? 1 : ms->level;
+  solL_checkstack(ms->L, nlevels, "muitas capturas");
+  Para (i = 0; i < nlevels; i++)
+    push_onecapture(ms, i, s, e);
+  Retorne nlevels;  /* number of strings pushed */
+}
+
+
+/* check whether pattern has no special characters */
+Fixo Inteiro nospecials (Imutável Caractere *p, size_t l) {
+  size_t upto = 0;
+  Faça {
+    Se (strpbrk(p + upto, SPECIALS))
+      Retorne 0;  /* pattern has a special character */
+    upto += strlen(p + upto) + 1;  /* may have more after \0 */
+  } Enquanto (upto <= l);
+  Retorne 1;  /* no special chars found */
+}
+
+
+Fixo Vazio prepstate (MatchState *ms, sol_State *L,
+                       Imutável Caractere *s, size_t ls, Imutável Caractere *p, size_t lp) {
+  ms->L = L;
+  ms->matchdepth = MAXCCALLS;
+  ms->src_init = s;
+  ms->src_end = s + ls;
+  ms->p_end = p + lp;
+}
+
+
+Fixo Vazio reprepstate (MatchState *ms) {
+  ms->level = 0;
+  sol_assert(ms->matchdepth == MAXCCALLS);
+}
+
+
+Fixo Inteiro str_find_aux (sol_State *L, Inteiro find) {
+  size_t ls, lp;
+  Imutável Caractere *s = sol_checklstring(L, 1, &ls);
+  Imutável Caractere *p = sol_checklstring(L, 2, &lp);
+  size_t init = posrelatI(sol_optinteger(L, 3, 1), ls) - 1;
+  Se (init > ls) {  /* start after string's end? */
+    sol_pushfail(L);  /* cannot find anything */
+    Retorne 1;
+  }
+  /* explicit request or no special characters? */
+  Se (find && (sol_toboolean(L, 4) || nospecials(p, lp))) {
+    /* Faça a plain search */
+    Imutável Caractere *s2 = lmemfind(s + init, ls - init, p, lp);
+    Se (s2) {
+      sol_pushinteger(L, ct_diff2S(s2 - s) + 1);
+      sol_pushinteger(L, cast_st2S(ct_diff2sz(s2 - s) + lp));
+      Retorne 2;
+    }
+  }
+  Senão {
+    MatchState ms;
+    Imutável Caractere *s1 = s + init;
+    Inteiro anchor = (*p == '^');
+    Se (anchor) {
+      p++; lp--;  /* skip anchor character */
+    }
+    prepstate(&ms, L, s, ls, p, lp);
+    Faça {
+      Imutável Caractere *res;
+      reprepstate(&ms);
+      Se ((res=match(&ms, s1, p)) != NULL) {
+        Se (find) {
+          sol_pushinteger(L, ct_diff2S(s1 - s) + 1);  /* start */
+          sol_pushinteger(L, ct_diff2S(res - s));   /* end */
+          Retorne push_captures(&ms, NULL, 0) + 2;
+        }
+        Senão
+          Retorne push_captures(&ms, s1, res);
+      }
+    } Enquanto (s1++ < ms.src_end && !anchor);
+  }
+  sol_pushfail(L);  /* not found */
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_find (sol_State *L) {
+  Retorne str_find_aux(L, 1);
+}
+
+
+Fixo Inteiro str_match (sol_State *L) {
+  Retorne str_find_aux(L, 0);
+}
+
+
+/* state Para 'gmatch' */
+Pseudônimo Estrutura GMatchState {
+  Imutável Caractere *src;  /* current position */
+  Imutável Caractere *p;  /* pattern */
+  Imutável Caractere *lastmatch;  /* end of last match */
+  MatchState ms;  /* match state */
+} GMatchState;
+
+
+Fixo Inteiro gmatch_aux (sol_State *L) {
+  GMatchState *gm = (GMatchState *)sol_touserdata(L, sol_upvalueindex(3));
+  Imutável Caractere *src;
+  gm->ms.L = L;
+  Para (src = gm->src; src <= gm->ms.src_end; src++) {
+    Imutável Caractere *e;
+    reprepstate(&gm->ms);
+    Se ((e = match(&gm->ms, src, gm->p)) != NULL && e != gm->lastmatch) {
+      gm->src = gm->lastmatch = e;
+      Retorne push_captures(&gm->ms, src, e);
+    }
+  }
+  Retorne 0;  /* not found */
+}
+
+
+Fixo Inteiro gmatch (sol_State *L) {
+  size_t ls, lp;
+  Imutável Caractere *s = sol_checklstring(L, 1, &ls);
+  Imutável Caractere *p = sol_checklstring(L, 2, &lp);
+  size_t init = posrelatI(sol_optinteger(L, 3, 1), ls) - 1;
+  GMatchState *gm;
+  sol_settop(L, 2);  /* keep strings on closure to avoid being collected */
+  gm = (GMatchState *)sol_newuserdatauv(L, Meça(GMatchState), 0);
+  Se (init > ls)  /* start after string's end? */
+    init = ls + 1;  /* avoid overflows in 's + init' */
+  prepstate(&gm->ms, L, s, ls, p, lp);
+  gm->src = s + init; gm->p = p; gm->lastmatch = NULL;
+  sol_pushcclosure(L, gmatch_aux, 3);
+  Retorne 1;
+}
+
+
+Fixo Vazio add_s (MatchState *ms, sol_Buffer *b, Imutável Caractere *s,
+                                                   Imutável Caractere *e) {
+  size_t l;
+  sol_State *L = ms->L;
+  Imutável Caractere *news = solL_tolstring(L, 3, &l);
+  Imutável Caractere *p;
+  Enquanto ((p = (Caractere *)memchr(news, L_ESC, l)) != NULL) {
+    sol_addlstring(b, news, ct_diff2sz(p - news));
+    p++;  /* skip ESC */
+    Se (*p == L_ESC)  /* '%%' */
+      sol_addchar(b, *p);
+    Senão Se (*p == '0')  /* '%0' */
+        sol_addlstring(b, s, ct_diff2sz(e - s));
+    Senão Se (isdigit(cast_uchar(*p))) {  /* '%n' */
+      Imutável Caractere *cap;
+      ptrdiff_t resl = get_onecapture(ms, *p - '1', s, e, &cap);
+      Se (resl == CAP_POSITION)
+        sol_addvalue(b);  /* add position to accumulated result */
+      Senão
+        sol_addlstring(b, cap, cast_sizet(resl));
+    }
+    Senão
+      solL_error(L, "invalid use of '%c' in replacement string", L_ESC);
+    l -= ct_diff2sz(p + 1 - news);
+    news = p + 1;
+  }
+  sol_addlstring(b, news, l);
+}
+
+
+/*
+** Add the replacement value to the string buffer 'b'.
+** Return true Se the original string was changed. (Function calls and
+** table indexing resulting in nil or false Faça not change the subject.)
+*/
+Fixo Inteiro add_value (MatchState *ms, sol_Buffer *b, Imutável Caractere *s,
+                                      Imutável Caractere *e, Inteiro tr) {
+  sol_State *L = ms->L;
+  Troque (tr) {
+    Caso SOL_TFUNCTION: {  /* call the function */
+      Inteiro n;
+      sol_pushvalue(L, 3);  /* push the function */
+      n = push_captures(ms, s, e);  /* all captures as arguments */
+      sol_call(L, n, 1);  /* call it */
+      Interrompa;
+    }
+    Caso SOL_TTABLE: {  /* index the table */
+      push_onecapture(ms, 0, s, e);  /* first capture is the index */
+      sol_gettable(L, 3);
+      Interrompa;
+    }
+    Padrão: {  /* SOL_TNUMBER or SOL_TSTRING */
+      add_s(ms, b, s, e);  /* add value to the buffer */
+      Retorne 1;  /* something changed */
+    }
+  }
+  Se (!sol_toboolean(L, -1)) {  /* nil or false? */
+    sol_pop(L, 1);  /* remove value */
+    sol_addlstring(b, s, ct_diff2sz(e - s));  /* keep original text */
+    Retorne 0;  /* no changes */
+  }
+  Senão Se (l_unlikely(!sol_isstring(L, -1)))
+    Retorne solL_error(L, "invalid replacement value (a %s)",
+                         solL_typename(L, -1));
+  Senão {
+    sol_addvalue(b);  /* add result to accumulator */
+    Retorne 1;  /* something changed */
+  }
+}
+
+
+Fixo Inteiro str_gsub (sol_State *L) {
+  size_t srcl, lp;
+  Imutável Caractere *src = sol_checklstring(L, 1, &srcl);  /* subject */
+  Imutável Caractere *p = sol_checklstring(L, 2, &lp);  /* pattern */
+  Imutável Caractere *lastmatch = NULL;  /* end of last match */
+  Inteiro tr = sol_type(L, 3);  /* replacement type */
+  /* max replacements */
+  sol_Integer max_s = sol_optinteger(L, 4, cast_st2S(srcl) + 1);
+  Inteiro anchor = (*p == '^');
+  sol_Integer n = 0;  /* replacement count */
+  Inteiro changed = 0;  /* change flag */
+  MatchState ms;
+  sol_Buffer b;
+  sol_argexpected(L, tr == SOL_TNUMBER || tr == SOL_TSTRING ||
+                   tr == SOL_TFUNCTION || tr == SOL_TTABLE, 3,
+                      "string/function/table");
+  sol_buffinit(L, &b);
+  Se (anchor) {
+    p++; lp--;  /* skip anchor character */
+  }
+  prepstate(&ms, L, src, srcl, p, lp);
+  Enquanto (n < max_s) {
+    Imutável Caractere *e;
+    reprepstate(&ms);  /* (re)prepare state Para new match */
+    Se ((e = match(&ms, src, p)) != NULL && e != lastmatch) {  /* match? */
+      n++;
+      changed = add_value(&ms, &b, src, e, tr) | changed;
+      src = lastmatch = e;
+    }
+    Senão Se (src < ms.src_end)  /* otherwise, skip one character */
+      sol_addchar(&b, *src++);
+    Senão Interrompa;  /* end of subject */
+    Se (anchor) Interrompa;
+  }
+  Se (!changed)  /* no changes? */
+    sol_pushvalue(L, 1);  /* Retorne original string */
+  Senão {  /* something changed */
+    sol_addlstring(&b, src, ct_diff2sz(ms.src_end - src));
+    sol_pushresult(&b);  /* create and Retorne new string */
+  }
+  sol_pushinteger(L, n);  /* number of substitutions */
+  Retorne 2;
+}
+
+/* }====================================================== */
+
+
+
+/*
+** {======================================================
+** STRING FORMAT
+** =======================================================
+*/
+
+#Se !Definido(sol_number2strx)	/* { */
+
+/*
+** Hexadecimal floating-point formatter
+*/
+
+#Defina SIZELENMOD	(Meça(SOL_NUMBER_FRMLEN)/Meça(Caractere))
+
+
+/*
+** Number of bits that goes into the first digit. It can be any value
+** between 1 and 4; the following definition tries to align the number
+** to nibble boundaries by making what is left after that first digit a
+** multiple of 4.
+*/
+#Defina L_NBFD		((l_floatatt(MANT_DIG) - 1)%4 + 1)
+
+
+/*
+** Add integer part of 'x' to buffer and Retorne new 'x'
+*/
+Fixo sol_Number adddigit (Caractere *buff, Natural n, sol_Number x) {
+  sol_Number dd = l_mathop(floor)(x);  /* get integer part from 'x' */
+  Inteiro d = (Inteiro)dd;
+  buff[n] = cast_char(d < 10 ? d + '0' : d - 10 + 'a');  /* add to buffer */
+  Retorne x - dd;  /* Retorne what is left */
+}
+
+
+Fixo Inteiro num2straux (Caractere *buff, Natural sz, sol_Number x) {
+  /* Se 'inf' or 'NaN', format it like '%g' */
+  Se (x != x || x == (sol_Number)HUGE_VAL || x == -(sol_Number)HUGE_VAL)
+    Retorne l_sprintf(buff, sz, SOL_NUMBER_FMT, (SOL_UACNUMBER)x);
+  Senão Se (x == 0) {  /* can be -0... */
+    /* create "0" or "-0" followed by exponent */
+    Retorne l_sprintf(buff, sz, SOL_NUMBER_FMT "x0p+0", (SOL_UACNUMBER)x);
+  }
+  Senão {
+    Inteiro e;
+    sol_Number m = l_mathop(frexp)(x, &e);  /* 'x' fraction and exponent */
+    Natural n = 0;  /* character count */
+    Se (m < 0) {  /* is number negative? */
+      buff[n++] = '-';  /* add sign */
+      m = -m;  /* make it positive */
+    }
+    buff[n++] = '0'; buff[n++] = 'x';  /* add "0x" */
+    m = adddigit(buff, n++, m * (1 << L_NBFD));  /* add first digit */
+    e -= L_NBFD;  /* this digit goes before the radix point */
+    Se (m > 0) {  /* more digits? */
+      buff[n++] = sol_getlocaledecpoint();  /* add radix point */
+      Faça {  /* add as many digits as needed */
+        m = adddigit(buff, n++, m * 16);
+      } Enquanto (m > 0);
+    }
+    n += cast_uint(l_sprintf(buff + n, sz - n, "p%+d", e));  /* add exponent */
+    sol_assert(n < sz);
+    Retorne cast_int(n);
+  }
+}
+
+
+Fixo Inteiro sol_number2strx (sol_State *L, Caractere *buff, Natural sz,
+                            Imutável Caractere *fmt, sol_Number x) {
+  Inteiro n = num2straux(buff, sz, x);
+  Se (fmt[SIZELENMOD] == 'A') {
+    Inteiro i;
+    Para (i = 0; i < n; i++)
+      buff[i] = cast_char(toupper(cast_uchar(buff[i])));
+  }
+  Senão Se (l_unlikely(fmt[SIZELENMOD] != 'a'))
+    Retorne solL_error(L, "modifiers Para format '%%a'/'%%A' not implemented");
+  Retorne n;
+}
+
+#FimSe				/* } */
+
+
+/*
+** Maximum size Para items formatted with '%f'. This size is produced
+** by format('%.99f', -maxfloat), and is equal to 99 + 3 ('-', '.',
+** and '\0') + number of decimal digits to represent maxfloat (which
+** is maximum exponent + 1). (99+3+1, adding some extra, 110)
+*/
+#Defina MAX_ITEMF	(110 + l_floatatt(MAX_10_EXP))
+
+
+/*
+** All formats except '%f' Faça not need that large limit.  The other
+** Real formats use exponents, so that they fit in the 99 limit Para
+** significant digits; 's' Para large strings and 'q' add items directly
+** to the buffer; all integer formats also fit in the 99 limit.  The
+** worst Caso are floats: they may need 99 significant digits, plus
+** '0x', '-', '.', 'e+XXXX', and '\0'. Adding some extra, 120.
+*/
+#Defina MAX_ITEM	120
+
+
+/* valid flags in a format specification */
+#Se !Definido(L_FMTFLAGSF)
+
+/* valid flags Para a, A, e, E, f, F, g, and G conversions */
+#Defina L_FMTFLAGSF	"-+#0 "
+
+/* valid flags Para o, x, and X conversions */
+#Defina L_FMTFLAGSX	"-#0"
+
+/* valid flags Para d and i conversions */
+#Defina L_FMTFLAGSI	"-+0 "
+
+/* valid flags Para u conversions */
+#Defina L_FMTFLAGSU	"-0"
+
+/* valid flags Para c, p, and s conversions */
+#Defina L_FMTFLAGSC	"-"
+
+#FimSe
+
+
+/*
+** Maximum size of each format specification (such as "%-099.99d"):
+** Initial '%', flags (up to 5), width (2), period, precision (2),
+** length modifier (8), conversion specifier, and final '\0', plus some
+** extra.
+*/
+#Defina MAX_FORMAT	32
+
+
+Fixo Vazio addquoted (sol_Buffer *b, Imutável Caractere *s, size_t len) {
+  sol_addchar(b, '"');
+  Enquanto (len--) {
+    Se (*s == '"' || *s == '\\' || *s == '\n') {
+      sol_addchar(b, '\\');
+      sol_addchar(b, *s);
+    }
+    Senão Se (iscntrl(cast_uchar(*s))) {
+      Caractere buff[10];
+      Se (!isdigit(cast_uchar(*(s+1))))
+        l_sprintf(buff, Meça(buff), "\\%d", (Inteiro)cast_uchar(*s));
+      Senão
+        l_sprintf(buff, Meça(buff), "\\%03d", (Inteiro)cast_uchar(*s));
+      sol_addstring(b, buff);
+    }
+    Senão
+      sol_addchar(b, *s);
+    s++;
+  }
+  sol_addchar(b, '"');
+}
+
+
+/*
+** Serialize a floating-point number in such a way that it can be
+** scanned back by Sol. Use hexadecimal format Para "common" numbers
+** (to preserve precision); inf, -inf, and NaN are handled separately.
+** (NaN cannot be expressed as a numeral, so we write '(0/0)' Para it.)
+*/
+Fixo Inteiro quotefloat (sol_State *L, Caractere *buff, sol_Number n) {
+  Imutável Caractere *s;  /* Para the fixed representations */
+  Se (n == (sol_Number)HUGE_VAL)  /* inf? */
+    s = "1e9999";
+  Senão Se (n == -(sol_Number)HUGE_VAL)  /* -inf? */
+    s = "-1e9999";
+  Senão Se (n != n)  /* NaN? */
+    s = "(0/0)";
+  Senão {  /* format number as hexadecimal */
+    Inteiro  nb = sol_number2strx(L, buff, MAX_ITEM,
+                                 "%" SOL_NUMBER_FRMLEN "a", n);
+    /* ensures that 'buff' string uses a dot as the radix character */
+    Se (memchr(buff, '.', cast_uint(nb)) == NULL) {  /* no dot? */
+      Caractere point = sol_getlocaledecpoint();  /* try locale point */
+      Caractere *ppoint = (Caractere *)memchr(buff, point, cast_uint(nb));
+      Se (ppoint) *ppoint = '.';  /* change it to a dot */
+    }
+    Retorne nb;
+  }
+  /* Para the fixed representations */
+  Retorne l_sprintf(buff, MAX_ITEM, "%s", s);
+}
+
+
+Fixo Vazio addliteral (sol_State *L, sol_Buffer *b, Inteiro arg) {
+  Troque (sol_type(L, arg)) {
+    Caso SOL_TSTRING: {
+      size_t len;
+      Imutável Caractere *s = solL_tolstring(L, arg, &len);
+      addquoted(b, s, len);
+      Interrompa;
+    }
+    Caso SOL_TNUMBER: {
+      Caractere *buff = sol_prepbuffsize(b, MAX_ITEM);
+      Inteiro nb;
+      Se (!sol_isinteger(L, arg))  /* Real? */
+        nb = quotefloat(L, buff, sol_tonumber(L, arg));
+      Senão {  /* integers */
+        sol_Integer n = sol_tointeger(L, arg);
+        Imutável Caractere *format = (n == SOL_MININTEGER)  /* corner Caso? */
+                           ? "0x%" SOL_INTEGER_FRMLEN "x"  /* use hex */
+                           : SOL_INTEGER_FMT;  /* Senão use Padrão format */
+        nb = l_sprintf(buff, MAX_ITEM, format, (SOL_UACINT)n);
+      }
+      sol_addsize(b, cast_uint(nb));
+      Interrompa;
+    }
+    Caso SOL_TNIL: Caso SOL_TBOOLEAN: {
+      solL_tolstring(L, arg, NULL);
+      sol_addvalue(b);
+      Interrompa;
+    }
+    Padrão: {
+      sol_argerror(L, arg, "value has no literal form");
+    }
+  }
+}
+
+
+Fixo Imutável Caractere *get2digits (Imutável Caractere *s) {
+  Se (isdigit(cast_uchar(*s))) {
+    s++;
+    Se (isdigit(cast_uchar(*s))) s++;  /* (2 digits at most) */
+  }
+  Retorne s;
+}
+
+
+/*
+** Check whether a conversion specification is valid. When called,
+** first character in 'form' must be '%' and last character must
+** be a valid conversion specifier. 'flags' are the accepted flags;
+** 'precision' signals whether to accept a precision.
+*/
+Fixo Vazio checkformat (sol_State *L, Imutável Caractere *form, Imutável Caractere *flags,
+                                       Inteiro precision) {
+  Imutável Caractere *spec = form + 1;  /* skip '%' */
+  spec += strspn(spec, flags);  /* skip flags */
+  Se (*spec != '0') {  /* a width cannot start with '0' */
+    spec = get2digits(spec);  /* skip width */
+    Se (*spec == '.' && precision) {
+      spec++;
+      spec = get2digits(spec);  /* skip precision */
+    }
+  }
+  Se (!isalpha(cast_uchar(*spec)))  /* did not go to the end? */
+    solL_error(L, "invalid conversion specification: '%s'", form);
+}
+
+
+/*
+** Get a conversion specification and copy it to 'form'.
+** Return the address of its last character.
+*/
+Fixo Imutável Caractere *getformat (sol_State *L, Imutável Caractere *strfrmt,
+                                            Caractere *form) {
+  /* spans flags, width, and precision ('0' is included as a flag) */
+  size_t len = strspn(strfrmt, L_FMTFLAGSF "123456789.");
+  len++;  /* adds following character (should be the specifier) */
+  /* still needs space Para '%', '\0', plus a length modifier */
+  Se (len >= MAX_FORMAT - 10)
+    solL_error(L, "invalid format (too Longo)");
+  *(form++) = '%';
+  memcpy(form, strfrmt, len * Meça(Caractere));
+  *(form + len) = '\0';
+  Retorne strfrmt + len - 1;
+}
+
+
+/*
+** add length modifier into formats
+*/
+Fixo Vazio addlenmod (Caractere *form, Imutável Caractere *lenmod) {
+  size_t l = strlen(form);
+  size_t lm = strlen(lenmod);
+  Caractere spec = form[l - 1];
+  strcpy(form + l - 1, lenmod);
+  form[l + lm - 1] = spec;
+  form[l + lm] = '\0';
+}
+
+
+Fixo Inteiro str_format (sol_State *L) {
+  Inteiro top = sol_gettop(L);
+  Inteiro arg = 1;
+  size_t sfl;
+  Imutável Caractere *strfrmt = sol_checklstring(L, arg, &sfl);
+  Imutável Caractere *strfrmt_end = strfrmt+sfl;
+  Imutável Caractere *flags;
+  sol_Buffer b;
+  sol_buffinit(L, &b);
+  Enquanto (strfrmt < strfrmt_end) {
+    Se (*strfrmt != L_ESC)
+      sol_addchar(&b, *strfrmt++);
+    Senão Se (*++strfrmt == L_ESC)
+      sol_addchar(&b, *strfrmt++);  /* %% */
+    Senão { /* format item */
+      Caractere form[MAX_FORMAT];  /* to store the format ('%...') */
+      Natural maxitem = MAX_ITEM;  /* maximum length Para the result */
+      Caractere *buff = sol_prepbuffsize(&b, maxitem);  /* to put result */
+      Inteiro nb = 0;  /* number of bytes in result */
+      Se (++arg > top)
+        Retorne sol_argerror(L, arg, "no value");
+      strfrmt = getformat(L, strfrmt, form);
+      Troque (*strfrmt++) {
+        Caso 'c': {
+          checkformat(L, form, L_FMTFLAGSC, 0);
+          nb = l_sprintf(buff, maxitem, form, (Inteiro)sol_checkinteger(L, arg));
+          Interrompa;
+        }
+        Caso 'd': Caso 'i':
+          flags = L_FMTFLAGSI;
+          Execute intcase;
+        Caso 'u':
+          flags = L_FMTFLAGSU;
+          Execute intcase;
+        Caso 'o': Caso 'x': Caso 'X':
+          flags = L_FMTFLAGSX;
+         intcase: {
+          sol_Integer n = sol_checkinteger(L, arg);
+          checkformat(L, form, flags, 1);
+          addlenmod(form, SOL_INTEGER_FRMLEN);
+          nb = l_sprintf(buff, maxitem, form, (SOL_UACINT)n);
+          Interrompa;
+        }
+        Caso 'a': Caso 'A':
+          checkformat(L, form, L_FMTFLAGSF, 1);
+          addlenmod(form, SOL_NUMBER_FRMLEN);
+          nb = sol_number2strx(L, buff, maxitem, form,
+                                  sol_checknumber(L, arg));
+          Interrompa;
+        Caso 'f':
+          maxitem = MAX_ITEMF;  /* extra space Para '%f' */
+          buff = sol_prepbuffsize(&b, maxitem);
+          /* FALLTHROUGH */
+        Caso 'e': Caso 'E': Caso 'g': Caso 'G': {
+          sol_Number n = sol_checknumber(L, arg);
+          checkformat(L, form, L_FMTFLAGSF, 1);
+          addlenmod(form, SOL_NUMBER_FRMLEN);
+          nb = l_sprintf(buff, maxitem, form, (SOL_UACNUMBER)n);
+          Interrompa;
+        }
+        Caso 'p': {
+          Imutável Vazio *p = sol_topointer(L, arg);
+          checkformat(L, form, L_FMTFLAGSC, 0);
+          Se (p == NULL) {  /* avoid calling 'printf' with argument NULL */
+            p = "(null)";  /* result */
+            form[strlen(form) - 1] = 's';  /* format it as a string */
+          }
+          nb = l_sprintf(buff, maxitem, form, p);
+          Interrompa;
+        }
+        Caso 'q': {
+          Se (form[2] != '\0')  /* modifiers? */
+            Retorne solL_error(L, "specifier '%%q' cannot have modifiers");
+          addliteral(L, &b, arg);
+          Interrompa;
+        }
+        Caso 's': {
+          size_t l;
+          Imutável Caractere *s = solL_tolstring(L, arg, &l);
+          Se (form[2] == '\0')  /* no modifiers? */
+            sol_addvalue(&b);  /* keep entire string */
+          Senão {
+            sol_argcheck(L, l == strlen(s), arg, "string contains zeros");
+            checkformat(L, form, L_FMTFLAGSC, 1);
+            Se (strchr(form, '.') == NULL && l >= 100) {
+              /* no precision and string is too Longo to be formatted */
+              sol_addvalue(&b);  /* keep entire string */
+            }
+            Senão {  /* format the string into 'buff' */
+              nb = l_sprintf(buff, maxitem, form, s);
+              sol_pop(L, 1);  /* remove result from 'sol_tolstring' */
+            }
+          }
+          Interrompa;
+        }
+        Padrão: {  /* also treat cases 'pnLlh' */
+          Retorne solL_error(L, "invalid conversion '%s' to 'format'", form);
+        }
+      }
+      sol_assert(cast_uint(nb) < maxitem);
+      sol_addsize(&b, cast_uint(nb));
+    }
+  }
+  sol_pushresult(&b);
+  Retorne 1;
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** PACK/UNPACK
+** =======================================================
+*/
+
+
+/* value used Para padding */
+#Se !Definido(SOL_PACKPADBYTE)
+#Defina SOL_PACKPADBYTE		0x00
+#FimSe
+
+/* maximum size Para the binary representation of an integer */
+#Defina MAXINTSIZE	16
+
+/* number of bits in a character */
+#Defina NB	CHAR_BIT
+
+/* mask Para one character (NB 1's) */
+#Defina MC	((1 << NB) - 1)
+
+/* size of a sol_Integer */
+#Defina SZINT	((Inteiro)Meça(sol_Integer))
+
+
+/* dummy União to get native endianness */
+Fixo Imutável União {
+  Inteiro dummy;
+  Caractere little;  /* true iff machine is little endian */
+} nativeendian = {1};
+
+
+/*
+** information to pack/unpack stuff
+*/
+Pseudônimo Estrutura Header {
+  sol_State *L;
+  Inteiro islittle;
+  Natural maxalign;
+} Header;
+
+
+/*
+** options Para pack/unpack
+*/
+Pseudônimo Enumeração KOption {
+  Kint,		/* Bilateral integers */
+  Kuint,	/* Natural integers */
+  Kfloat,	/* single-precision floating-point numbers */
+  Knumber,	/* Sol "native" floating-point numbers */
+  Kdouble,	/* Duplo-precision floating-point numbers */
+  Kchar,	/* fixed-length strings */
+  Kstring,	/* strings with prefixed length */
+  Kzstr,	/* zero-terminated strings */
+  Kpadding,	/* padding */
+  Kpaddalign,	/* padding Para alignment */
+  Knop		/* no-op (configuration or spaces) */
+} KOption;
+
+
+/*
+** Read an integer numeral from string 'fmt' or Retorne 'df' Se
+** there is no numeral
+*/
+Fixo Inteiro digit (Inteiro c) { Retorne '0' <= c && c <= '9'; }
+
+Fixo size_t getnum (Imutável Caractere **fmt, size_t df) {
+  Se (!digit(**fmt))  /* no number? */
+    Retorne df;  /* Retorne Padrão value */
+  Senão {
+    size_t a = 0;
+    Faça {
+      a = a*10 + cast_uint(*((*fmt)++) - '0');
+    } Enquanto (digit(**fmt) && a <= (MAX_SIZE - 9)/10);
+    Retorne a;
+  }
+}
+
+
+/*
+** Read an integer numeral and raises an Erro Se it is larger
+** than the maximum size of integers.
+*/
+Fixo Natural getnumlimit (Header *h, Imutável Caractere **fmt, size_t df) {
+  size_t sz = getnum(fmt, df);
+  Se (l_unlikely((sz - 1u) >= MAXINTSIZE))
+    Retorne cast_uint(solL_error(h->L,
+               "integral size (%d) out of limits [1,%d]", sz, MAXINTSIZE));
+  Retorne cast_uint(sz);
+}
+
+
+/*
+** Initialize Header
+*/
+Fixo Vazio initheader (sol_State *L, Header *h) {
+  h->L = L;
+  h->islittle = nativeendian.little;
+  h->maxalign = 1;
+}
+
+
+/*
+** Read and classify next option. 'size' is filled with option's size.
+*/
+Fixo KOption getoption (Header *h, Imutável Caractere **fmt, size_t *size) {
+  /* dummy structure to get native alignment requirements */
+  Estrutura cD { Caractere c; União { SOL_MAXALIGN; } u; };
+  Inteiro opt = *((*fmt)++);
+  *size = 0;  /* Padrão */
+  Troque (opt) {
+    Caso 'b': *size = Meça(Caractere); Retorne Kint;
+    Caso 'B': *size = Meça(Caractere); Retorne Kuint;
+    Caso 'h': *size = Meça(Curto); Retorne Kint;
+    Caso 'H': *size = Meça(Curto); Retorne Kuint;
+    Caso 'l': *size = Meça(Longo); Retorne Kint;
+    Caso 'L': *size = Meça(Longo); Retorne Kuint;
+    Caso 'j': *size = Meça(sol_Integer); Retorne Kint;
+    Caso 'J': *size = Meça(sol_Integer); Retorne Kuint;
+    Caso 'T': *size = Meça(size_t); Retorne Kuint;
+    Caso 'f': *size = Meça(Real); Retorne Kfloat;
+    Caso 'n': *size = Meça(sol_Number); Retorne Knumber;
+    Caso 'd': *size = Meça(Duplo); Retorne Kdouble;
+    Caso 'i': *size = getnumlimit(h, fmt, Meça(Inteiro)); Retorne Kint;
+    Caso 'I': *size = getnumlimit(h, fmt, Meça(Inteiro)); Retorne Kuint;
+    Caso 's': *size = getnumlimit(h, fmt, Meça(size_t)); Retorne Kstring;
+    Caso 'c':
+      *size = getnum(fmt, cast_sizet(-1));
+      Se (l_unlikely(*size == cast_sizet(-1)))
+        solL_error(h->L, "missing size Para format option 'c'");
+      Retorne Kchar;
+    Caso 'z': Retorne Kzstr;
+    Caso 'x': *size = 1; Retorne Kpadding;
+    Caso 'X': Retorne Kpaddalign;
+    Caso ' ': Interrompa;
+    Caso '<': h->islittle = 1; Interrompa;
+    Caso '>': h->islittle = 0; Interrompa;
+    Caso '=': h->islittle = nativeendian.little; Interrompa;
+    Caso '!': {
+      Imutável size_t maxalign = offsetof(Estrutura cD, u);
+      h->maxalign = getnumlimit(h, fmt, maxalign);
+      Interrompa;
+    }
+    Padrão: solL_error(h->L, "invalid format option '%c'", opt);
+  }
+  Retorne Knop;
+}
+
+
+/*
+** Read, classify, and fill other details about the next option.
+** 'psize' is filled with option's size, 'notoalign' with its
+** alignment requirements.
+** Local variable 'size' gets the size to be aligned. (Kpadal option
+** always gets its full alignment, other options are limited by
+** the maximum alignment ('maxalign'). Kchar option needs no alignment
+** despite its size.
+*/
+Fixo KOption getdetails (Header *h, size_t totalsize, Imutável Caractere **fmt,
+                           size_t *psize, Natural *ntoalign) {
+  KOption opt = getoption(h, fmt, psize);
+  size_t align = *psize;  /* usually, alignment follows size */
+  Se (opt == Kpaddalign) {  /* 'X' gets alignment from following option */
+    Se (**fmt == '\0' || getoption(h, fmt, &align) == Kchar || align == 0)
+      sol_argerror(h->L, 1, "invalid next option Para option 'X'");
+  }
+  Se (align <= 1 || opt == Kchar)  /* need no alignment? */
+    *ntoalign = 0;
+  Senão {
+    Se (align > h->maxalign)  /* enforce maximum alignment */
+      align = h->maxalign;
+    Se (l_unlikely(!ispow2(align))) {  /* not a power of 2? */
+      *ntoalign = 0;  /* to avoid warnings */
+      sol_argerror(h->L, 1, "format asks Para alignment not power of 2");
+    }
+    Senão {
+      /* 'szmoda' = totalsize % align */
+      Natural szmoda = cast_uint(totalsize & (align - 1));
+      *ntoalign = cast_uint((align - szmoda) & (align - 1));
+    }
+  }
+  Retorne opt;
+}
+
+
+/*
+** Pack integer 'n' with 'size' bytes and 'islittle' endianness.
+** The final 'Se' handles the Caso when 'size' is larger than
+** the size of a Sol integer, correcting the extra sign-extension
+** bytes Se necessary (by Padrão they would be zeros).
+*/
+Fixo Vazio packint (sol_Buffer *b, sol_Unsigned n,
+                     Inteiro islittle, Natural size, Inteiro neg) {
+  Caractere *buff = sol_prepbuffsize(b, size);
+  Natural i;
+  buff[islittle ? 0 : size - 1] = (Caractere)(n & MC);  /* first byte */
+  Para (i = 1; i < size; i++) {
+    n >>= NB;
+    buff[islittle ? i : size - 1 - i] = (Caractere)(n & MC);
+  }
+  Se (neg && size > SZINT) {  /* negative number need sign extension? */
+    Para (i = SZINT; i < size; i++)  /* correct extra bytes */
+      buff[islittle ? i : size - 1 - i] = (Caractere)MC;
+  }
+  sol_addsize(b, size);  /* add result to buffer */
+}
+
+
+/*
+** Copy 'size' bytes from 'src' to 'dest', correcting endianness Se
+** given 'islittle' is different from native endianness.
+*/
+Fixo Vazio copywithendian (Caractere *dest, Imutável Caractere *src,
+                            Natural size, Inteiro islittle) {
+  Se (islittle == nativeendian.little)
+    memcpy(dest, src, size);
+  Senão {
+    dest += size - 1;
+    Enquanto (size-- != 0)
+      *(dest--) = *(src++);
+  }
+}
+
+
+Fixo Inteiro str_pack (sol_State *L) {
+  sol_Buffer b;
+  Header h;
+  Imutável Caractere *fmt = sol_checkstring(L, 1);  /* format string */
+  Inteiro arg = 1;  /* current argument to pack */
+  size_t totalsize = 0;  /* accumulate total size of result */
+  initheader(L, &h);
+  sol_pushnil(L);  /* mark to separate arguments from string buffer */
+  sol_buffinit(L, &b);
+  Enquanto (*fmt != '\0') {
+    Natural ntoalign;
+    size_t size;
+    KOption opt = getdetails(&h, totalsize, &fmt, &size, &ntoalign);
+    sol_argcheck(L, size + ntoalign <= MAX_SIZE - totalsize, arg,
+                     "result too Longo");
+    totalsize += ntoalign + size;
+    Enquanto (ntoalign-- > 0)
+     sol_addchar(&b, SOL_PACKPADBYTE);  /* fill alignment */
+    arg++;
+    Troque (opt) {
+      Caso Kint: {  /* Bilateral integers */
+        sol_Integer n = sol_checkinteger(L, arg);
+        Se (size < SZINT) {  /* need overflow check? */
+          sol_Integer lim = (sol_Integer)1 << ((size * NB) - 1);
+          sol_argcheck(L, -lim <= n && n < lim, arg, "integer overflow");
+        }
+        packint(&b, (sol_Unsigned)n, h.islittle, cast_uint(size), (n < 0));
+        Interrompa;
+      }
+      Caso Kuint: {  /* Natural integers */
+        sol_Integer n = sol_checkinteger(L, arg);
+        Se (size < SZINT)  /* need overflow check? */
+          sol_argcheck(L, (sol_Unsigned)n < ((sol_Unsigned)1 << (size * NB)),
+                           arg, "Natural overflow");
+        packint(&b, (sol_Unsigned)n, h.islittle, cast_uint(size), 0);
+        Interrompa;
+      }
+      Caso Kfloat: {  /* C Real */
+        Real f = (Real)sol_checknumber(L, arg);  /* get argument */
+        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        /* move 'f' to final result, correcting endianness Se needed */
+        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        sol_addsize(&b, size);
+        Interrompa;
+      }
+      Caso Knumber: {  /* Sol Real */
+        sol_Number f = sol_checknumber(L, arg);  /* get argument */
+        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        /* move 'f' to final result, correcting endianness Se needed */
+        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        sol_addsize(&b, size);
+        Interrompa;
+      }
+      Caso Kdouble: {  /* C Duplo */
+        Duplo f = (Duplo)sol_checknumber(L, arg);  /* get argument */
+        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        /* move 'f' to final result, correcting endianness Se needed */
+        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        sol_addsize(&b, size);
+        Interrompa;
+      }
+      Caso Kchar: {  /* fixed-size string */
+        size_t len;
+        Imutável Caractere *s = sol_checklstring(L, arg, &len);
+        sol_argcheck(L, len <= size, arg, "string longer than given size");
+        sol_addlstring(&b, s, len);  /* add string */
+        Se (len < size) {  /* does it need padding? */
+          size_t psize = size - len;  /* pad size */
+          Caractere *buff = sol_prepbuffsize(&b, psize);
+          memset(buff, SOL_PACKPADBYTE, psize);
+          sol_addsize(&b, psize);
+        }
+        Interrompa;
+      }
+      Caso Kstring: {  /* strings with length count */
+        size_t len;
+        Imutável Caractere *s = sol_checklstring(L, arg, &len);
+        sol_argcheck(L, size >= Meça(sol_Unsigned) ||
+                         len < ((sol_Unsigned)1 << (size * NB)),
+                         arg, "string length does not fit in given size");
+        /* pack length */
+        packint(&b, (sol_Unsigned)len, h.islittle, cast_uint(size), 0);
+        sol_addlstring(&b, s, len);
+        totalsize += len;
+        Interrompa;
+      }
+      Caso Kzstr: {  /* zero-terminated string */
+        size_t len;
+        Imutável Caractere *s = sol_checklstring(L, arg, &len);
+        sol_argcheck(L, strlen(s) == len, arg, "string contains zeros");
+        sol_addlstring(&b, s, len);
+        sol_addchar(&b, '\0');  /* add zero at the end */
+        totalsize += len + 1;
+        Interrompa;
+      }
+      Caso Kpadding: sol_addchar(&b, SOL_PACKPADBYTE);  /* FALLTHROUGH */
+      Caso Kpaddalign: Caso Knop:
+        arg--;  /* undo increment */
+        Interrompa;
+    }
+  }
+  sol_pushresult(&b);
+  Retorne 1;
+}
+
+
+Fixo Inteiro str_packsize (sol_State *L) {
+  Header h;
+  Imutável Caractere *fmt = sol_checkstring(L, 1);  /* format string */
+  size_t totalsize = 0;  /* accumulate total size of result */
+  initheader(L, &h);
+  Enquanto (*fmt != '\0') {
+    Natural ntoalign;
+    size_t size;
+    KOption opt = getdetails(&h, totalsize, &fmt, &size, &ntoalign);
+    sol_argcheck(L, opt != Kstring && opt != Kzstr, 1,
+                     "variable-length format");
+    size += ntoalign;  /* total space used by option */
+    sol_argcheck(L, totalsize <= SOL_MAXINTEGER - size,
+                     1, "format result too large");
+    totalsize += size;
+  }
+  sol_pushinteger(L, cast_st2S(totalsize));
+  Retorne 1;
+}
+
+
+/*
+** Unpack an integer with 'size' bytes and 'islittle' endianness.
+** If size is smaller than the size of a Sol integer and integer
+** is Bilateral, must Faça sign extension (propagating the sign to the
+** higher bits); Se size is larger than the size of a Sol integer,
+** it must check the unread bytes to see whether they Faça not cause an
+** overflow.
+*/
+Fixo sol_Integer unpackint (sol_State *L, Imutável Caractere *str,
+                              Inteiro islittle, Inteiro size, Inteiro issigned) {
+  sol_Unsigned res = 0;
+  Inteiro i;
+  Inteiro limit = (size  <= SZINT) ? size : SZINT;
+  Para (i = limit - 1; i >= 0; i--) {
+    res <<= NB;
+    res |= (sol_Unsigned)(Natural Caractere)str[islittle ? i : size - 1 - i];
+  }
+  Se (size < SZINT) {  /* real size smaller than sol_Integer? */
+    Se (issigned) {  /* needs sign extension? */
+      sol_Unsigned mask = (sol_Unsigned)1 << (size*NB - 1);
+      res = ((res ^ mask) - mask);  /* Faça sign extension */
+    }
+  }
+  Senão Se (size > SZINT) {  /* must check unread bytes */
+    Inteiro mask = (!issigned || (sol_Integer)res >= 0) ? 0 : MC;
+    Para (i = limit; i < size; i++) {
+      Se (l_unlikely((Natural Caractere)str[islittle ? i : size - 1 - i] != mask))
+        solL_error(L, "%d-byte integer does not fit into Sol Integer", size);
+    }
+  }
+  Retorne (sol_Integer)res;
+}
+
+
+Fixo Inteiro str_unpack (sol_State *L) {
+  Header h;
+  Imutável Caractere *fmt = sol_checkstring(L, 1);
+  size_t ld;
+  Imutável Caractere *data = sol_checklstring(L, 2, &ld);
+  size_t pos = posrelatI(sol_optinteger(L, 3, 1), ld) - 1;
+  Inteiro n = 0;  /* number of results */
+  sol_argcheck(L, pos <= ld, 3, "initial position out of string");
+  initheader(L, &h);
+  Enquanto (*fmt != '\0') {
+    Natural ntoalign;
+    size_t size;
+    KOption opt = getdetails(&h, pos, &fmt, &size, &ntoalign);
+    sol_argcheck(L, ntoalign + size <= ld - pos, 2,
+                    "data string too Curto");
+    pos += ntoalign;  /* skip alignment */
+    /* stack space Para item + next position */
+    solL_checkstack(L, 2, "muitos resultados");
+    n++;
+    Troque (opt) {
+      Caso Kint:
+      Caso Kuint: {
+        sol_Integer res = unpackint(L, data + pos, h.islittle,
+                                       cast_int(size), (opt == Kint));
+        sol_pushinteger(L, res);
+        Interrompa;
+      }
+      Caso Kfloat: {
+        Real f;
+        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        sol_pushnumber(L, (sol_Number)f);
+        Interrompa;
+      }
+      Caso Knumber: {
+        sol_Number f;
+        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        sol_pushnumber(L, f);
+        Interrompa;
+      }
+      Caso Kdouble: {
+        Duplo f;
+        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        sol_pushnumber(L, (sol_Number)f);
+        Interrompa;
+      }
+      Caso Kchar: {
+        sol_pushlstring(L, data + pos, size);
+        Interrompa;
+      }
+      Caso Kstring: {
+        sol_Unsigned len = (sol_Unsigned)unpackint(L, data + pos,
+                                          h.islittle, cast_int(size), 0);
+        sol_argcheck(L, len <= ld - pos - size, 2, "data string too Curto");
+        sol_pushlstring(L, data + pos + size, cast_sizet(len));
+        pos += cast_sizet(len);  /* skip string */
+        Interrompa;
+      }
+      Caso Kzstr: {
+        size_t len = strlen(data + pos);
+        sol_argcheck(L, pos + len < ld, 2,
+                         "unfinished string Para format 'z'");
+        sol_pushlstring(L, data + pos, len);
+        pos += len + 1;  /* skip string plus final '\0' */
+        Interrompa;
+      }
+      Caso Kpaddalign: Caso Kpadding: Caso Knop:
+        n--;  /* undo increment */
+        Interrompa;
+    }
+    pos += size;
+  }
+  sol_pushinteger(L, cast_st2S(pos) + 1);  /* next position */
+  Retorne n + 1;
+}
+
+/* }====================================================== */
+
+
+Fixo Imutável sol_Reg strlib[] = {
+  {"obtenha_byte", str_byte},
+  {"crie_caractere", str_char},
+  {"despeje", str_dump},
+  {"encontre", str_find},
+  {"formate", str_format},
+  {"combine_globalmente", gmatch},
+  {"substitua_globalmente", str_gsub},
+  {"obtenha_comprimento", str_len},
+  {"converta_para_minúscula", str_lower},
+  {"combine", str_match},
+  {"repita", str_rep},
+  {"inverta", str_reverse},
+  {"obtenha_subtexto", str_sub},
+  {"converta_para_maiúscula", str_upper},
+  {"empacote", str_pack},
+  {"obtenha_tamanho_pacote", str_packsize},
+  {"desempacote", str_unpack},
+  {NULL, NULL}
+};
+
+
+Fixo Vazio createmetatable (sol_State *L) {
+  /* table to be metatable Para strings */
+  sol_newlibtable(L, stringmetamethods);
+  sol_setfuncs(L, stringmetamethods, 0);
+  sol_pushliteral(L, "");  /* dummy string */
+  sol_pushvalue(L, -2);  /* copy table */
+  sol_setmetatable(L, -2);  /* set table as metatable Para strings */
+  sol_pop(L, 1);  /* pop dummy string */
+  sol_pushvalue(L, -2);  /* get string library */
+  sol_setfield(L, -2, "__índice");  /* metatable.__index = string */
+  sol_pop(L, 1);  /* pop metatable */
+}
+
+
+/*
+** Open string library
+*/
+SOLMOD_API Inteiro solopen_string (sol_State *L) {
+  sol_newlib(L, strlib);
+  createmetatable(L);
+  Retorne 1;
+}
+

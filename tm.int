@@ -1,0 +1,104 @@
+/*
+** $Id: tm.h $
+** Tag methods
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido tm_h
+#Defina tm_h
+
+
+#Inclua "object.int"
+
+
+/*
+* WARNING: Se you change the order of this enumeration,
+* grep "ORDER TM" and "ORDER OP"
+*/
+Pseudônimo Enumeração {
+  TM_INDEX,
+  TM_NEWINDEX,
+  TM_GC,
+  TM_MODE,
+  TM_LEN,
+  TM_EQ,  /* last tag method with fast access */
+  TM_ADD,
+  TM_SUB,
+  TM_MUL,
+  TM_MOD,
+  TM_POW,
+  TM_DIV,
+  TM_IDIV,
+  TM_BAND,
+  TM_BOR,
+  TM_BXOR,
+  TM_SHL,
+  TM_SHR,
+  TM_UNM,
+  TM_BNOT,
+  TM_LT,
+  TM_LE,
+  TM_CONCAT,
+  TM_CALL,
+  TM_CLOSE,
+  TM_N		/* number of elements in the Enumeração */
+} TMS;
+
+
+/*
+** Mask with 1 in all fast-access methods. A 1 in any of these bits
+** in the flag of a (meta)table means the metatable does not have the
+** corresponding metamethod field. (Bit 6 of the flag indicates that
+** the table is using the dummy node; bit 7 is used Para 'isrealasize'.)
+*/
+#Defina maskflags	cast_byte(~(~0u << (TM_EQ + 1)))
+
+
+/*
+** Test whether there is no tagmethod.
+** (Because tagmethods use raw accesses, the result may be an "empty" nil.)
+*/
+#Defina notm(tm)	ttisnil(tm)
+
+#Defina checknoTM(mt,e)	((mt) == NULL || (mt)->flags & (1u<<(e)))
+
+#Defina gfasttm(g,mt,e)  \
+  (checknoTM(mt, e) ? NULL : sol_t_gettm(mt, e, (g)->tmname[e]))
+
+#Defina fasttm(l,mt,e)	gfasttm(G(l), mt, e)
+
+#Defina ttypename(x)	sol_t_typenames_[(x) + 1]
+
+SOL_DDEC(Imutável Caractere *Imutável sol_t_typenames_[SOL_TOTALTYPES];)
+
+
+SOL_FUNC Imutável Caractere *sol_t_objtypename (sol_State *L, Imutável TValue *o);
+
+SOL_FUNC Imutável TValue *sol_t_gettm (Table *events, TMS event, TString *ename);
+SOL_FUNC Imutável TValue *sol_t_gettmbyobj (sol_State *L, Imutável TValue *o,
+                                                       TMS event);
+SOL_FUNC Vazio sol_t_init (sol_State *L);
+
+SOL_FUNC Vazio sol_t_callTM (sol_State *L, Imutável TValue *f, Imutável TValue *p1,
+                            Imutável TValue *p2, Imutável TValue *p3);
+SOL_FUNC lu_byte sol_t_callTMres (sol_State *L, Imutável TValue *f,
+                               Imutável TValue *p1, Imutável TValue *p2, StkId p3);
+SOL_FUNC Vazio sol_t_trybinTM (sol_State *L, Imutável TValue *p1, Imutável TValue *p2,
+                              StkId res, TMS event);
+SOL_FUNC Vazio sol_t_tryconcatTM (sol_State *L);
+SOL_FUNC Vazio sol_t_trybinassocTM (sol_State *L, Imutável TValue *p1,
+       Imutável TValue *p2, Inteiro inv, StkId res, TMS event);
+SOL_FUNC Vazio sol_t_trybiniTM (sol_State *L, Imutável TValue *p1, sol_Integer i2,
+                               Inteiro inv, StkId res, TMS event);
+SOL_FUNC Inteiro sol_t_callorderTM (sol_State *L, Imutável TValue *p1,
+                                Imutável TValue *p2, TMS event);
+SOL_FUNC Inteiro sol_t_callorderiTM (sol_State *L, Imutável TValue *p1, Inteiro v2,
+                                 Inteiro inv, Inteiro isfloat, TMS event);
+
+SOL_FUNC Vazio sol_t_adjustvarargs (sol_State *L, Inteiro nfixparams,
+                                   Estrutura CallInfo *ci, Imutável Proto *p);
+SOL_FUNC Vazio sol_t_getvarargs (sol_State *L, Estrutura CallInfo *ci,
+                                              StkId where, Inteiro wanted);
+
+
+#FimSe

@@ -1,0 +1,158 @@
+/*
+** lsp.int - Language Server Protocol para Sol
+** Header com estruturas e funções públicas
+*/
+
+#Se !Definido(lsp_int)
+#Defina lsp_int
+
+#Inclua "sol.int"
+
+/* Tipos de símbolos LSP */
+#Defina LSP_SYM_VARIABLE    1
+#Defina LSP_SYM_FUNCTION    2
+#Defina LSP_SYM_PARAMETER   3
+#Defina LSP_SYM_LOCAL       4
+#Defina LSP_SYM_GLOBAL      5
+#Defina LSP_SYM_LIBRARY     6
+#Defina LSP_SYM_METHOD      7
+#Defina LSP_SYM_LABEL       8  /* Label para execute (goto) */
+
+/* Tamanhos máximos */
+#Defina LSP_MAX_DOCS       64
+#Defina LSP_MAX_SYMBOLS    1024
+#Defina LSP_MAX_LINE       4096
+#Defina LSP_MAX_CONTENT    1048576  /* 1MB */
+
+/* Posição no documento */
+Pseudônimo Estrutura LSPPosition {
+    Inteiro line;       /* 0-indexed */
+    Inteiro character;  /* 0-indexed */
+} LSPPosition;
+
+/* Range no documento */
+Pseudônimo Estrutura LSPRange {
+    LSPPosition start;
+    LSPPosition end;
+} LSPRange;
+
+/* Localização (URI + range) */
+Pseudônimo Estrutura LSPLocation {
+    Caractere *uri;
+    LSPRange range;
+} LSPLocation;
+
+/* Símbolo extraído */
+Pseudônimo Estrutura LSPSymbol {
+    Caractere *name;
+    Inteiro kind;
+    LSPRange range;
+    LSPRange selectionRange;
+} LSPSymbol;
+
+/* Tipos de variáveis para análise de tipo */
+#Defina LSP_TYPE_UNKNOWN    0
+#Defina LSP_TYPE_NUMBER     1
+#Defina LSP_TYPE_STRING     2
+#Defina LSP_TYPE_BOOLEAN    3
+#Defina LSP_TYPE_TABLE      4
+#Defina LSP_TYPE_FUNCTION   5
+#Defina LSP_TYPE_NIL        6
+#Defina LSP_TYPE_LIBRARY    7  /* Biblioteca padrão ou alias */
+#Defina LSP_TYPE_CLASS      8  /* Tabela com __índice */
+
+/* Variável tipada - Aumentado para suportar UTF-8 em nomes */
+#Defina LSP_MAX_FIELDS 128  /* Aumentado de 64 para mais campos */
+
+Pseudônimo Estrutura LSPField {
+    Caractere *name;
+    Inteiro kind; /* 0=Field, 1=Method */
+    Inteiro type;
+} LSPField;
+
+Pseudônimo Estrutura LSPVariable {
+    Caractere *name;          /* Nome da variável */
+    Inteiro type;             /* LSP_TYPE_* */
+    Inteiro line;             /* Linha de declaração */
+    Inteiro isLocal;          /* 1 se é local, 0 se global */
+    
+    Inteiro scopeStartLine;   /* Início do escopo (para locais) */
+    Inteiro scopeEndLine;     /* Fim do escopo */
+
+    LSPField fields[LSP_MAX_FIELDS];
+    Inteiro fieldCount;
+} LSPVariable;
+
+/* Documento aberto */
+Pseudônimo Estrutura LSPDocument {
+    Caractere *uri;
+    Caractere *content;
+    Inteiro version;
+    Inteiro contentLen;
+    LSPSymbol *symbols;
+    Inteiro symbolCount;
+    Inteiro symbolCapacity;
+    /* Variáveis tipadas */
+    LSPVariable *variables;
+    Inteiro variableCount;
+    Inteiro variableCapacity;
+} LSPDocument;
+
+/* Diagnóstico */
+Pseudônimo Estrutura LSPDiagnostic {
+    LSPRange range;
+    Inteiro severity;  /* 1=Error, 2=Warning, 3=Info, 4=Hint */
+    Caractere *message;
+} LSPDiagnostic;
+
+/* Estado do servidor LSP */
+Pseudônimo Estrutura LSPState {
+    sol_State *L;
+    LSPDocument docs[LSP_MAX_DOCS];
+    Inteiro docCount;
+    
+    /* Biblioteca Padrão (carregada no início) */
+    LSPVariable builtins[LSP_MAX_SYMBOLS];
+    Inteiro builtinCount;
+
+    Caractere *workspaceRoot;
+    Inteiro initialized;
+    Inteiro shutdown;
+} LSPState;
+
+/* Funções LSP */
+SOL_API Vazio lsp_main(sol_State *L);
+SOL_API LSPState* lsp_init(sol_State *L);
+SOL_API Vazio lsp_shutdown(LSPState *lsp);
+SOL_API Vazio lsp_loop(LSPState *lsp);
+
+/* Handlers LSP (Operam na pilha: params em -1, retorna resultado em -1) */
+SOL_API Inteiro lsp_handle_request(LSPState *lsp);
+SOL_API Inteiro lsp_initialize(LSPState *lsp);
+SOL_API Inteiro lsp_completion(LSPState *lsp);
+SOL_API Inteiro lsp_hover(LSPState *lsp);
+SOL_API Inteiro lsp_definition(LSPState *lsp);
+
+/* Document sync */
+SOL_API Vazio lsp_did_open(LSPState *lsp);
+SOL_API Vazio lsp_did_change(LSPState *lsp);
+SOL_API Vazio lsp_did_close(LSPState *lsp);
+
+/* Análise de código */
+SOL_API Vazio lsp_analyze_document(LSPState *lsp, LSPDocument *doc);
+SOL_API LSPDocument* lsp_get_document(LSPState *lsp, Imutável Caractere *uri);
+SOL_API LSPDocument* lsp_add_document(LSPState *lsp, Imutável Caractere *uri, Imutável Caractere *content);
+
+/* Funções utilitárias (expostas para testes) */
+SOL_API Caractere* lsp_strdup(Imutável Caractere *s);
+SOL_API Vazio lsp_skip_whitespace(Imutável Caractere **p, Inteiro *line);
+SOL_API Vazio lsp_skip_comment(Imutável Caractere **p);
+SOL_API Inteiro lsp_peek_keyword(Imutável Caractere *p, Imutável Caractere *kw);
+SOL_API Inteiro lsp_check_keyword(Imutável Caractere **p, Imutável Caractere *kw);
+SOL_API Inteiro lsp_extract_name(Imutável Caractere **p, Caractere *out, Inteiro maxLen);
+SOL_API Vazio lsp_get_cursor_context(LSPDocument *doc, Inteiro cursorLine, Inteiro cursorChar,
+                                     Caractere *wordOut, Inteiro wordMax, Inteiro *isDot, 
+                                     Caractere *tableOut, Inteiro tableMax);
+
+
+#FimSe

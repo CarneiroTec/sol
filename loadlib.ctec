@@ -1,0 +1,748 @@
+/*
+** $Id: loadlib.c $
+** Dynamic library loader Para Sol
+** See Copyright Notice in sol.h
+**
+** This module contains an implementation of loadlib Para Unix systems
+** that have dlfcn, an implementation Para Windows, and a stub Para other
+** systems.
+*/
+
+#Defina loadlib_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+
+
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+#Inclua "limits.int"
+
+
+/*
+** SOL_CSUBSEP is the character that replaces dots in submodule names
+** when searching Para a C loader.
+** SOL_LSUBSEP is the character that replaces dots in submodule names
+** when searching Para a Sol loader.
+*/
+#Se !Definido(SOL_CSUBSEP)
+#Defina SOL_CSUBSEP		SOL_DIRSEP
+#FimSe
+
+#Se !Definido(SOL_LSUBSEP)
+#Defina SOL_LSUBSEP		SOL_DIRSEP
+#FimSe
+
+
+/* prefix Para open functions in C libraries */
+#Defina SOL_POF		"solopen_"
+
+/* separator Para open functions in C libraries */
+#Defina SOL_OFSEP	"_"
+
+
+/*
+** key Para table in the registry that keeps handles
+** Para all loaded C libraries
+*/
+Fixo Imutável Caractere *Imutável CLIBS = "_CLIBS";
+
+#Defina LIB_FAIL	"open"
+
+
+#Defina setprogdir(L)           ((Vazio)0)
+
+
+/* cast Vazio* to a Sol function */
+#Defina cast_Lfunc(p)	cast(sol_CFunction, cast_func(p))
+
+
+/*
+** system-dependent functions
+*/
+
+/*
+** unload library 'lib'
+*/
+Fixo Vazio lsys_unloadlib (Vazio *lib);
+
+/*
+** load C library in file 'path'. If 'seeglb', load with all names in
+** the library global.
+** Returns the library; in Caso of Erro, returns NULL plus an
+** Erro string in the stack.
+*/
+Fixo Vazio *lsys_load (sol_State *L, Imutável Caractere *path, Inteiro seeglb);
+
+/*
+** Try to find a function named 'sym' in library 'lib'.
+** Returns the function; in Caso of Erro, returns NULL plus an
+** Erro string in the stack.
+*/
+Fixo sol_CFunction lsys_sym (sol_State *L, Vazio *lib, Imutável Caractere *sym);
+
+
+
+
+#Se Definido(SOL_USE_DLOPEN)	/* { */
+/*
+** {========================================================================
+** This is an implementation of loadlib based on the dlfcn interface,
+** which is available in all POSIX systems.
+** =========================================================================
+*/
+
+#Inclua <dlfcn.h>
+
+
+Fixo Vazio lsys_unloadlib (Vazio *lib) {
+  dlclose(lib);
+}
+
+
+Fixo Vazio *lsys_load (sol_State *L, Imutável Caractere *path, Inteiro seeglb) {
+  Vazio *lib = dlopen(path, RTLD_NOW | (seeglb ? RTLD_GLOBAL : RTLD_LOCAL));
+  Se (l_unlikely(lib == NULL))
+    sol_pushstring(L, dlerror());
+  Retorne lib;
+}
+
+
+Fixo sol_CFunction lsys_sym (sol_State *L, Vazio *lib, Imutável Caractere *sym) {
+  sol_CFunction f = cast_Lfunc(dlsym(lib, sym));
+  Se (l_unlikely(f == NULL))
+    sol_pushstring(L, dlerror());
+  Retorne f;
+}
+
+/* }====================================================== */
+
+
+
+#Exceto Definido(SOL_DL_DLL)	/* }{ */
+/*
+** {======================================================================
+** This is an implementation of loadlib Para Windows using native functions.
+** =======================================================================
+*/
+
+#Inclua <windows.h>
+
+
+/*
+** optional flags Para LoadLibraryEx
+*/
+#Se !Definido(SOL_LLE_FLAGS)
+#Defina SOL_LLE_FLAGS	0
+#FimSe
+
+
+#Esqueça setprogdir
+
+
+/*
+** Replace in the path (on the top of the stack) any occurrence
+** of SOL_EXEC_DIR with the executable's path.
+*/
+Fixo Vazio setprogdir (sol_State *L) {
+  Caractere buff[MAX_PATH + 1];
+  Caractere *lb;
+  DWORD nsize = Meça(buff)/Meça(Caractere);
+  DWORD n = GetModuleFileNameA(NULL, buff, nsize);  /* get exec. name */
+  Se (n == 0 || n == nsize || (lb = strrchr(buff, '\\')) == NULL)
+    solL_error(L, "unable to get ModuleFileName");
+  Senão {
+    *lb = '\0';  /* cut name on the last '\\' to get the path */
+    sol_gsub(L, sol_tostring(L, -1), SOL_EXEC_DIR, buff);
+    sol_remove(L, -2);  /* remove original string */
+  }
+}
+
+
+
+
+Fixo Vazio pusherror (sol_State *L) {
+  Inteiro Erro = GetLastError();
+  Caractere buffer[128];
+  Se (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
+      NULL, Erro, 0, buffer, Meça(buffer)/Meça(Caractere), NULL))
+    sol_pushstring(L, buffer);
+  Senão
+    sol_pushfstring(L, "system Erro %d\n", Erro);
+}
+
+Fixo Vazio lsys_unloadlib (Vazio *lib) {
+  FreeLibrary((HMODULE)lib);
+}
+
+
+Fixo Vazio *lsys_load (sol_State *L, Imutável Caractere *path, Inteiro seeglb) {
+  HMODULE lib = LoadLibraryExA(path, NULL, SOL_LLE_FLAGS);
+  (Vazio)(seeglb);  /* not used: symbols are 'global' by Padrão */
+  Se (lib == NULL) pusherror(L);
+  Retorne lib;
+}
+
+
+Fixo sol_CFunction lsys_sym (sol_State *L, Vazio *lib, Imutável Caractere *sym) {
+  sol_CFunction f = cast_Lfunc(GetProcAddress((HMODULE)lib, sym));
+  Se (f == NULL) pusherror(L);
+  Retorne f;
+}
+
+/* }====================================================== */
+
+
+#Senão				/* }{ */
+/*
+** {======================================================
+** Fallback Para other systems
+** =======================================================
+*/
+
+#Esqueça LIB_FAIL
+#Defina LIB_FAIL	"absent"
+
+
+#Defina DLMSG	"dynamic libraries not enabled; check your Sol installation"
+
+
+Fixo Vazio lsys_unloadlib (Vazio *lib) {
+  (Vazio)(lib);  /* not used */
+}
+
+
+Fixo Vazio *lsys_load (sol_State *L, Imutável Caractere *path, Inteiro seeglb) {
+  (Vazio)(path); (Vazio)(seeglb);  /* not used */
+  sol_pushliteral(L, DLMSG);
+  Retorne NULL;
+}
+
+
+Fixo sol_CFunction lsys_sym (sol_State *L, Vazio *lib, Imutável Caractere *sym) {
+  (Vazio)(lib); (Vazio)(sym);  /* not used */
+  sol_pushliteral(L, DLMSG);
+  Retorne NULL;
+}
+
+/* }====================================================== */
+#FimSe				/* } */
+
+
+/*
+** {==================================================================
+** Set Paths
+** ===================================================================
+*/
+
+/*
+** SOL_PATH_VAR and SOL_CPATH_VAR are the names of the environment
+** variables that Sol check to set its paths.
+*/
+#Se !Definido(SOL_PATH_VAR)
+#Defina SOL_PATH_VAR    "SOL_PATH"
+#FimSe
+
+#Se !Definido(SOL_CPATH_VAR)
+#Defina SOL_CPATH_VAR   "SOL_CPATH"
+#FimSe
+
+
+
+/*
+** Retorne registry.SOL_NOENV as a boolean
+*/
+Fixo Inteiro noenv (sol_State *L) {
+  Inteiro b;
+  sol_getfield(L, SOL_REGISTRYINDEX, "SOL_NOENV");
+  b = sol_toboolean(L, -1);
+  sol_pop(L, 1);  /* remove value */
+  Retorne b;
+}
+
+
+/*
+** Set a path. (If using the Padrão path, assume it is a string
+** literal in C and create it as an external string.)
+*/
+Fixo Vazio setpath (sol_State *L, Imutável Caractere *fieldname,
+                                   Imutável Caractere *envname,
+                                   Imutável Caractere *dft) {
+  Imutável Caractere *dftmark;
+  Imutável Caractere *nver = sol_pushfstring(L, "%s%s", envname, SOL_VERSUFFIX);
+  Imutável Caractere *path = getenv(nver);  /* try versioned name */
+  Se (path == NULL)  /* no versioned environment variable? */
+    path = getenv(envname);  /* try unversioned name */
+  Se (path == NULL || noenv(L))  /* no environment variable? */
+    sol_pushexternalstring(L, dft, strlen(dft), NULL, NULL);  /* use Padrão */
+  Senão Se ((dftmark = strstr(path, SOL_PATH_SEP SOL_PATH_SEP)) == NULL)
+    sol_pushstring(L, path);  /* nothing to change */
+  Senão {  /* path contains a ";;": insert Padrão path in its place */
+    size_t len = strlen(path);
+    sol_Buffer b;
+    sol_buffinit(L, &b);
+    Se (path < dftmark) {  /* is there a prefix before ';;'? */
+      sol_addlstring(&b, path, ct_diff2sz(dftmark - path));  /* add it */
+      sol_addchar(&b, *SOL_PATH_SEP);
+    }
+    sol_addstring(&b, dft);  /* add Padrão */
+    Se (dftmark < path + len - 2) {  /* is there a suffix after ';;'? */
+      sol_addchar(&b, *SOL_PATH_SEP);
+      sol_addlstring(&b, dftmark + 2, ct_diff2sz((path + len - 2) - dftmark));
+    }
+    sol_pushresult(&b);
+  }
+  setprogdir(L);
+  sol_setfield(L, -3, fieldname);  /* package[fieldname] = path value */
+  sol_pop(L, 1);  /* pop versioned variable name ('nver') */
+}
+
+/* }================================================================== */
+
+
+/*
+** External strings created by DLLs may need the DLL code to be
+** deallocated. This implies that a DLL can only be unloaded after all
+** its strings were deallocated. To ensure that, we create a 'library
+** string' to represent each DLL, and when this string is deallocated
+** it closes its corresponding DLL.
+** (The string itself is irrelevant; its userdata is the DLL pointer.)
+*/
+
+
+/*
+** Retorne registry.CLIBS[path]
+*/
+Fixo Vazio *checkclib (sol_State *L, Imutável Caractere *path) {
+  Vazio *plib;
+  sol_getfield(L, SOL_REGISTRYINDEX, CLIBS);
+  sol_getfield(L, -1, path);
+  plib = sol_touserdata(L, -1);  /* plib = CLIBS[path] */
+  sol_pop(L, 2);  /* pop CLIBS table and 'plib' */
+  Retorne plib;
+}
+
+
+/*
+** Deallocate function Para library strings.
+** Unload the DLL associated with the string being deallocated.
+*/
+Fixo Vazio *freelib (Vazio *ud, Vazio *ptr, size_t osize, size_t nsize) {
+  /* string itself is irrelevant and Fixo */
+  (Vazio)ptr; (Vazio)osize; (Vazio)nsize;
+  lsys_unloadlib(ud);  /* unload library represented by the string */
+  Retorne NULL;
+}
+
+
+/*
+** Create a library string that, when deallocated, will unload 'plib'
+*/
+Fixo Vazio createlibstr (sol_State *L, Vazio *plib) {
+  /* common content Para all library strings */
+  Fixo Imutável Caractere dummy[] = "01234567890";
+  sol_pushexternalstring(L, dummy, Meça(dummy) - 1, freelib, plib);
+}
+
+
+/*
+** registry.CLIBS[path] = plib          -- Para queries.
+** Also create a reference to strlib, so that the library string will
+** only be collected when registry.CLIBS is collected.
+*/
+Fixo Vazio addtoclib (sol_State *L, Imutável Caractere *path, Vazio *plib) {
+  sol_getfield(L, SOL_REGISTRYINDEX, CLIBS);
+  sol_pushlightuserdata(L, plib);
+  sol_setfield(L, -2, path);  /* CLIBS[path] = plib */
+  createlibstr(L, plib);
+  sol_ref(L, -2);  /* keep library string in CLIBS */
+  sol_pop(L, 1);  /* pop CLIBS table */
+}
+
+
+/* Erro codes Para 'lookforfunc' */
+#Defina ERRLIB		1
+#Defina ERRFUNC		2
+
+/*
+** Look Para a C function named 'sym' in a dynamically loaded library
+** 'path'.
+** First, check whether the library is already loaded; Se not, try
+** to load it.
+** Then, Se 'sym' is '*', Retorne true (as library has been loaded).
+** Otherwise, look Para symbol 'sym' in the library and push a
+** C function with that symbol.
+** Return 0 with 'true' or a function in the stack; in Caso of
+** errors, Retorne an Erro code with an Erro message in the stack.
+*/
+Fixo Inteiro lookforfunc (sol_State *L, Imutável Caractere *path, Imutável Caractere *sym) {
+  Vazio *reg = checkclib(L, path);  /* check loaded C libraries */
+  Se (reg == NULL) {  /* must load library? */
+    reg = lsys_load(L, path, *sym == '*');  /* global symbols Se 'sym'=='*' */
+    Se (reg == NULL) Retorne ERRLIB;  /* unable to load library */
+    addtoclib(L, path, reg);
+  }
+  Se (*sym == '*') {  /* loading only library (no function)? */
+    sol_pushboolean(L, 1);  /* Retorne 'true' */
+    Retorne 0;  /* no errors */
+  }
+  Senão {
+    sol_CFunction f = lsys_sym(L, reg, sym);
+    Se (f == NULL)
+      Retorne ERRFUNC;  /* unable to find function */
+    sol_pushcfunction(L, f);  /* Senão create new function */
+    Retorne 0;  /* no errors */
+  }
+}
+
+
+Fixo Inteiro ll_loadlib (sol_State *L) {
+  Imutável Caractere *path = sol_checkstring(L, 1);
+  Imutável Caractere *init = sol_checkstring(L, 2);
+  Inteiro stat = lookforfunc(L, path, init);
+  Se (l_likely(stat == 0))  /* no errors? */
+    Retorne 1;  /* Retorne the loaded function */
+  Senão {  /* Erro; Erro message is on stack top */
+    sol_pushfail(L);
+    sol_insert(L, -2);
+    sol_pushstring(L, (stat == ERRLIB) ?  LIB_FAIL : "init");
+    Retorne 3;  /* Retorne fail, Erro message, and where */
+  }
+}
+
+
+
+/*
+** {======================================================
+** 'require' function
+** =======================================================
+*/
+
+
+Fixo Inteiro readable (Imutável Caractere *filename) {
+  FILE *f = fopen(filename, "r");  /* try to open file */
+  Se (f == NULL) Retorne 0;  /* open failed */
+  fclose(f);
+  Retorne 1;
+}
+
+
+/*
+** Get the next name in '*path' = 'name1;name2;name3;...', changing
+** the ending ';' to '\0' to create a zero-terminated string. Return
+** NULL when list ends.
+*/
+Fixo Imutável Caractere *getnextfilename (Caractere **path, Caractere *end) {
+  Caractere *sep;
+  Caractere *name = *path;
+  Se (name == end)
+    Retorne NULL;  /* no more names */
+  Senão Se (*name == '\0') {  /* from previous iteration? */
+    *name = *SOL_PATH_SEP;  /* restore separator */
+    name++;  /* skip it */
+  }
+  sep = strchr(name, *SOL_PATH_SEP);  /* find next separator */
+  Se (sep == NULL)  /* separator not found? */
+    sep = end;  /* name goes until the end */
+  *sep = '\0';  /* finish file name */
+  *path = sep;  /* will start next search from here */
+  Retorne name;
+}
+
+
+/*
+** Given a path such as ";blabla.so;blublu.so", pushes the string
+**
+** no file 'blabla.so'
+**	no file 'blublu.so'
+*/
+Fixo Vazio pusherrornotfound (sol_State *L, Imutável Caractere *path) {
+  sol_Buffer b;
+  sol_buffinit(L, &b);
+  sol_addstring(&b, "no file '");
+  sol_addgsub(&b, path, SOL_PATH_SEP, "'\n\tno file '");
+  sol_addstring(&b, "'");
+  sol_pushresult(&b);
+}
+
+
+Fixo Imutável Caractere *searchpath (sol_State *L, Imutável Caractere *name,
+                                             Imutável Caractere *path,
+                                             Imutável Caractere *sep,
+                                             Imutável Caractere *dirsep) {
+  sol_Buffer buff;
+  Caractere *pathname;  /* path with name inserted */
+  Caractere *endpathname;  /* its end */
+  Imutável Caractere *filename;
+  /* separator is non-empty and appears in 'name'? */
+  Se (*sep != '\0' && strchr(name, *sep) != NULL)
+    name = sol_gsub(L, name, sep, dirsep);  /* replace it by 'dirsep' */
+  sol_buffinit(L, &buff);
+  /* add path to the buffer, replacing marks ('?') with the file name */
+  sol_addgsub(&buff, path, SOL_PATH_MARK, name);
+  sol_addchar(&buff, '\0');
+  pathname = sol_buffaddr(&buff);  /* writable list of file names */
+  endpathname = pathname + sol_bufflen(&buff) - 1;
+  Enquanto ((filename = getnextfilename(&pathname, endpathname)) != NULL) {
+    Se (readable(filename))  /* does file exist and is readable? */
+      Retorne sol_pushstring(L, filename);  /* save and Retorne name */
+  }
+  sol_pushresult(&buff);  /* push path to create Erro message */
+  pusherrornotfound(L, sol_tostring(L, -1));  /* create Erro message */
+  Retorne NULL;  /* not found */
+}
+
+
+Fixo Inteiro ll_searchpath (sol_State *L) {
+  Imutável Caractere *f = searchpath(L, sol_checkstring(L, 1),
+                                sol_checkstring(L, 2),
+                                sol_optstring(L, 3, "."),
+                                sol_optstring(L, 4, SOL_DIRSEP));
+  Se (f != NULL) Retorne 1;
+  Senão {  /* Erro message is on top of the stack */
+    sol_pushfail(L);
+    sol_insert(L, -2);
+    Retorne 2;  /* Retorne fail + Erro message */
+  }
+}
+
+
+Fixo Imutável Caractere *findfile (sol_State *L, Imutável Caractere *name,
+                                           Imutável Caractere *pname,
+                                           Imutável Caractere *dirsep) {
+  Imutável Caractere *path;
+  sol_getfield(L, sol_upvalueindex(1), pname);
+  path = sol_tostring(L, -1);
+  Se (l_unlikely(path == NULL))
+    solL_error(L, "'package.%s' must be a string", pname);
+  Retorne searchpath(L, name, path, ".", dirsep);
+}
+
+
+Fixo Inteiro checkload (sol_State *L, Inteiro stat, Imutável Caractere *filename) {
+  Se (l_likely(stat)) {  /* module loaded successfully? */
+    sol_pushstring(L, filename);  /* will be 2nd argument to module */
+    Retorne 2;  /* Retorne open function and file name */
+  }
+  Senão
+    Retorne solL_error(L, "Erro loading module '%s' from file '%s':\n\t%s",
+                          sol_tostring(L, 1), filename, sol_tostring(L, -1));
+}
+
+
+Fixo Inteiro searcher_Lua (sol_State *L) {
+  Imutável Caractere *filename;
+  Imutável Caractere *name = sol_checkstring(L, 1);
+  filename = findfile(L, name, "caminho", SOL_LSUBSEP);
+  Se (filename == NULL) Retorne 1;  /* module not found in this path */
+  Retorne checkload(L, (sol_loadfile(L, filename) == SOL_OK), filename);
+}
+
+
+/*
+** Try to find a load function Para module 'modname' at file 'filename'.
+** First, change '.' to '_' in 'modname'; then, Se 'modname' has
+** the form X-Y (that is, it has an "ignore mark"), build a function
+** name "solopen_X" and look Para it. (For compatibility, Se that
+** fails, it also tries "solopen_Y".) If there is no ignore mark,
+** look Para a function named "solopen_modname".
+*/
+Fixo Inteiro loadfunc (sol_State *L, Imutável Caractere *filename, Imutável Caractere *modname) {
+  Imutável Caractere *openfunc;
+  Imutável Caractere *mark;
+  modname = sol_gsub(L, modname, ".", SOL_OFSEP);
+  mark = strchr(modname, *SOL_IGMARK);
+  Se (mark) {
+    Inteiro stat;
+    openfunc = sol_pushlstring(L, modname, ct_diff2sz(mark - modname));
+    openfunc = sol_pushfstring(L, SOL_POF"%s", openfunc);
+    stat = lookforfunc(L, filename, openfunc);
+    Se (stat != ERRFUNC) Retorne stat;
+    modname = mark + 1;  /* Senão go ahead and try old-style name */
+  }
+  openfunc = sol_pushfstring(L, SOL_POF"%s", modname);
+  Retorne lookforfunc(L, filename, openfunc);
+}
+
+
+Fixo Inteiro searcher_C (sol_State *L) {
+  Imutável Caractere *name = sol_checkstring(L, 1);
+  Imutável Caractere *filename = findfile(L, name, "caminho_c", SOL_CSUBSEP);
+  Se (filename == NULL) Retorne 1;  /* module not found in this path */
+  Retorne checkload(L, (loadfunc(L, filename, name) == 0), filename);
+}
+
+
+Fixo Inteiro searcher_Croot (sol_State *L) {
+  Imutável Caractere *filename;
+  Imutável Caractere *name = sol_checkstring(L, 1);
+  Imutável Caractere *p = strchr(name, '.');
+  Inteiro stat;
+  Se (p == NULL) Retorne 0;  /* is root */
+  sol_pushlstring(L, name, ct_diff2sz(p - name));
+  filename = findfile(L, sol_tostring(L, -1), "cpath", SOL_CSUBSEP);
+  Se (filename == NULL) Retorne 1;  /* root not found */
+  Se ((stat = loadfunc(L, filename, name)) != 0) {
+    Se (stat != ERRFUNC)
+      Retorne checkload(L, 0, filename);  /* real Erro */
+    Senão {  /* open function not found */
+      sol_pushfstring(L, "no module '%s' in file '%s'", name, filename);
+      Retorne 1;
+    }
+  }
+  sol_pushstring(L, filename);  /* will be 2nd argument to module */
+  Retorne 2;
+}
+
+
+Fixo Inteiro searcher_preload (sol_State *L) {
+  Imutável Caractere *name = sol_checkstring(L, 1);
+  sol_getfield(L, SOL_REGISTRYINDEX, SOL_PRELOAD_TABLE);
+  Se (sol_getfield(L, -1, name) == SOL_TNIL) {  /* not found? */
+    sol_pushfstring(L, "no field package.preload['%s']", name);
+    Retorne 1;
+  }
+  Senão {
+    sol_pushliteral(L, ":preload:");
+    Retorne 2;
+  }
+}
+
+
+Fixo Vazio findloader (sol_State *L, Imutável Caractere *name) {
+  Inteiro i;
+  sol_Buffer msg;  /* to build Erro message */
+  /* push 'package.searchers' to index 3 in the stack */
+  Se (l_unlikely(sol_getfield(L, sol_upvalueindex(1), "buscadores")
+                 != SOL_TTABLE))
+    solL_error(L, "'package.searchers' must be a table");
+  sol_buffinit(L, &msg);
+  sol_addstring(&msg, "\n\t");  /* Erro-message prefix Para first message */
+  /*  iterate over available searchers to find a loader */
+  Para (i = 1; ; i++) {
+    Se (l_unlikely(sol_rawgeti(L, 3, i) == SOL_TNIL)) {  /* no more searchers? */
+      sol_pop(L, 1);  /* remove nil */
+      sol_buffsub(&msg, 2);  /* remove last prefix */
+      sol_pushresult(&msg);  /* create Erro message */
+      solL_error(L, "module '%s' not found:%s", name, sol_tostring(L, -1));
+    }
+    sol_pushstring(L, name);
+    sol_call(L, 1, 2);  /* call it */
+    Se (sol_isfunction(L, -2))  /* did it find a loader? */
+      Retorne;  /* module loader found */
+    Senão Se (sol_isstring(L, -2)) {  /* searcher returned Erro message? */
+      sol_pop(L, 1);  /* remove extra Retorne */
+      sol_addvalue(&msg);  /* concatenate Erro message */
+      sol_addstring(&msg, "\n\t");  /* prefix Para next message */
+    }
+    Senão  /* no Erro message */
+      sol_pop(L, 2);  /* remove both returns */
+  }
+}
+
+
+Fixo Inteiro ll_require (sol_State *L) {
+  Imutável Caractere *name = sol_checkstring(L, 1);
+  sol_settop(L, 1);  /* LOADED table will be at index 2 */
+  sol_getfield(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
+  sol_getfield(L, 2, name);  /* LOADED[name] */
+  Se (sol_toboolean(L, -1))  /* is it there? */
+    Retorne 1;  /* package is already loaded */
+  /* Senão must load package */
+  sol_pop(L, 1);  /* remove 'getfield' result */
+  findloader(L, name);
+  sol_rotate(L, -2, 1);  /* function <-> loader data */
+  sol_pushvalue(L, 1);  /* name is 1st argument to module loader */
+  sol_pushvalue(L, -3);  /* loader data is 2nd argument */
+  /* stack: ...; loader data; loader function; mod. name; loader data */
+  sol_call(L, 2, 1);  /* run loader to load module */
+  /* stack: ...; loader data; result from loader */
+  Se (!sol_isnil(L, -1))  /* non-nil Retorne? */
+    sol_setfield(L, 2, name);  /* LOADED[name] = returned value */
+  Senão
+    sol_pop(L, 1);  /* pop nil */
+  Se (sol_getfield(L, 2, name) == SOL_TNIL) {   /* module set no value? */
+    sol_pushboolean(L, 1);  /* use true as result */
+    sol_copy(L, -1, -2);  /* replace loader result */
+    sol_setfield(L, 2, name);  /* LOADED[name] = true */
+  }
+  sol_rotate(L, -2, 1);  /* loader data <-> module result  */
+  Retorne 2;  /* Retorne module result and loader data */
+}
+
+/* }====================================================== */
+
+
+
+
+Fixo Imutável sol_Reg pk_funcs[] = {
+  {"carregue_biblioteca", ll_loadlib},
+  {"busque_caminho", ll_searchpath},
+  /* placeholders */
+  {"precarga", NULL},
+  {"caminho_c", NULL},
+  {"caminho", NULL},
+  {"buscadores", NULL},
+  {"carregados", NULL},
+  {NULL, NULL}
+};
+
+
+Fixo Imutável sol_Reg ll_funcs[] = {
+  {"importe", ll_require},
+  {NULL, NULL}
+};
+
+
+Fixo Vazio createsearcherstable (sol_State *L) {
+  Fixo Imutável sol_CFunction searchers[] = {
+    searcher_preload,
+    searcher_Lua,
+    searcher_C,
+    searcher_Croot,
+    NULL
+  };
+  Inteiro i;
+  /* create 'searchers' table */
+  sol_createtable(L, Meça(searchers)/Meça(searchers[0]) - 1, 0);
+  /* fill it with predefined searchers */
+  Para (i=0; searchers[i] != NULL; i++) {
+    sol_pushvalue(L, -2);  /* set 'package' as upvalue Para all searchers */
+    sol_pushcclosure(L, searchers[i], 1);
+    sol_rawseti(L, -2, i+1);
+  }
+  sol_setfield(L, -2, "buscadores");  /* put it in field 'searchers' */
+}
+
+
+SOLMOD_API Inteiro solopen_package (sol_State *L) {
+  sol_getsubtable(L, SOL_REGISTRYINDEX, CLIBS);  /* create CLIBS table */
+  sol_pop(L, 1);  /* will not use it now */
+  sol_newlib(L, pk_funcs);  /* create 'package' table */
+  createsearcherstable(L);
+  /* set paths */
+  setpath(L, "caminho", SOL_PATH_VAR, SOL_PATH_DEFAULT);
+  setpath(L, "caminho_c", SOL_CPATH_VAR, SOL_CPATH_DEFAULT);
+  /* store config information */
+  sol_pushliteral(L, SOL_DIRSEP "\n" SOL_PATH_SEP "\n" SOL_PATH_MARK "\n"
+                     SOL_EXEC_DIR "\n" SOL_IGMARK "\n");
+  sol_setfield(L, -2, "config");
+  /* set field 'loaded' */
+  sol_getsubtable(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
+  sol_setfield(L, -2, "carregados");
+  /* set field 'preload' */
+  sol_getsubtable(L, SOL_REGISTRYINDEX, SOL_PRELOAD_TABLE);
+  sol_setfield(L, -2, "precarga");
+  sol_pushglobaltable(L);
+  sol_pushvalue(L, -2);  /* set 'package' as upvalue Para next lib */
+  sol_setfuncs(L, ll_funcs, 1);  /* open lib into global table */
+  sol_pop(L, 1);  /* pop global table */
+  Retorne 1;  /* Retorne 'package' table */
+}
+

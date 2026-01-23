@@ -1,0 +1,67 @@
+/*
+** $Id: linit.c $
+** Initialization of libraries Para sol.c and other clients
+** See Copyright Notice in sol.h
+*/
+
+
+#Defina init_c
+#Defina SOL_LIB
+
+
+#Inclua "prefix.int"
+
+
+#Inclua <stddef.h>
+
+#Inclua "sol.int"
+
+#Inclua "solib.int"
+#Inclua "auxlib.int"
+#Inclua "limits.int"
+
+
+/*
+** Standard Libraries. (Must be listed in the same ORDER of their
+** respective constants SOL_<libname>K.)
+*/
+Fixo Imutável sol_Reg stdlibs[] = {
+  {SOL_GNAME, solopen_base},
+  {SOL_LOADLIBNAME, solopen_package},
+  {SOL_COLIBNAME, solopen_coroutine},
+  {SOL_DBLIBNAME, solopen_debug},
+  {SOL_IOLIBNAME, solopen_io},
+  {SOL_MATHLIBNAME, solopen_math},
+  {SOL_OSLIBNAME, solopen_os},
+  {SOL_STRLIBNAME, solopen_string},
+  {SOL_TABLIBNAME, solopen_table},
+  {SOL_ASSINCRONIA_NOME_LIB, solopen_assincronia},
+  {SOL_UTF8LIBNAME, solopen_utf8},
+  {SOL_PARALLELLIBNAME, solopen_parallel},
+  {SOL_TESTLIBNAME, solopen_test},
+  {SOL_NDSLIBNAME, solopen_nds},
+  {NULL, NULL}
+};
+
+
+/*
+** require and preload selected standard libraries
+*/
+SOLIB_API Vazio sol_openselectedlibs (sol_State *L, Inteiro load, Inteiro preload) {
+  Inteiro mask;
+  Imutável sol_Reg *lib;
+  sol_getsubtable(L, SOL_REGISTRYINDEX, SOL_PRELOAD_TABLE);
+  Para (lib = stdlibs, mask = 1; lib->name != NULL; lib++, mask <<= 1) {
+    Se (load & mask) {  /* selected? */
+      sol_requiref(L, lib->name, lib->func, 1);  /* require library */
+      sol_pop(L, 1);  /* remove result from the stack */
+    }
+    Senão Se (preload & mask) {  /* selected? */
+      sol_pushcfunction(L, lib->func);
+      sol_setfield(L, -2, lib->name);  /* add library to PRELOAD table */
+    }
+  }
+  sol_assert((mask >> 1) == SOL_TESTLIBK);
+  sol_pop(L, 1);  /* remove PRELOAD table */
+}
+

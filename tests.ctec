@@ -1,0 +1,2224 @@
+/*
+** $Id: ltests.c $
+** Internal Module Para Debugging of the Sol Implementation
+** See Copyright Notice in sol.h
+*/
+
+#Defina tests_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <limits.h>
+#Inclua <setjmp.h>
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "auxlib.int"
+#Inclua "code.int"
+#Inclua "ctype.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "mem.int"
+#Inclua "opcodes.int"
+#Inclua "opnames.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "solib.int"
+
+
+
+/*
+** The whole module only makes sense with SOL_DEBUG on
+*/
+#Se Definido(SOL_DEBUG)
+
+
+Vazio *l_Trick = 0;
+
+
+#Defina obj_at(L,k)	s2v(L->ci->func.p + (k))
+
+
+Fixo Inteiro runC (sol_State *L, sol_State *L1, Imutável Caractere *pc);
+
+
+Fixo Vazio setnameval (sol_State *L, Imutável Caractere *name, Inteiro val) {
+  sol_pushinteger(L, val);
+  sol_setfield(L, -2, name);
+}
+
+
+Fixo Vazio pushobject (sol_State *L, Imutável TValue *o) {
+  setobj2s(L, L->top.p, o);
+  api_incr_top(L);
+}
+
+
+Fixo Vazio badexit (Imutável Caractere *fmt, Imutável Caractere *s1, Imutável Caractere *s2) {
+  fprintf(stderr, fmt, s1);
+  Se (s2)
+    fprintf(stderr, "extra info: %s\n", s2);
+  /* avoid assertion failures when exiting */
+  l_memcontrol.numblocks = l_memcontrol.total = 0;
+  exit(EXIT_FAILURE);
+}
+
+
+Fixo Inteiro tpanic (sol_State *L) {
+  Imutável Caractere *msg = (sol_type(L, -1) == SOL_TSTRING)
+                  ? sol_tostring(L, -1)
+                  : "Erro object is not a string";
+  Retorne (badexit("PANIC: unprotected Erro in call to Sol API (%s)\n",
+                   msg, NULL),
+          0);  /* Faça not Retorne to Sol */
+}
+
+
+/*
+** Warning function Para tests. First, it concatenates all parts of
+** a Aviso in buffer 'buff'. Then, it has three modes:
+** - 0.normal: messages starting with '#' are shown on standard output;
+** - other messages abort the tests (they represent real Aviso
+** conditions; the standard tests should not generate these conditions
+** unexpectedly);
+** - 1.allow: all messages are shown;
+** - 2.store: all warnings go to the global '_WARN';
+*/
+Fixo Vazio warnf (Vazio *ud, Imutável Caractere *msg, Inteiro tocont) {
+  sol_State *L = cast(sol_State *, ud);
+  Fixo Caractere buff[200] = "";  /* should be enough Para tests... */
+  Fixo Inteiro onoff = 0;
+  Fixo Inteiro mode = 0;  /* start in normal mode */
+  Fixo Inteiro lasttocont = 0;
+  Se (!lasttocont && !tocont && *msg == '@') {  /* control message? */
+    Se (buff[0] != '\0')
+      badexit("Control Aviso during Aviso: %s\naborting...\n", msg, buff);
+    Se (strcmp(msg, "@off") == 0)
+      onoff = 0;
+    Senão Se (strcmp(msg, "@on") == 0)
+      onoff = 1;
+    Senão Se (strcmp(msg, "@normal") == 0)
+      mode = 0;
+    Senão Se (strcmp(msg, "@allow") == 0)
+      mode = 1;
+    Senão Se (strcmp(msg, "@store") == 0)
+      mode = 2;
+    Senão
+      badexit("Invalid control Aviso in test mode: %s\naborting...\n",
+              msg, NULL);
+    Retorne;
+  }
+  lasttocont = tocont;
+  Se (strlen(msg) >= Meça(buff) - strlen(buff))
+    badexit("warnf-buffer overflow (%s)\n", msg, buff);
+  strcat(buff, msg);  /* add new message to current Aviso */
+  Se (!tocont) {  /* message finished? */
+    sol_unlock(L);
+    solL_checkstack(L, 1, "warn stack space");
+    sol_getglobal(L, "_WARN");
+    Se (!sol_toboolean(L, -1))
+      sol_pop(L, 1);  /* ok, no previous unexpected Aviso */
+    Senão {
+      badexit("Unhandled Aviso in store mode: %s\naborting...\n",
+              sol_tostring(L, -1), buff);
+    }
+    sol_lock(L);
+    Troque (mode) {
+      Caso 0: {  /* normal */
+        Se (buff[0] != '#' && onoff)  /* unexpected Aviso? */
+          badexit("Unexpected Aviso in test mode: %s\naborting...\n",
+                  buff, NULL);
+      }  /* FALLTHROUGH */
+      Caso 1: {  /* allow */
+        Se (onoff)
+          fprintf(stderr, "Sol Aviso: %s\n", buff);  /* exiba Aviso */
+        Interrompa;
+      }
+      Caso 2: {  /* store */
+        sol_unlock(L);
+        solL_checkstack(L, 1, "warn stack space");
+        sol_pushstring(L, buff);
+        sol_setglobal(L, "_WARN");  /* assign message to global '_WARN' */
+        sol_lock(L);
+        Interrompa;
+      }
+    }
+    buff[0] = '\0';  /* prepare buffer Para next Aviso */
+  }
+}
+
+
+/*
+** {======================================================================
+** Controlled version Para realloc.
+** =======================================================================
+*/
+
+#Defina MARK		0x55  /* 01010101 (a nice pattern) */
+
+Pseudônimo União memHeader {
+  SOL_MAXALIGN;
+  Estrutura {
+    size_t size;
+    Inteiro type;
+  } d;
+} memHeader;
+
+
+#Se !Definido(EXTERNMEMCHECK)
+
+/* full memory check */
+#Defina MARKSIZE	16  /* size of marks after each block */
+#Defina fillmem(mem,size)	memset(mem, -MARK, size)
+
+#Senão
+
+/* external memory check: don't Faça it twice */
+#Defina MARKSIZE	0
+#Defina fillmem(mem,size)	/* empty */
+
+#FimSe
+
+
+Memcontrol l_memcontrol =
+  {0, 0UL, 0UL, 0UL, 0UL, (~0UL),
+   {0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL}};
+
+
+Fixo Vazio freeblock (Memcontrol *mc, memHeader *block) {
+  Se (block) {
+    size_t size = block->d.size;
+    Inteiro i;
+    Para (i = 0; i < MARKSIZE; i++)  /* check marks after block */
+      sol_assert(*(cast_charp(block + 1) + size + i) == MARK);
+    mc->objcount[block->d.type]--;
+    fillmem(block, Meça(memHeader) + size + MARKSIZE);  /* erase block */
+    free(block);  /* actually free block */
+    mc->numblocks--;  /* update counts */
+    mc->total -= size;
+  }
+}
+
+
+Vazio *debug_realloc (Vazio *ud, Vazio *b, size_t oldsize, size_t size) {
+  Memcontrol *mc = cast(Memcontrol *, ud);
+  memHeader *block = cast(memHeader *, b);
+  Inteiro type;
+  Se (mc->memlimit == 0) {  /* first time? */
+    Caractere *limit = getenv("MEMLIMIT");  /* initialize memory limit */
+    mc->memlimit = limit ? strtoul(limit, NULL, 10) : ULONG_MAX;
+  }
+  Se (block == NULL) {
+    type = (oldsize < SOL_NUMTYPES) ? cast_int(oldsize) : 0;
+    oldsize = 0;
+  }
+  Senão {
+    block--;  /* go to real header */
+    type = block->d.type;
+    sol_assert(oldsize == block->d.size);
+  }
+  Se (size == 0) {
+    freeblock(mc, block);
+    Retorne NULL;
+  }
+  Se (mc->failnext) {
+    mc->failnext = 0;
+    Retorne NULL;  /* fake a single memory allocation Erro */
+  }
+  Se (mc->countlimit != ~0UL && size != oldsize) {  /* count limit in use? */
+    Se (mc->countlimit == 0)
+      Retorne NULL;  /* fake a memory allocation Erro */
+    mc->countlimit--;
+  }
+  Se (size > oldsize && mc->total+size-oldsize > mc->memlimit)
+    Retorne NULL;  /* fake a memory allocation Erro */
+  Senão {
+    memHeader *newblock;
+    Inteiro i;
+    size_t commonsize = (oldsize < size) ? oldsize : size;
+    size_t realsize = Meça(memHeader) + size + MARKSIZE;
+    Se (realsize < size) Retorne NULL;  /* arithmetic overflow! */
+    newblock = cast(memHeader *, malloc(realsize));  /* alloc a new block */
+    Se (newblock == NULL)
+      Retorne NULL;  /* really out of memory? */
+    Se (block) {
+      memcpy(newblock + 1, block + 1, commonsize);  /* copy old contents */
+      freeblock(mc, block);  /* erase (and check) old copy */
+    }
+    /* initialize new part of the block with something weird */
+    fillmem(cast_charp(newblock + 1) + commonsize, size - commonsize);
+    /* initialize marks after block */
+    Para (i = 0; i < MARKSIZE; i++)
+      *(cast_charp(newblock + 1) + size + i) = MARK;
+    newblock->d.size = size;
+    newblock->d.type = type;
+    mc->total += size;
+    Se (mc->total > mc->maxmem)
+      mc->maxmem = mc->total;
+    mc->numblocks++;
+    mc->objcount[type]++;
+    Retorne newblock + 1;
+  }
+}
+
+
+/* }====================================================================== */
+
+
+
+/*
+** {=====================================================================
+** Functions to check memory consistency.
+** Most of these checks are done through asserts, so this code does
+** not make sense with asserts off. For this reason, it uses 'assert'
+** directly, instead of 'sol_assert'.
+** ======================================================================
+*/
+
+#Inclua <assert.h>
+
+/*
+** Check GC invariants. For incremental mode, a black object cannot
+** point to a white one. For generational mode, really old objects
+** cannot point to young objects. Both old1 and touched2 objects
+** cannot point to new objects (but can point to survivals).
+** (Threads and open upvalues, despite being marked "really old",
+** Continue to be visited in all collections, and therefore can point to
+** new objects. They, and only they, are old but gray.)
+*/
+Fixo Inteiro testobjref1 (global_State *g, GCObject *f, GCObject *t) {
+  Se (isdead(g,t)) Retorne 0;
+  Se (issweepphase(g))
+    Retorne 1;  /* no invariants */
+  Senão Se (g->gckind != KGC_GENMINOR)
+    Retorne !(isblack(f) && iswhite(t));  /* basic incremental invariant */
+  Senão {  /* generational mode */
+    Se ((getage(f) == G_OLD && isblack(f)) && !isold(t))
+      Retorne 0;
+    Se ((getage(f) == G_OLD1 || getage(f) == G_TOUCHED2) &&
+         getage(t) == G_NEW)
+      Retorne 0;
+    Retorne 1;
+  }
+}
+
+
+Fixo Vazio printobj (global_State *g, GCObject *o) {
+  printf("||%s(%p)-%c%c(%02X)||",
+           ttypename(novariant(o->tt)), (Vazio *)o,
+           isdead(g,o) ? 'd' : isblack(o) ? 'b' : iswhite(o) ? 'w' : 'g',
+           "ns01oTt"[getage(o)], o->marked);
+  Se (o->tt == SOL_VSHRSTR || o->tt == SOL_VLNGSTR)
+    printf(" '%s'", getstr(gco2ts(o)));
+}
+
+
+Vazio sol_printobj (sol_State *L, Estrutura GCObject *o) {
+  printobj(G(L), o);
+}
+
+
+Vazio sol_printvalue (TValue *v) {
+  Troque (ttypetag(v)) {
+    Caso SOL_VNUMINT: Caso SOL_VNUMFLT: {
+      Caractere buff[SOL_N2SBUFFSZ];
+      Natural len = sol_o_tostringbuff(v, buff);
+      buff[len] = '\0';
+      printf("%s", buff);
+      Interrompa;
+    }
+    Caso SOL_VSHRSTR:
+      printf("'%s'", getstr(tsvalue(v))); Interrompa;
+    Caso SOL_VLNGSTR:
+      printf("'%.30s...'", getstr(tsvalue(v))); Interrompa;
+    Caso SOL_VFALSE:
+      printf("%s", "false"); Interrompa;
+    Caso SOL_VTRUE:
+      printf("%s", "true"); Interrompa;
+    Caso SOL_VLIGHTUSERDATA:
+      printf("light udata: %p", pvalue(v)); Interrompa;
+    Caso SOL_VUSERDATA:
+      printf("full udata: %p", uvalue(v)); Interrompa;
+    Caso SOL_VNIL:
+      printf("nulo"); Interrompa;
+    Caso SOL_VLCF:
+      printf("light C function: %p", fvalue(v)); Interrompa;
+    Caso SOL_VCCL:
+      printf("C closure: %p", clCvalue(v)); Interrompa;
+    Caso SOL_VLCL:
+      printf("Sol function: %p", clLvalue(v)); Interrompa;
+    Caso SOL_VTHREAD:
+      printf("thread: %p", thvalue(v)); Interrompa;
+    Caso SOL_VTABLE:
+      printf("table: %p", hvalue(v)); Interrompa;
+    Padrão:
+      sol_assert(0);
+  }
+}
+
+
+Fixo Inteiro testobjref (global_State *g, GCObject *f, GCObject *t) {
+  Inteiro r1 = testobjref1(g, f, t);
+  Se (!r1) {
+    printf("%d(%02X) - ", g->gcstate, g->currentwhite);
+    printobj(g, f);
+    printf("  ->  ");
+    printobj(g, t);
+    printf("\n");
+  }
+  Retorne r1;
+}
+
+
+Fixo Vazio checkobjref (global_State *g, GCObject *f, GCObject *t) {
+    assert(testobjref(g, f, t));
+}
+
+
+/*
+** Version where 't' can be NULL. In that Caso, it should not apply the
+** macro 'obj2gco' over the object. ('t' may have several types, so this
+** definition must be a macro.)  Most checks need this version, because
+** the check may run Enquanto an object is still being created.
+*/
+#Defina checkobjrefN(g,f,t)	{ Se (t) checkobjref(g,f,obj2gco(t)); }
+
+
+Fixo Vazio checkvalref (global_State *g, GCObject *f, Imutável TValue *t) {
+  assert(!iscollectable(t) || (righttt(t) && testobjref(g, f, gcvalue(t))));
+}
+
+
+Fixo Vazio checktable (global_State *g, Table *h) {
+  Natural Inteiro i;
+  Natural Inteiro asize = h->asize;
+  Node *n, *limit = gnode(h, sizenode(h));
+  GCObject *hgc = obj2gco(h);
+  checkobjrefN(g, hgc, h->metatable);
+  Para (i = 0; i < asize; i++) {
+    TValue aux;
+    arr2obj(h, i, &aux);
+    checkvalref(g, hgc, &aux);
+  }
+  Para (n = gnode(h, 0); n < limit; n++) {
+    Se (!isempty(gval(n))) {
+      TValue k;
+      getnodekey(mainthread(g), &k, n);
+      assert(!keyisnil(n));
+      checkvalref(g, hgc, &k);
+      checkvalref(g, hgc, gval(n));
+    }
+  }
+}
+
+
+Fixo Vazio checkudata (global_State *g, Udata *u) {
+  Inteiro i;
+  GCObject *hgc = obj2gco(u);
+  checkobjrefN(g, hgc, u->metatable);
+  Para (i = 0; i < u->nuvalue; i++)
+    checkvalref(g, hgc, &u->uv[i].uv);
+}
+
+
+Fixo Vazio checkproto (global_State *g, Proto *f) {
+  Inteiro i;
+  GCObject *fgc = obj2gco(f);
+  checkobjrefN(g, fgc, f->source);
+  Para (i=0; i<f->sizek; i++) {
+    Se (iscollectable(f->k + i))
+      checkobjref(g, fgc, gcvalue(f->k + i));
+  }
+  Para (i=0; i<f->sizeupvalues; i++)
+    checkobjrefN(g, fgc, f->upvalues[i].name);
+  Para (i=0; i<f->sizep; i++)
+    checkobjrefN(g, fgc, f->p[i]);
+  Para (i=0; i<f->sizelocvars; i++)
+    checkobjrefN(g, fgc, f->locvars[i].varname);
+}
+
+
+Fixo Vazio checkCclosure (global_State *g, CClosure *cl) {
+  GCObject *clgc = obj2gco(cl);
+  Inteiro i;
+  Para (i = 0; i < cl->nupvalues; i++)
+    checkvalref(g, clgc, &cl->upvalue[i]);
+}
+
+
+Fixo Vazio checkLclosure (global_State *g, LClosure *cl) {
+  GCObject *clgc = obj2gco(cl);
+  Inteiro i;
+  checkobjrefN(g, clgc, cl->p);
+  Para (i=0; i<cl->nupvalues; i++) {
+    UpVal *uv = cl->upvals[i];
+    Se (uv) {
+      checkobjrefN(g, clgc, uv);
+      Se (!upisopen(uv))
+        checkvalref(g, obj2gco(uv), uv->v.p);
+    }
+  }
+}
+
+
+Fixo Inteiro sol_checkpc (CallInfo *ci) {
+  Se (!isLua(ci)) Retorne 1;
+  Senão {
+    StkId f = ci->func.p;
+    Proto *p = clLvalue(s2v(f))->p;
+    Retorne p->code <= ci->u.l.savedpc &&
+           ci->u.l.savedpc <= p->code + p->sizecode;
+  }
+}
+
+
+Fixo Vazio check_stack (global_State *g, sol_State *L1) {
+  StkId o;
+  CallInfo *ci;
+  UpVal *uv;
+  assert(!isdead(g, L1));
+  Se (L1->stack.p == NULL) {  /* incomplete thread? */
+    assert(L1->openupval == NULL && L1->ci == NULL);
+    Retorne;
+  }
+  Para (uv = L1->openupval; uv != NULL; uv = uv->u.open.next)
+    assert(upisopen(uv));  /* must be open */
+  assert(L1->top.p <= L1->stack_last.p);
+  assert(L1->tbclist.p <= L1->top.p);
+  Para (ci = L1->ci; ci != NULL; ci = ci->previous) {
+    assert(ci->top.p <= L1->stack_last.p);
+    assert(sol_checkpc(ci));
+  }
+  Para (o = L1->stack.p; o < L1->stack_last.p; o++)
+    checkliveness(L1, s2v(o));  /* entire stack must have valid values */
+}
+
+
+Fixo Vazio checkrefs (global_State *g, GCObject *o) {
+  Troque (o->tt) {
+    Caso SOL_VUSERDATA: {
+      checkudata(g, gco2u(o));
+      Interrompa;
+    }
+    Caso SOL_VUPVAL: {
+      checkvalref(g, o, gco2upv(o)->v.p);
+      Interrompa;
+    }
+    Caso SOL_VTABLE: {
+      checktable(g, gco2t(o));
+      Interrompa;
+    }
+    Caso SOL_VTHREAD: {
+      check_stack(g, gco2th(o));
+      Interrompa;
+    }
+    Caso SOL_VLCL: {
+      checkLclosure(g, gco2lcl(o));
+      Interrompa;
+    }
+    Caso SOL_VCCL: {
+      checkCclosure(g, gco2ccl(o));
+      Interrompa;
+    }
+    Caso SOL_VPROTO: {
+      checkproto(g, gco2p(o));
+      Interrompa;
+    }
+    Caso SOL_VSHRSTR:
+    Caso SOL_VLNGSTR: {
+      assert(!isgray(o));  /* strings are never gray */
+      Interrompa;
+    }
+    Padrão: assert(0);
+  }
+}
+
+
+/*
+** Check consistency of an object:
+** - Dead objects can only happen in the 'allgc' list during a sweep
+** phase (controlled by the caller through 'maybedead').
+** - During pause, all objects must be white.
+** - In generational mode:
+**   * objects must be old enough Para their lists ('listage').
+**   * old objects cannot be white.
+**   * old objects must be black, except Para 'touched1', 'old0',
+**     threads, and open upvalues.
+**   * 'touched1' objects must be gray.
+*/
+Fixo Vazio checkobject (global_State *g, GCObject *o, Inteiro maybedead,
+                         Inteiro listage) {
+  Se (isdead(g, o))
+    assert(maybedead);
+  Senão {
+    assert(g->gcstate != GCSpause || iswhite(o));
+    Se (g->gckind == KGC_GENMINOR) {  /* generational mode? */
+      assert(getage(o) >= listage);
+      Se (isold(o)) {
+        assert(!iswhite(o));
+        assert(isblack(o) ||
+        getage(o) == G_TOUCHED1 ||
+        getage(o) == G_OLD0 ||
+        o->tt == SOL_VTHREAD ||
+        (o->tt == SOL_VUPVAL && upisopen(gco2upv(o))));
+      }
+      assert(getage(o) != G_TOUCHED1 || isgray(o));
+    }
+    checkrefs(g, o);
+  }
+}
+
+
+Fixo l_mem checkgraylist (global_State *g, GCObject *o) {
+  Inteiro total = 0;  /* count number of elements in the list */
+  cast_void(g);  /* better to keep it Se we need to exiba an object */
+  Enquanto (o) {
+    assert(!!isgray(o) ^ (getage(o) == G_TOUCHED2));
+    assert(!testbit(o->marked, TESTBIT));
+    Se (keepinvariant(g))
+      l_setbit(o->marked, TESTBIT);  /* mark that object is in a gray list */
+    total++;
+    Troque (o->tt) {
+      Caso SOL_VTABLE: o = gco2t(o)->gclist; Interrompa;
+      Caso SOL_VLCL: o = gco2lcl(o)->gclist; Interrompa;
+      Caso SOL_VCCL: o = gco2ccl(o)->gclist; Interrompa;
+      Caso SOL_VTHREAD: o = gco2th(o)->gclist; Interrompa;
+      Caso SOL_VPROTO: o = gco2p(o)->gclist; Interrompa;
+      Caso SOL_VUSERDATA:
+        assert(gco2u(o)->nuvalue > 0);
+        o = gco2u(o)->gclist;
+        Interrompa;
+      Padrão: assert(0);  /* other objects cannot be in a gray list */
+    }
+  }
+  Retorne total;
+}
+
+
+/*
+** Check objects in gray lists.
+*/
+Fixo l_mem checkgrays (global_State *g) {
+  l_mem total = 0;  /* count number of elements in all lists */
+  Se (!keepinvariant(g)) Retorne total;
+  total += checkgraylist(g, g->gray);
+  total += checkgraylist(g, g->grayagain);
+  total += checkgraylist(g, g->weak);
+  total += checkgraylist(g, g->allweak);
+  total += checkgraylist(g, g->ephemeron);
+  Retorne total;
+}
+
+
+/*
+** Check whether 'o' should be in a gray list. If so, increment
+** 'count' and check its TESTBIT. (It must have been previously set by
+** 'checkgraylist'.)
+*/
+Fixo Vazio incifingray (global_State *g, GCObject *o, l_mem *count) {
+  Se (!keepinvariant(g))
+    Retorne;  /* gray lists not being kept in these phases */
+  Se (o->tt == SOL_VUPVAL) {
+    /* only open upvalues can be gray */
+    assert(!isgray(o) || upisopen(gco2upv(o)));
+    Retorne;  /* upvalues are never in gray lists */
+  }
+  /* these are the ones that must be in gray lists */
+  Se (isgray(o) || getage(o) == G_TOUCHED2) {
+    (*count)++;
+    assert(testbit(o->marked, TESTBIT));
+    resetbit(o->marked, TESTBIT);  /* prepare Para next cycle */
+  }
+}
+
+
+Fixo l_mem checklist (global_State *g, Inteiro maybedead, Inteiro tof,
+  GCObject *newl, GCObject *survival, GCObject *old, GCObject *reallyold) {
+  GCObject *o;
+  l_mem total = 0;  /* number of object that should be in  gray lists */
+  Para (o = newl; o != survival; o = o->next) {
+    checkobject(g, o, maybedead, G_NEW);
+    incifingray(g, o, &total);
+    assert(!tof == !tofinalize(o));
+  }
+  Para (o = survival; o != old; o = o->next) {
+    checkobject(g, o, 0, G_SURVIVAL);
+    incifingray(g, o, &total);
+    assert(!tof == !tofinalize(o));
+  }
+  Para (o = old; o != reallyold; o = o->next) {
+    checkobject(g, o, 0, G_OLD1);
+    incifingray(g, o, &total);
+    assert(!tof == !tofinalize(o));
+  }
+  Para (o = reallyold; o != NULL; o = o->next) {
+    checkobject(g, o, 0, G_OLD);
+    incifingray(g, o, &total);
+    assert(!tof == !tofinalize(o));
+  }
+  Retorne total;
+}
+
+
+Inteiro sol_checkmemory (sol_State *L) {
+  global_State *g = G(L);
+  GCObject *o;
+  Inteiro maybedead;
+  l_mem totalin;  /* total of objects that are in gray lists */
+  l_mem totalshould;  /* total of objects that should be in gray lists */
+  Se (keepinvariant(g)) {
+    assert(!iswhite(mainthread(g)));
+    assert(!iswhite(gcvalue(&g->l_registry)));
+  }
+  assert(!isdead(g, gcvalue(&g->l_registry)));
+  assert(g->sweepgc == NULL || issweepphase(g));
+  totalin = checkgrays(g);
+
+  /* check 'fixedgc' list */
+  Para (o = g->fixedgc; o != NULL; o = o->next) {
+    assert(o->tt == SOL_VSHRSTR && isgray(o) && getage(o) == G_OLD);
+  }
+
+  /* check 'allgc' list */
+  maybedead = (GCSatomic < g->gcstate && g->gcstate <= GCSswpallgc);
+  totalshould = checklist(g, maybedead, 0, g->allgc,
+                             g->survival, g->old1, g->reallyold);
+
+  /* check 'finobj' list */
+  totalshould += checklist(g, 0, 1, g->finobj,
+                              g->finobjsur, g->finobjold1, g->finobjrold);
+
+  /* check 'tobefnz' list */
+  Para (o = g->tobefnz; o != NULL; o = o->next) {
+    checkobject(g, o, 0, G_NEW);
+    incifingray(g, o, &totalshould);
+    assert(tofinalize(o));
+    assert(o->tt == SOL_VUSERDATA || o->tt == SOL_VTABLE);
+  }
+  Se (keepinvariant(g))
+    assert(totalin == totalshould);
+  Retorne 0;
+}
+
+/* }====================================================== */
+
+
+
+/*
+** {======================================================
+** Disassembler
+** =======================================================
+*/
+
+
+Fixo Caractere *buildop (Proto *p, Inteiro pc, Caractere *buff) {
+  Caractere *obuff = buff;
+  Instruction i = p->code[pc];
+  OpCode o = GET_OPCODE(i);
+  Imutável Caractere *name = opnames[o];
+  Inteiro Linha = sol_g_getfuncline(p, pc);
+  Inteiro lineinfo = (p->lineinfo != NULL) ? p->lineinfo[pc] : 0;
+  Se (lineinfo == ABSLINEINFO)
+    buff += sprintf(buff, "(__");
+  Senão
+    buff += sprintf(buff, "(%2d", lineinfo);
+  buff += sprintf(buff, " - %4d) %4d - ", Linha, pc);
+  Troque (getOpMode(o)) {
+    Caso iABC:
+      sprintf(buff, "%-12s%4d %4d %4d%s", name,
+              GETARG_A(i), GETARG_B(i), GETARG_C(i),
+              GETARG_k(i) ? " (k)" : "");
+      Interrompa;
+    Caso ivABC:
+      sprintf(buff, "%-12s%4d %4d %4d%s", name,
+              GETARG_A(i), GETARG_vB(i), GETARG_vC(i),
+              GETARG_k(i) ? " (k)" : "");
+      Interrompa;
+    Caso iABx:
+      sprintf(buff, "%-12s%4d %4d", name, GETARG_A(i), GETARG_Bx(i));
+      Interrompa;
+    Caso iAsBx:
+      sprintf(buff, "%-12s%4d %4d", name, GETARG_A(i), GETARG_sBx(i));
+      Interrompa;
+    Caso iAx:
+      sprintf(buff, "%-12s%4d", name, GETARG_Ax(i));
+      Interrompa;
+    Caso isJ:
+      sprintf(buff, "%-12s%4d", name, GETARG_sJ(i));
+      Interrompa;
+  }
+  Retorne obuff;
+}
+
+
+#Se 0
+Vazio solI_printcode (Proto *pt, Inteiro size) {
+  Inteiro pc;
+  Para (pc=0; pc<size; pc++) {
+    Caractere buff[100];
+    printf("%s\n", buildop(pt, pc, buff));
+  }
+  printf("-------\n");
+}
+
+
+Vazio solI_printinst (Proto *pt, Inteiro pc) {
+  Caractere buff[100];
+  printf("%s\n", buildop(pt, pc, buff));
+}
+#FimSe
+
+
+Fixo Inteiro listcode (sol_State *L) {
+  Inteiro pc;
+  Proto *p;
+  sol_argcheck(L, sol_isfunction(L, 1) && !sol_iscfunction(L, 1),
+                 1, "Sol function expected");
+  p = getproto(obj_at(L, 1));
+  sol_newtable(L);
+  setnameval(L, "maxstack", p->maxstacksize);
+  setnameval(L, "numparams", p->numparams);
+  Para (pc=0; pc<p->sizecode; pc++) {
+    Caractere buff[100];
+    sol_pushinteger(L, pc+1);
+    sol_pushstring(L, buildop(p, pc, buff));
+    sol_settable(L, -3);
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro printcode (sol_State *L) {
+  Inteiro pc;
+  Proto *p;
+  sol_argcheck(L, sol_isfunction(L, 1) && !sol_iscfunction(L, 1),
+                 1, "Sol function expected");
+  p = getproto(obj_at(L, 1));
+  printf("maxstack: %d\n", p->maxstacksize);
+  printf("numparams: %d\n", p->numparams);
+  Para (pc=0; pc<p->sizecode; pc++) {
+    Caractere buff[100];
+    printf("%s\n", buildop(p, pc, buff));
+  }
+  Retorne 0;
+}
+
+
+Fixo Inteiro listk (sol_State *L) {
+  Proto *p;
+  Inteiro i;
+  sol_argcheck(L, sol_isfunction(L, 1) && !sol_iscfunction(L, 1),
+                 1, "Sol function expected");
+  p = getproto(obj_at(L, 1));
+  sol_createtable(L, p->sizek, 0);
+  Para (i=0; i<p->sizek; i++) {
+    pushobject(L, p->k+i);
+    sol_rawseti(L, -2, i+1);
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro listabslineinfo (sol_State *L) {
+  Proto *p;
+  Inteiro i;
+  sol_argcheck(L, sol_isfunction(L, 1) && !sol_iscfunction(L, 1),
+                 1, "Sol function expected");
+  p = getproto(obj_at(L, 1));
+  sol_argcheck(L, p->abslineinfo != NULL, 1, "function has no debug info");
+  sol_createtable(L, 2 * p->sizeabslineinfo, 0);
+  Para (i=0; i < p->sizeabslineinfo; i++) {
+    sol_pushinteger(L, p->abslineinfo[i].pc);
+    sol_rawseti(L, -2, 2 * i + 1);
+    sol_pushinteger(L, p->abslineinfo[i].Linha);
+    sol_rawseti(L, -2, 2 * i + 2);
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro listlocals (sol_State *L) {
+  Proto *p;
+  Inteiro pc = cast_int(sol_checkinteger(L, 2)) - 1;
+  Inteiro i = 0;
+  Imutável Caractere *name;
+  sol_argcheck(L, sol_isfunction(L, 1) && !sol_iscfunction(L, 1),
+                 1, "Sol function expected");
+  p = getproto(obj_at(L, 1));
+  Enquanto ((name = sol_f_getlocalname(p, ++i, pc)) != NULL)
+    sol_pushstring(L, name);
+  Retorne i-1;
+}
+
+/* }====================================================== */
+
+
+
+Vazio sol_printstack (sol_State *L) {
+  Inteiro i;
+  Inteiro n = sol_gettop(L);
+  printf("stack: >>\n");
+  Para (i = 1; i <= n; i++) {
+    printf("%3d: ", i);
+    sol_printvalue(s2v(L->ci->func.p + i));
+    printf("\n");
+  }
+  printf("<<\n");
+}
+
+
+Inteiro sol_printallstack (sol_State *L) {
+  StkId p;
+  Inteiro i = 1;
+  CallInfo *ci = &L->base_ci;
+  printf("stack: >>\n");
+  Para (p = L->stack.p; p < L->top.p; p++) {
+    Se (ci != NULL && p == ci->func.p) {
+      printf("  ---\n");
+      Se (ci == L->ci)
+        ci = NULL;  /* printed last frame */
+      Senão
+        ci = ci->next;
+    }
+    printf("%3d: ", i++);
+    sol_printvalue(s2v(p));
+    printf("\n");
+  }
+  printf("<<\n");
+  Retorne 0;
+}
+
+
+Fixo Inteiro get_limits (sol_State *L) {
+  sol_createtable(L, 0, 5);
+  setnameval(L, "IS32INT", SOL_IS32INT);
+  setnameval(L, "MAXARG_Ax", MAXARG_Ax);
+  setnameval(L, "MAXARG_Bx", MAXARG_Bx);
+  setnameval(L, "OFFSET_sBx", OFFSET_sBx);
+  setnameval(L, "NUM_OPCODES", NUM_OPCODES);
+  Retorne 1;
+}
+
+
+Fixo Inteiro get_sizes (sol_State *L) {
+  sol_newtable(L);
+  setnameval(L, "Sol state", Meça(sol_State));
+  setnameval(L, "global state", Meça(global_State));
+  setnameval(L, "TValue", Meça(TValue));
+  setnameval(L, "Node", Meça(Node));
+  setnameval(L, "stack Value", Meça(StackValue));
+  Retorne 1;
+}
+
+
+Fixo Inteiro mem_query (sol_State *L) {
+  Se (sol_isnone(L, 1)) {
+    sol_pushinteger(L, cast_Integer(l_memcontrol.total));
+    sol_pushinteger(L, cast_Integer(l_memcontrol.numblocks));
+    sol_pushinteger(L, cast_Integer(l_memcontrol.maxmem));
+    Retorne 3;
+  }
+  Senão Se (sol_isnumber(L, 1)) {
+    Natural Longo limit = cast(Natural Longo, sol_checkinteger(L, 1));
+    Se (limit == 0) limit = ULONG_MAX;
+    l_memcontrol.memlimit = limit;
+    Retorne 0;
+  }
+  Senão {
+    Imutável Caractere *t = sol_checkstring(L, 1);
+    Inteiro i;
+    Para (i = SOL_NUMTYPES - 1; i >= 0; i--) {
+      Se (strcmp(t, ttypename(i)) == 0) {
+        sol_pushinteger(L, cast_Integer(l_memcontrol.objcount[i]));
+        Retorne 1;
+      }
+    }
+    Retorne solL_error(L, "unknown type '%s'", t);
+  }
+}
+
+
+Fixo Inteiro alloc_count (sol_State *L) {
+  Se (sol_isnone(L, 1))
+    l_memcontrol.countlimit = cast(Natural Longo, ~0L);
+  Senão
+    l_memcontrol.countlimit = cast(Natural Longo, sol_checkinteger(L, 1));
+  Retorne 0;
+}
+
+
+Fixo Inteiro alloc_failnext (sol_State *L) {
+  UNUSED(L);
+  l_memcontrol.failnext = 1;
+  Retorne 0;
+}
+
+
+Fixo Inteiro settrick (sol_State *L) {
+  Se (ttisnil(obj_at(L, 1)))
+    l_Trick = NULL;
+  Senão
+    l_Trick = gcvalue(obj_at(L, 1));
+  Retorne 0;
+}
+
+
+Fixo Inteiro gc_color (sol_State *L) {
+  TValue *o;
+  sol_checkany(L, 1);
+  o = obj_at(L, 1);
+  Se (!iscollectable(o))
+    sol_pushstring(L, "no collectable");
+  Senão {
+    GCObject *obj = gcvalue(o);
+    sol_pushstring(L, isdead(G(L), obj) ? "dead" :
+                      iswhite(obj) ? "white" :
+                      isblack(obj) ? "black" : "gray");
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro gc_age (sol_State *L) {
+  TValue *o;
+  sol_checkany(L, 1);
+  o = obj_at(L, 1);
+  Se (!iscollectable(o))
+    sol_pushstring(L, "no collectable");
+  Senão {
+    Fixo Imutável Caractere *gennames[] = {"new", "survival", "old0", "old1",
+                                     "old", "touched1", "touched2"};
+    GCObject *obj = gcvalue(o);
+    sol_pushstring(L, gennames[getage(obj)]);
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro gc_printobj (sol_State *L) {
+  TValue *o;
+  sol_checkany(L, 1);
+  o = obj_at(L, 1);
+  Se (!iscollectable(o))
+    printf("no collectable\n");
+  Senão {
+    GCObject *obj = gcvalue(o);
+    printobj(G(L), obj);
+    printf("\n");
+  }
+  Retorne 0;
+}
+
+
+Fixo Imutável Caractere *Imutável statenames[] = {
+  "propagate", "enteratomic", "atomic", "sweepallgc", "sweepfinobj",
+  "sweeptobefnz", "sweepend", "callfin", "pause", ""};
+
+Fixo Inteiro gc_state (sol_State *L) {
+  Fixo Imutável Inteiro states[] = {
+    GCSpropagate, GCSenteratomic, GCSatomic, GCSswpallgc, GCSswpfinobj,
+    GCSswptobefnz, GCSswpend, GCScallfin, GCSpause, -1};
+  Inteiro option = states[sol_checkoption(L, 1, "", statenames)];
+  global_State *g = G(L);
+  Se (option == -1) {
+    sol_pushstring(L, statenames[g->gcstate]);
+    Retorne 1;
+  }
+  Senão {
+    Se (g->gckind != KGC_INC)
+      solL_error(L, "cannot change states in generational mode");
+    sol_lock(L);
+    Se (option < g->gcstate) {  /* must cross 'pause'? */
+      sol_c_runtilstate(L, GCSpause, 1);  /* run until pause */
+    }
+    sol_c_runtilstate(L, option, 0);  /* Faça not skip propagation state */
+    sol_assert(g->gcstate == option);
+    sol_unlock(L);
+    Retorne 0;
+  }
+}
+
+
+Fixo Inteiro tracinggc = 0;
+Vazio sol_tracegctest (sol_State *L, Inteiro first) {
+  Se (!tracinggc) Retorne;
+  Senão {
+    global_State *g = G(L);
+    sol_unlock(L);
+    g->gcstp = GCSTPGC;
+    sol_checkstack(L, 10);
+    sol_getfield(L, SOL_REGISTRYINDEX, "tracegc");
+    sol_pushboolean(L, first);
+    sol_call(L, 1, 0);
+    g->gcstp = 0;
+    sol_lock(L);
+  }
+}
+
+
+Fixo Inteiro tracegc (sol_State *L) {
+  Se (sol_isnil(L, 1))
+    tracinggc = 0;
+  Senão {
+    tracinggc = 1;
+    sol_setfield(L, SOL_REGISTRYINDEX, "tracegc");
+  }
+  Retorne 0;
+}
+
+
+Fixo Inteiro hash_query (sol_State *L) {
+  Se (sol_isnone(L, 2)) {
+    TString *ts;
+    sol_argcheck(L, sol_type(L, 1) == SOL_TSTRING, 1, "string expected");
+    ts = tsvalue(obj_at(L, 1));
+    Se (ts->tt == SOL_VLNGSTR)
+      sol_s_hashlongstr(ts);  /* make sure Longo string has a hash */
+    sol_pushinteger(L, cast_int(ts->hash));
+  }
+  Senão {
+    TValue *o = obj_at(L, 1);
+    Table *t;
+    sol_checktype(L, 2, SOL_TTABLE);
+    t = hvalue(obj_at(L, 2));
+    sol_pushinteger(L, cast_Integer(sol_h_mainposition(t, o) - t->node));
+  }
+  Retorne 1;
+}
+
+
+Fixo Inteiro stacklevel (sol_State *L) {
+  Inteiro a = 0;
+  sol_pushinteger(L, cast_Integer(L->top.p - L->stack.p));
+  sol_pushinteger(L, stacksize(L));
+  sol_pushinteger(L, cast_Integer(L->nCcalls));
+  sol_pushinteger(L, L->nci);
+  sol_pushinteger(L, (sol_Integer)(size_t)&a);
+  Retorne 5;
+}
+
+
+Fixo Inteiro table_query (sol_State *L) {
+  Imutável Table *t;
+  Inteiro i = cast_int(sol_optinteger(L, 2, -1));
+  Natural Inteiro asize;
+  sol_checktype(L, 1, SOL_TTABLE);
+  t = hvalue(obj_at(L, 1));
+  asize = t->asize;
+  Se (i == -1) {
+    sol_pushinteger(L, cast_Integer(asize));
+    sol_pushinteger(L, cast_Integer(allocsizenode(t)));
+    sol_pushinteger(L, cast_Integer(asize > 0 ? *lenhint(t) : 0));
+    Retorne 3;
+  }
+  Senão Se (cast_uint(i) < asize) {
+    sol_pushinteger(L, i);
+    Se (!tagisempty(*getArrTag(t, i)))
+      arr2obj(t, cast_uint(i), s2v(L->top.p));
+    Senão
+      setnilvalue(s2v(L->top.p));
+    api_incr_top(L);
+    sol_pushnil(L);
+  }
+  Senão Se (cast_uint(i -= cast_int(asize)) < sizenode(t)) {
+    TValue k;
+    getnodekey(L, &k, gnode(t, i));
+    Se (!isempty(gval(gnode(t, i))) ||
+        ttisnil(&k) ||
+        ttisnumber(&k)) {
+      pushobject(L, &k);
+    }
+    Senão
+      sol_pushliteral(L, "<Esqueça>");
+    Se (!isempty(gval(gnode(t, i))))
+      pushobject(L, gval(gnode(t, i)));
+    Senão
+      sol_pushnil(L);
+    sol_pushinteger(L, gnext(&t->node[i]));
+  }
+  Retorne 3;
+}
+
+
+Fixo Inteiro gc_query (sol_State *L) {
+  global_State *g = G(L);
+  sol_pushstring(L, g->gckind == KGC_INC ? "inc"
+                  : g->gckind == KGC_GENMAJOR ? "genmajor"
+                  : "genminor");
+  sol_pushstring(L, statenames[g->gcstate]);
+  sol_pushinteger(L, cast_st2S(gettotalbytes(g)));
+  sol_pushinteger(L, cast_st2S(g->GCdebt));
+  sol_pushinteger(L, cast_st2S(g->GCmarked));
+  sol_pushinteger(L, cast_st2S(g->GCmajorminor));
+  Retorne 6;
+}
+
+
+Fixo Inteiro test_codeparam (sol_State *L) {
+  sol_Integer p = sol_checkinteger(L, 1);
+  sol_pushinteger(L, sol_o_codeparam(cast_uint(p)));
+  Retorne 1;
+}
+
+
+Fixo Inteiro test_applyparam (sol_State *L) {
+  sol_Integer p = sol_checkinteger(L, 1);
+  sol_Integer x = sol_checkinteger(L, 2);
+  sol_pushinteger(L, cast_Integer(sol_o_applyparam(cast_byte(p), x)));
+  Retorne 1;
+}
+
+
+Fixo Inteiro string_query (sol_State *L) {
+  stringtable *tb = &G(L)->strt;
+  Inteiro s = cast_int(sol_optinteger(L, 1, 0)) - 1;
+  Se (s == -1) {
+    sol_pushinteger(L ,tb->size);
+    sol_pushinteger(L ,tb->nuse);
+    Retorne 2;
+  }
+  Senão Se (s < tb->size) {
+    TString *ts;
+    Inteiro n = 0;
+    Para (ts = tb->hash[s]; ts != NULL; ts = ts->u.hnext) {
+      setsvalue2s(L, L->top.p, ts);
+      api_incr_top(L);
+      n++;
+    }
+    Retorne n;
+  }
+  Senão Retorne 0;
+}
+
+
+Fixo Inteiro getreftable (sol_State *L) {
+  Se (sol_istable(L, 2))  /* is there a table as second argument? */
+    Retorne 2;  /* use it as the table */
+  Senão
+    Retorne SOL_REGISTRYINDEX;  /* Padrão is to use the Registrador */
+}
+
+
+Fixo Inteiro tref (sol_State *L) {
+  Inteiro t = getreftable(L);
+  Inteiro level = sol_gettop(L);
+  sol_checkany(L, 1);
+  sol_pushvalue(L, 1);
+  sol_pushinteger(L, sol_ref(L, t));
+  cast_void(level);  /* to avoid warnings */
+  sol_assert(sol_gettop(L) == level+1);  /* +1 Para result */
+  Retorne 1;
+}
+
+
+Fixo Inteiro getref (sol_State *L) {
+  Inteiro t = getreftable(L);
+  Inteiro level = sol_gettop(L);
+  sol_rawgeti(L, t, sol_checkinteger(L, 1));
+  cast_void(level);  /* to avoid warnings */
+  sol_assert(sol_gettop(L) == level+1);
+  Retorne 1;
+}
+
+Fixo Inteiro unref (sol_State *L) {
+  Inteiro t = getreftable(L);
+  Inteiro level = sol_gettop(L);
+  sol_unref(L, t, cast_int(sol_checkinteger(L, 1)));
+  cast_void(level);  /* to avoid warnings */
+  sol_assert(sol_gettop(L) == level);
+  Retorne 0;
+}
+
+
+Fixo Inteiro upvalue (sol_State *L) {
+  Inteiro n = cast_int(sol_checkinteger(L, 2));
+  sol_checktype(L, 1, SOL_TFUNCTION);
+  Se (sol_isnone(L, 3)) {
+    Imutável Caractere *name = sol_getupvalue(L, 1, n);
+    Se (name == NULL) Retorne 0;
+    sol_pushstring(L, name);
+    Retorne 2;
+  }
+  Senão {
+    Imutável Caractere *name = sol_setupvalue(L, 1, n);
+    sol_pushstring(L, name);
+    Retorne 1;
+  }
+}
+
+
+Fixo Inteiro newuserdata (sol_State *L) {
+  size_t size = cast_sizet(sol_optinteger(L, 1, 0));
+  Inteiro nuv = cast_int(sol_optinteger(L, 2, 0));
+  Caractere *p = cast_charp(sol_newuserdatauv(L, size, nuv));
+  Enquanto (size--) *p++ = '\0';
+  Retorne 1;
+}
+
+
+Fixo Inteiro pushuserdata (sol_State *L) {
+  sol_Integer u = sol_checkinteger(L, 1);
+  sol_pushlightuserdata(L, cast_voidp(cast_sizet(u)));
+  Retorne 1;
+}
+
+
+Fixo Inteiro udataval (sol_State *L) {
+  sol_pushinteger(L, cast_st2S(cast_sizet(sol_touserdata(L, 1))));
+  Retorne 1;
+}
+
+
+Fixo Inteiro doonnewstack (sol_State *L) {
+  sol_State *L1 = sol_newthread(L);
+  size_t l;
+  Imutável Caractere *s = sol_checklstring(L, 1, &l);
+  Inteiro status = sol_loadbuffer(L1, s, l, s);
+  Se (status == SOL_OK)
+    status = sol_pcall(L1, 0, 0, 0);
+  sol_pushinteger(L, status);
+  Retorne 1;
+}
+
+
+Fixo Inteiro s2d (sol_State *L) {
+  sol_pushnumber(L, cast_num(*cast(Imutável Duplo *, sol_checkstring(L, 1))));
+  Retorne 1;
+}
+
+
+Fixo Inteiro d2s (sol_State *L) {
+  Duplo d = cast(Duplo, sol_checknumber(L, 1));
+  sol_pushlstring(L, cast_charp(&d), Meça(d));
+  Retorne 1;
+}
+
+
+Fixo Inteiro num2int (sol_State *L) {
+  sol_pushinteger(L, sol_tointeger(L, 1));
+  Retorne 1;
+}
+
+
+Fixo Inteiro makeseed (sol_State *L) {
+  sol_pushinteger(L, cast_Integer(sol_makeseed(L)));
+  Retorne 1;
+}
+
+
+Fixo Inteiro newstate (sol_State *L) {
+  Vazio *ud;
+  sol_Alloc f = sol_getallocf(L, &ud);
+  sol_State *L1 = sol_newstate(f, ud, 0);
+  Se (L1) {
+    sol_atpanic(L1, tpanic);
+    sol_pushlightuserdata(L, L1);
+  }
+  Senão
+    sol_pushnil(L);
+  Retorne 1;
+}
+
+
+Fixo sol_State *getstate (sol_State *L) {
+  sol_State *L1 = cast(sol_State *, sol_touserdata(L, 1));
+  sol_argcheck(L, L1 != NULL, 1, "state expected");
+  Retorne L1;
+}
+
+
+Fixo Inteiro loadlib (sol_State *L) {
+  sol_State *L1 = getstate(L);
+  Inteiro load = cast_int(sol_checkinteger(L, 2));
+  Inteiro preload = cast_int(sol_checkinteger(L, 3));
+  sol_openselectedlibs(L1, load, preload);
+  sol_requiref(L1, "T", solB_opentests, 0);
+  sol_assert(sol_type(L1, -1) == SOL_TTABLE);
+  /* 'requiref' should not reload module already loaded... */
+  sol_requiref(L1, "T", NULL, 1);  /* seg. fault Se it reloads */
+  /* ...but should Retorne the same module */
+  sol_assert(sol_compare(L1, -1, -2, SOL_OPEQ));
+  Retorne 0;
+}
+
+Fixo Inteiro closestate (sol_State *L) {
+  sol_State *L1 = getstate(L);
+  sol_close(L1);
+  Retorne 0;
+}
+
+Fixo Inteiro doremote (sol_State *L) {
+  sol_State *L1 = getstate(L);
+  size_t lcode;
+  Imutável Caractere *code = sol_checklstring(L, 2, &lcode);
+  Inteiro status;
+  sol_settop(L1, 0);
+  status = sol_loadbuffer(L1, code, lcode, code);
+  Se (status == SOL_OK)
+    status = sol_pcall(L1, 0, SOL_MULTRET, 0);
+  Se (status != SOL_OK) {
+    sol_pushnil(L);
+    sol_pushstring(L, sol_tostring(L1, -1));
+    sol_pushinteger(L, status);
+    Retorne 3;
+  }
+  Senão {
+    Inteiro i = 0;
+    Enquanto (!sol_isnone(L1, ++i))
+      sol_pushstring(L, sol_tostring(L1, i));
+    sol_pop(L1, i-1);
+    Retorne i-1;
+  }
+}
+
+
+Fixo Inteiro log2_aux (sol_State *L) {
+  Natural Inteiro x = (Natural Inteiro)sol_checkinteger(L, 1);
+  sol_pushinteger(L, sol_o_ceillog2(x));
+  Retorne 1;
+}
+
+
+Estrutura Aux { jmp_buf jb; Imutável Caractere *paniccode; sol_State *L; };
+
+/*
+** does a Longo-jump back to "main program".
+*/
+Fixo Inteiro panicback (sol_State *L) {
+  Estrutura Aux *b;
+  sol_checkstack(L, 1);  /* open space Para 'Aux' Estrutura */
+  sol_getfield(L, SOL_REGISTRYINDEX, "_jmpbuf");  /* get 'Aux' Estrutura */
+  b = (Estrutura Aux *)sol_touserdata(L, -1);
+  sol_pop(L, 1);  /* remove 'Aux' Estrutura */
+  runC(b->L, L, b->paniccode);  /* run optional panic code */
+  longjmp(b->jb, 1);
+  Retorne 1;  /* to avoid warnings */
+}
+
+Fixo Inteiro checkpanic (sol_State *L) {
+  Estrutura Aux b;
+  Vazio *ud;
+  sol_State *L1;
+  Imutável Caractere *code = sol_checkstring(L, 1);
+  sol_Alloc f = sol_getallocf(L, &ud);
+  b.paniccode = sol_optstring(L, 2, "");
+  b.L = L;
+  L1 = sol_newstate(f, ud, 0);  /* create new state */
+  Se (L1 == NULL) {  /* Erro? */
+    sol_pushstring(L, MEMERRMSG);
+    Retorne 1;
+  }
+  sol_atpanic(L1, panicback);  /* set its panic function */
+  sol_pushlightuserdata(L1, &b);
+  sol_setfield(L1, SOL_REGISTRYINDEX, "_jmpbuf");  /* store 'Aux' Estrutura */
+  Se (setjmp(b.jb) == 0) {  /* set jump buffer */
+    runC(L, L1, code);  /* run code unprotected */
+    sol_pushliteral(L, "no errors");
+  }
+  Senão {  /* Erro handling */
+    /* move Erro message to original state */
+    sol_pushstring(L, sol_tostring(L1, -1));
+  }
+  sol_close(L1);
+  Retorne 1;
+}
+
+
+Fixo Inteiro externKstr (sol_State *L) {
+  size_t len;
+  Imutável Caractere *s = sol_checklstring(L, 1, &len);
+  sol_pushexternalstring(L, s, len, NULL, NULL);
+  Retorne 1;
+}
+
+
+/*
+** Create a buffer with the content of a given string and then
+** create an external string using that buffer. Use the allocation
+** function from Sol to create and free the buffer.
+*/
+Fixo Inteiro externstr (sol_State *L) {
+  size_t len;
+  Imutável Caractere *s = sol_checklstring(L, 1, &len);
+  Vazio *ud;
+  sol_Alloc allocf = sol_getallocf(L, &ud);  /* get allocation function */
+  /* create the buffer */
+  Caractere *buff = cast_charp((*allocf)(ud, NULL, 0, len + 1));
+  Se (buff == NULL) {  /* memory Erro? */
+    sol_pushliteral(L, "memória insuficiente");
+    sol_error(L);  /* raise a memory Erro */
+  }
+  /* copy string content to buffer, including ending 0 */
+  memcpy(buff, s, (len + 1) * Meça(Caractere));
+  /* create external string */
+  sol_pushexternalstring(L, buff, len, allocf, ud);
+  Retorne 1;
+}
+
+
+/*
+** {====================================================================
+** function to test the API with C. It interprets a kind of assembler
+** language with calls to the API, so the test can be driven by Sol code
+** =====================================================================
+*/
+
+
+Fixo Vazio sethookaux (sol_State *L, Inteiro mask, Inteiro count, Imutável Caractere *code);
+
+Fixo Imutável Caractere *Imutável delimits = " \t\n,;";
+
+Fixo Vazio skip (Imutável Caractere **pc) {
+  Para (;;) {
+    Se (**pc != '\0' && strchr(delimits, **pc)) (*pc)++;
+    Senão Se (**pc == '#') {  /* comment? */
+      Enquanto (**pc != '\n' && **pc != '\0') (*pc)++;  /* until end-of-Linha */
+    }
+    Senão Interrompa;
+  }
+}
+
+Fixo Inteiro getnum_aux (sol_State *L, sol_State *L1, Imutável Caractere **pc) {
+  Inteiro res = 0;
+  Inteiro sig = 1;
+  skip(pc);
+  Se (**pc == '.') {
+    res = cast_int(sol_tointeger(L1, -1));
+    sol_pop(L1, 1);
+    (*pc)++;
+    Retorne res;
+  }
+  Senão Se (**pc == '*') {
+    res = sol_gettop(L1);
+    (*pc)++;
+    Retorne res;
+  }
+  Senão Se (**pc == '!') {
+    (*pc)++;
+    Se (**pc == 'G')
+      res = SOL_RIDX_GLOBALS;
+    Senão Se (**pc == 'M')
+      res = SOL_RIDX_MAINTHREAD;
+    Senão sol_assert(0);
+    (*pc)++;
+    Retorne res;
+  }
+  Senão Se (**pc == '-') {
+    sig = -1;
+    (*pc)++;
+  }
+  Se (!lisdigit(cast_uchar(**pc)))
+    solL_error(L, "number expected (%s)", *pc);
+  Enquanto (lisdigit(cast_uchar(**pc))) res = res*10 + (*(*pc)++) - '0';
+  Retorne sig*res;
+}
+
+Fixo Imutável Caractere *getstring_aux (sol_State *L, Caractere *buff, Imutável Caractere **pc) {
+  Inteiro i = 0;
+  skip(pc);
+  Se (**pc == '"' || **pc == '\'') {  /* quoted string? */
+    Inteiro quote = *(*pc)++;
+    Enquanto (**pc != quote) {
+      Se (**pc == '\0') solL_error(L, "unfinished string in C script");
+      buff[i++] = *(*pc)++;
+    }
+    (*pc)++;
+  }
+  Senão {
+    Enquanto (**pc != '\0' && !strchr(delimits, **pc))
+      buff[i++] = *(*pc)++;
+  }
+  buff[i] = '\0';
+  Retorne buff;
+}
+
+
+Fixo Inteiro getindex_aux (sol_State *L, sol_State *L1, Imutável Caractere **pc) {
+  skip(pc);
+  Troque (*(*pc)++) {
+    Caso 'R': Retorne SOL_REGISTRYINDEX;
+    Caso 'U': Retorne sol_upvalueindex(getnum_aux(L, L1, pc));
+    Padrão: {
+      Inteiro n;
+      (*pc)--;  /* to read again */
+      n = getnum_aux(L, L1, pc);
+      Se (n == 0) Retorne 0;
+      Senão Retorne sol_absindex(L1, n);
+    }
+  }
+}
+
+
+Fixo Imutável Caractere *Imutável statcodes[] = {"OK", "YIELD", "ERRRUN",
+    "ERRSYNTAX", MEMERRMSG, "ERRERR"};
+
+/*
+** Avoid these stat codes from being collected, to avoid possible
+** memory Erro when pushing them.
+*/
+Fixo Vazio regcodes (sol_State *L) {
+  Natural Inteiro i;
+  Para (i = 0; i < Meça(statcodes) / Meça(statcodes[0]); i++) {
+    sol_pushboolean(L, 1);
+    sol_setfield(L, SOL_REGISTRYINDEX, statcodes[i]);
+  }
+}
+
+
+#Defina EQ(s1)	(strcmp(s1, inst) == 0)
+
+#Defina getnum		(getnum_aux(L, L1, &pc))
+#Defina getstring	(getstring_aux(L, buff, &pc))
+#Defina getindex	(getindex_aux(L, L1, &pc))
+
+
+Fixo Inteiro testC (sol_State *L);
+Fixo Inteiro Cfunck (sol_State *L, Inteiro status, sol_KContext ctx);
+
+/*
+** arithmetic operation encoding Para 'arith' instruction
+** SOL_OPIDIV  -> \
+** SOL_OPSHL   -> <
+** SOL_OPSHR   -> >
+** SOL_OPUNM   -> _
+** SOL_OPBNOT  -> !
+*/
+Fixo Imutável Caractere ops[] = "+-*%^/\\&|~<>_!";
+
+Fixo Inteiro runC (sol_State *L, sol_State *L1, Imutável Caractere *pc) {
+  Caractere buff[300];
+  Inteiro status = 0;
+  Se (pc == NULL) Retorne solL_error(L, "attempt to runC null script");
+  Para (;;) {
+    Imutável Caractere *inst = getstring;
+    Se EQ("") Retorne 0;
+    Senão Se EQ("absindex") {
+      sol_pushinteger(L1, getindex);
+    }
+    Senão Se EQ("append") {
+      Inteiro t = getindex;
+      Inteiro i = cast_int(sol_rawlen(L1, t));
+      sol_rawseti(L1, t, i + 1);
+    }
+    Senão Se EQ("arith") {
+      Inteiro op;
+      skip(&pc);
+      op = cast_int(strchr(ops, *pc++) - ops);
+      sol_arith(L1, op);
+    }
+    Senão Se EQ("call") {
+      Inteiro narg = getnum;
+      Inteiro nres = getnum;
+      sol_call(L1, narg, nres);
+    }
+    Senão Se EQ("callk") {
+      Inteiro narg = getnum;
+      Inteiro nres = getnum;
+      Inteiro i = getindex;
+      sol_callk(L1, narg, nres, i, Cfunck);
+    }
+    Senão Se EQ("checkstack") {
+      Inteiro sz = getnum;
+      Imutável Caractere *msg = getstring;
+      Se (*msg == '\0')
+        msg = NULL;  /* to test 'sol_checkstack' with no message */
+      sol_checkstack(L1, sz, msg);
+    }
+    Senão Se EQ("rawcheckstack") {
+      Inteiro sz = getnum;
+      sol_pushboolean(L1, sol_checkstack(L1, sz));
+    }
+    Senão Se EQ("compare") {
+      Imutável Caractere *opt = getstring;  /* EQ, LT, or LE */
+      Inteiro op = (opt[0] == 'E') ? SOL_OPEQ
+                               : (opt[1] == 'T') ? SOL_OPLT : SOL_OPLE;
+      Inteiro a = getindex;
+      Inteiro b = getindex;
+      sol_pushboolean(L1, sol_compare(L1, a, b, op));
+    }
+    Senão Se EQ("concat") {
+      sol_concat(L1, getnum);
+    }
+    Senão Se EQ("copy") {
+      Inteiro f = getindex;
+      sol_copy(L1, f, getindex);
+    }
+    Senão Se EQ("func2num") {
+      sol_CFunction func = sol_tocfunction(L1, getindex);
+      sol_pushinteger(L1, cast_st2S(cast_sizet(func)));
+    }
+    Senão Se EQ("getfield") {
+      Inteiro t = getindex;
+      Inteiro tp = sol_getfield(L1, t, getstring);
+      sol_assert(tp == sol_type(L1, -1));
+    }
+    Senão Se EQ("getglobal") {
+      sol_getglobal(L1, getstring);
+    }
+    Senão Se EQ("getmetatable") {
+      Se (sol_getmetatable(L1, getindex) == 0)
+        sol_pushnil(L1);
+    }
+    Senão Se EQ("gettable") {
+      Inteiro tp = sol_gettable(L1, getindex);
+      sol_assert(tp == sol_type(L1, -1));
+    }
+    Senão Se EQ("gettop") {
+      sol_pushinteger(L1, sol_gettop(L1));
+    }
+    Senão Se EQ("gsub") {
+      Inteiro a = getnum; Inteiro b = getnum; Inteiro c = getnum;
+      sol_gsub(L1, sol_tostring(L1, a),
+                    sol_tostring(L1, b),
+                    sol_tostring(L1, c));
+    }
+    Senão Se EQ("insert") {
+      sol_insert(L1, getnum);
+    }
+    Senão Se EQ("iscfunction") {
+      sol_pushboolean(L1, sol_iscfunction(L1, getindex));
+    }
+    Senão Se EQ("isfunction") {
+      sol_pushboolean(L1, sol_isfunction(L1, getindex));
+    }
+    Senão Se EQ("isnil") {
+      sol_pushboolean(L1, sol_isnil(L1, getindex));
+    }
+    Senão Se EQ("isnull") {
+      sol_pushboolean(L1, sol_isnone(L1, getindex));
+    }
+    Senão Se EQ("isnumber") {
+      sol_pushboolean(L1, sol_isnumber(L1, getindex));
+    }
+    Senão Se EQ("isstring") {
+      sol_pushboolean(L1, sol_isstring(L1, getindex));
+    }
+    Senão Se EQ("istable") {
+      sol_pushboolean(L1, sol_istable(L1, getindex));
+    }
+    Senão Se EQ("isudataval") {
+      sol_pushboolean(L1, sol_islightuserdata(L1, getindex));
+    }
+    Senão Se EQ("isuserdata") {
+      sol_pushboolean(L1, sol_isuserdata(L1, getindex));
+    }
+    Senão Se EQ("len") {
+      sol_len(L1, getindex);
+    }
+    Senão Se EQ("Llen") {
+      sol_pushinteger(L1, sol_len(L1, getindex));
+    }
+    Senão Se EQ("loadfile") {
+      sol_loadfile(L1, sol_checkstring(L1, getnum));
+    }
+    Senão Se EQ("loadstring") {
+      size_t slen;
+      Imutável Caractere *s = sol_checklstring(L1, getnum, &slen);
+      Imutável Caractere *name = getstring;
+      Imutável Caractere *mode = getstring;
+      sol_loadbufferx(L1, s, slen, name, mode);
+    }
+    Senão Se EQ("newmetatable") {
+      sol_pushboolean(L1, sol_newmetatable(L1, getstring));
+    }
+    Senão Se EQ("newtable") {
+      sol_newtable(L1);
+    }
+    Senão Se EQ("newthread") {
+      sol_newthread(L1);
+    }
+    Senão Se EQ("resetthread") {
+      sol_pushinteger(L1, sol_resetthread(L1));  /* deprecated */
+    }
+    Senão Se EQ("newuserdata") {
+      sol_newuserdata(L1, cast_sizet(getnum));
+    }
+    Senão Se EQ("next") {
+      sol_next(L1, -2);
+    }
+    Senão Se EQ("objsize") {
+      sol_pushinteger(L1, l_castU2S(sol_rawlen(L1, getindex)));
+    }
+    Senão Se EQ("pcall") {
+      Inteiro narg = getnum;
+      Inteiro nres = getnum;
+      status = sol_pcall(L1, narg, nres, getnum);
+    }
+    Senão Se EQ("pcallk") {
+      Inteiro narg = getnum;
+      Inteiro nres = getnum;
+      Inteiro i = getindex;
+      status = sol_pcallk(L1, narg, nres, 0, i, Cfunck);
+    }
+    Senão Se EQ("pop") {
+      sol_pop(L1, getnum);
+    }
+    Senão Se EQ("printstack") {
+      Inteiro n = getnum;
+      Se (n != 0) {
+        sol_printvalue(s2v(L->ci->func.p + n));
+        printf("\n");
+      }
+      Senão sol_printstack(L1);
+    }
+    Senão Se EQ("exiba") {
+      Imutável Caractere *msg = getstring;
+      printf("%s\n", msg);
+    }
+    Senão Se EQ("warningC") {
+      Imutável Caractere *msg = getstring;
+      sol_warning(L1, msg, 1);
+    }
+    Senão Se EQ("Aviso") {
+      Imutável Caractere *msg = getstring;
+      sol_warning(L1, msg, 0);
+    }
+    Senão Se EQ("pushbool") {
+      sol_pushboolean(L1, getnum);
+    }
+    Senão Se EQ("pushcclosure") {
+      sol_pushcclosure(L1, testC, getnum);
+    }
+    Senão Se EQ("pushint") {
+      sol_pushinteger(L1, getnum);
+    }
+    Senão Se EQ("pushnil") {
+      sol_pushnil(L1);
+    }
+    Senão Se EQ("pushnum") {
+      sol_pushnumber(L1, (sol_Number)getnum);
+    }
+    Senão Se EQ("pushstatus") {
+      sol_pushstring(L1, statcodes[status]);
+    }
+    Senão Se EQ("pushstring") {
+      sol_pushstring(L1, getstring);
+    }
+    Senão Se EQ("pushupvalueindex") {
+      sol_pushinteger(L1, sol_upvalueindex(getnum));
+    }
+    Senão Se EQ("pushvalue") {
+      sol_pushvalue(L1, getindex);
+    }
+    Senão Se EQ("pushfstringI") {
+      sol_pushfstring(L1, sol_tostring(L, -2), (Inteiro)sol_tointeger(L, -1));
+    }
+    Senão Se EQ("pushfstringS") {
+      sol_pushfstring(L1, sol_tostring(L, -2), sol_tostring(L, -1));
+    }
+    Senão Se EQ("pushfstringP") {
+      sol_pushfstring(L1, sol_tostring(L, -2), sol_topointer(L, -1));
+    }
+    Senão Se EQ("rawget") {
+      Inteiro t = getindex;
+      sol_rawget(L1, t);
+    }
+    Senão Se EQ("rawgeti") {
+      Inteiro t = getindex;
+      sol_rawgeti(L1, t, getnum);
+    }
+    Senão Se EQ("rawgetp") {
+      Inteiro t = getindex;
+      sol_rawgetp(L1, t, cast_voidp(cast_sizet(getnum)));
+    }
+    Senão Se EQ("rawset") {
+      Inteiro t = getindex;
+      sol_rawset(L1, t);
+    }
+    Senão Se EQ("rawseti") {
+      Inteiro t = getindex;
+      sol_rawseti(L1, t, getnum);
+    }
+    Senão Se EQ("rawsetp") {
+      Inteiro t = getindex;
+      sol_rawsetp(L1, t, cast_voidp(cast_sizet(getnum)));
+    }
+    Senão Se EQ("remove") {
+      sol_remove(L1, getnum);
+    }
+    Senão Se EQ("replace") {
+      sol_replace(L1, getindex);
+    }
+    Senão Se EQ("resume") {
+      Inteiro i = getindex;
+      Inteiro nres;
+      status = sol_resume(sol_tothread(L1, i), L, getnum, &nres);
+    }
+    Senão Se EQ("traceback") {
+      Imutável Caractere *msg = getstring;
+      Inteiro level = getnum;
+      sol_traceback(L1, L1, msg, level);
+    }
+    Senão Se EQ("threadstatus") {
+      sol_pushstring(L1, statcodes[sol_status(L1)]);
+    }
+    Senão Se EQ("alloccount") {
+      l_memcontrol.countlimit = cast_uint(getnum);
+    }
+    Senão Se EQ("Retorne") {
+      Inteiro n = getnum;
+      Se (L1 != L) {
+        Inteiro i;
+        Para (i = 0; i < n; i++) {
+          Inteiro idx = -(n - i);
+          Troque (sol_type(L1, idx)) {
+            Caso SOL_TBOOLEAN:
+              sol_pushboolean(L, sol_toboolean(L1, idx));
+              Interrompa;
+            Padrão:
+              sol_pushstring(L, sol_tostring(L1, idx));
+              Interrompa;
+          }
+        }
+      }
+      Retorne n;
+    }
+    Senão Se EQ("rotate") {
+      Inteiro i = getindex;
+      sol_rotate(L1, i, getnum);
+    }
+    Senão Se EQ("setfield") {
+      Inteiro t = getindex;
+      Imutável Caractere *s = getstring;
+      sol_setfield(L1, t, s);
+    }
+    Senão Se EQ("seti") {
+      Inteiro t = getindex;
+      sol_seti(L1, t, getnum);
+    }
+    Senão Se EQ("setglobal") {
+      Imutável Caractere *s = getstring;
+      sol_setglobal(L1, s);
+    }
+    Senão Se EQ("sethook") {
+      Inteiro mask = getnum;
+      Inteiro count = getnum;
+      Imutável Caractere *s = getstring;
+      sethookaux(L1, mask, count, s);
+    }
+    Senão Se EQ("setmetatable") {
+      Inteiro idx = getindex;
+      sol_setmetatable(L1, idx);
+    }
+    Senão Se EQ("settable") {
+      sol_settable(L1, getindex);
+    }
+    Senão Se EQ("settop") {
+      sol_settop(L1, getnum);
+    }
+    Senão Se EQ("testudata") {
+      Inteiro i = getindex;
+      sol_pushboolean(L1, sol_testudata(L1, i, getstring) != NULL);
+    }
+    Senão Se EQ("Erro") {
+      sol_error(L1);
+    }
+    Senão Se EQ("abort") {
+      abort();
+    }
+    Senão Se EQ("throw") {
+#Se Definido(__cplusplus)
+Fixo Estrutura X { Inteiro x; } x;
+      throw x;
+#Senão
+      solL_error(L1, "C++");
+#FimSe
+      Interrompa;
+    }
+    Senão Se EQ("tobool") {
+      sol_pushboolean(L1, sol_toboolean(L1, getindex));
+    }
+    Senão Se EQ("tocfunction") {
+      sol_pushcfunction(L1, sol_tocfunction(L1, getindex));
+    }
+    Senão Se EQ("tointeger") {
+      sol_pushinteger(L1, sol_tointeger(L1, getindex));
+    }
+    Senão Se EQ("tonumber") {
+      sol_pushnumber(L1, sol_tonumber(L1, getindex));
+    }
+    Senão Se EQ("topointer") {
+      sol_pushlightuserdata(L1, cast_voidp(sol_topointer(L1, getindex)));
+    }
+    Senão Se EQ("touserdata") {
+      sol_pushlightuserdata(L1, sol_touserdata(L1, getindex));
+    }
+    Senão Se EQ("tostring") {
+      Imutável Caractere *s = sol_tostring(L1, getindex);
+      Imutável Caractere *s1 = sol_pushstring(L1, s);
+      cast_void(s1);  /* to avoid warnings */
+      sol_longassert((s == NULL && s1 == NULL) || strcmp(s, s1) == 0);
+    }
+    Senão Se EQ("Ltolstring") {
+      sol_tolstring(L1, getindex, NULL);
+    }
+    Senão Se EQ("type") {
+      sol_pushstring(L1, sol_typename(L1, getnum));
+    }
+    Senão Se EQ("xmove") {
+      Inteiro f = getindex;
+      Inteiro t = getindex;
+      sol_State *fs = (f == 0) ? L1 : sol_tothread(L1, f);
+      sol_State *ts = (t == 0) ? L1 : sol_tothread(L1, t);
+      Inteiro n = getnum;
+      Se (n == 0) n = sol_gettop(fs);
+      sol_xmove(fs, ts, n);
+    }
+    Senão Se EQ("isyieldable") {
+      sol_pushboolean(L1, sol_isyieldable(sol_tothread(L1, getindex)));
+    }
+    Senão Se EQ("yield") {
+      Retorne sol_yield(L1, getnum);
+    }
+    Senão Se EQ("yieldk") {
+      Inteiro nres = getnum;
+      Inteiro i = getindex;
+      Retorne sol_yieldk(L1, nres, i, Cfunck);
+    }
+    Senão Se EQ("toclose") {
+      sol_toclose(L1, getnum);
+    }
+    Senão Se EQ("closeslot") {
+      sol_closeslot(L1, getnum);
+    }
+    Senão Se EQ("argerror") {
+      Inteiro arg = getnum;
+      sol_argerror(L1, arg, getstring);
+    }
+    Senão solL_error(L, "unknown instruction %s", buff);
+  }
+  Retorne 0;
+}
+
+
+Fixo Inteiro testC (sol_State *L) {
+  sol_State *L1;
+  Imutável Caractere *pc;
+  Se (sol_isuserdata(L, 1)) {
+    L1 = getstate(L);
+    pc = sol_checkstring(L, 2);
+  }
+  Senão Se (sol_isthread(L, 1)) {
+    L1 = sol_tothread(L, 1);
+    pc = sol_checkstring(L, 2);
+  }
+  Senão {
+    L1 = L;
+    pc = sol_checkstring(L, 1);
+  }
+  Retorne runC(L, L1, pc);
+}
+
+
+Fixo Inteiro Cfunc (sol_State *L) {
+  Retorne runC(L, L, sol_tostring(L, sol_upvalueindex(1)));
+}
+
+
+Fixo Inteiro Cfunck (sol_State *L, Inteiro status, sol_KContext ctx) {
+  sol_pushstring(L, statcodes[status]);
+  sol_setglobal(L, "status");
+  sol_pushinteger(L, cast_Integer(ctx));
+  sol_setglobal(L, "ctx");
+  Retorne runC(L, L, sol_tostring(L, cast_int(ctx)));
+}
+
+
+Fixo Inteiro makeCfunc (sol_State *L) {
+  sol_checkstring(L, 1);
+  sol_pushcclosure(L, Cfunc, sol_gettop(L));
+  Retorne 1;
+}
+
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** tests Para C hooks
+** =======================================================
+*/
+
+/*
+** C hook that runs the C script stored in registry.C_HOOK[L]
+*/
+Fixo Vazio Chook (sol_State *L, sol_Debug *ar) {
+  Imutável Caractere *scpt;
+  Imutável Caractere *Imutável events [] = {"call", "ret", "Linha", "count", "tailcall"};
+  sol_getfield(L, SOL_REGISTRYINDEX, "C_HOOK");
+  sol_pushlightuserdata(L, L);
+  sol_gettable(L, -2);  /* get C_HOOK[L] (script saved by sethookaux) */
+  scpt = sol_tostring(L, -1);  /* not very religious (string will be popped) */
+  sol_pop(L, 2);  /* remove C_HOOK and script */
+  sol_pushstring(L, events[ar->event]);  /* may be used by script */
+  sol_pushinteger(L, ar->currentline);  /* may be used by script */
+  runC(L, L, scpt);  /* run script from C_HOOK[L] */
+}
+
+
+/*
+** sets 'registry.C_HOOK[L] = scpt' and sets 'Chook' as a hook
+*/
+Fixo Vazio sethookaux (sol_State *L, Inteiro mask, Inteiro count, Imutável Caractere *scpt) {
+  Se (*scpt == '\0') {  /* no script? */
+    sol_sethook(L, NULL, 0, 0);  /* turn off hooks */
+    Retorne;
+  }
+  sol_getfield(L, SOL_REGISTRYINDEX, "C_HOOK");  /* get C_HOOK table */
+  Se (!sol_istable(L, -1)) {  /* no hook table? */
+    sol_pop(L, 1);  /* remove previous value */
+    sol_newtable(L);  /* create new C_HOOK table */
+    sol_pushvalue(L, -1);
+    sol_setfield(L, SOL_REGISTRYINDEX, "C_HOOK");  /* Registrador it */
+  }
+  sol_pushlightuserdata(L, L);
+  sol_pushstring(L, scpt);
+  sol_settable(L, -3);  /* C_HOOK[L] = script */
+  sol_sethook(L, Chook, mask, count);
+}
+
+
+Fixo Inteiro sethook (sol_State *L) {
+  Se (sol_isnoneornil(L, 1))
+    sol_sethook(L, NULL, 0, 0);  /* turn off hooks */
+  Senão {
+    Imutável Caractere *scpt = sol_checkstring(L, 1);
+    Imutável Caractere *smask = sol_checkstring(L, 2);
+    Inteiro count = cast_int(sol_optinteger(L, 3, 0));
+    Inteiro mask = 0;
+    Se (strchr(smask, 'c')) mask |= SOL_MASKCALL;
+    Se (strchr(smask, 'r')) mask |= SOL_MASKRET;
+    Se (strchr(smask, 'l')) mask |= SOL_MASKLINE;
+    Se (count > 0) mask |= SOL_MASKCOUNT;
+    sethookaux(L, mask, count, scpt);
+  }
+  Retorne 0;
+}
+
+
+Fixo Inteiro coresume (sol_State *L) {
+  Inteiro status, nres;
+  sol_State *co = sol_tothread(L, 1);
+  sol_argcheck(L, co, 1, "coroutine expected");
+  status = sol_resume(co, L, 0, &nres);
+  Se (status != SOL_OK && status != SOL_YIELD) {
+    sol_pushboolean(L, 0);
+    sol_insert(L, -2);
+    Retorne 2;  /* Retorne false + Erro message */
+  }
+  Senão {
+    sol_pushboolean(L, 1);
+    Retorne 1;
+  }
+}
+
+#Se !Definido(SOL_USE_POSIX)
+
+#Defina nonblock	NULL
+
+#Senão
+
+#Inclua <unistd.int>
+#Inclua <fcntl.int>
+
+Fixo Inteiro nonblock (sol_State *L) {
+  FILE *f = cast(sol_Stream*, sol_checkudata(L, 1, SOL_FILEHANDLE))->f;
+  Inteiro fd = fileno(f);
+  Inteiro flags = fcntl(fd, F_GETFL, 0);
+  flags |= O_NONBLOCK;
+  fcntl(fd, F_SETFL, flags);
+  Retorne 0;
+}
+#FimSe
+
+/* }====================================================== */
+
+
+
+Fixo Imutável Estrutura sol_Reg tests_funcs[] = {
+  {"checkmemory", sol_checkmemory},
+  {"closestate", closestate},
+  {"d2s", d2s},
+  {"doonnewstack", doonnewstack},
+  {"doremote", doremote},
+  {"gccolor", gc_color},
+  {"gcage", gc_age},
+  {"gcstate", gc_state},
+  {"tracegc", tracegc},
+  {"pobj", gc_printobj},
+  {"getref", getref},
+  {"hash", hash_query},
+  {"log2", log2_aux},
+  {"limits", get_limits},
+  {"listcode", listcode},
+  {"printcode", printcode},
+  {"printallstack", sol_printallstack},
+  {"listk", listk},
+  {"listabslineinfo", listabslineinfo},
+  {"listlocals", listlocals},
+  {"loadlib", loadlib},
+  {"checkpanic", checkpanic},
+  {"newstate", newstate},
+  {"newuserdata", newuserdata},
+  {"num2int", num2int},
+  {"makeseed", makeseed},
+  {"pushuserdata", pushuserdata},
+  {"gcquery", gc_query},
+  {"querystr", string_query},
+  {"querytab", table_query},
+  {"codeparam", test_codeparam},
+  {"applyparam", test_applyparam},
+  {"ref", tref},
+  {"resume", coresume},
+  {"s2d", s2d},
+  {"sethook", sethook},
+  {"stacklevel", stacklevel},
+  {"sizes", get_sizes},
+  {"testC", testC},
+  {"makeCfunc", makeCfunc},
+  {"totalmem", mem_query},
+  {"alloccount", alloc_count},
+  {"allocfailnext", alloc_failnext},
+  {"trick", settrick},
+  {"udataval", udataval},
+  {"unref", unref},
+  {"upvalue", upvalue},
+  {"externKstr", externKstr},
+  {"externstr", externstr},
+  {"nonblock", nonblock},
+  {NULL, NULL}
+};
+
+
+Fixo Vazio checkfinalmem (Vazio) {
+  sol_assert(l_memcontrol.numblocks == 0);
+  sol_assert(l_memcontrol.total == 0);
+}
+
+
+Inteiro solB_opentests (sol_State *L) {
+  Vazio *ud;
+  sol_Alloc f = sol_getallocf(L, &ud);
+  sol_atpanic(L, &tpanic);
+  sol_setwarnf(L, &warnf, L);
+  sol_pushboolean(L, 0);
+  sol_setglobal(L, "_WARN");  /* _WARN = false */
+  regcodes(L);
+  atexit(checkfinalmem);
+  sol_assert(f == debug_realloc && ud == cast_voidp(&l_memcontrol));
+  sol_setallocf(L, f, ud);  /* exercise this function */
+  sol_newlib(L, tests_funcs);
+  Retorne 1;
+}
+
+#FimSe
+

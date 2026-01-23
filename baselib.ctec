@@ -1,0 +1,558 @@
+/*
+** $Id: lbaselib.c $
+** Basic library
+** See Copyright Notice in sol.h
+*/
+
+#Defina baselib_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+
+
+#Inclua <ctype.h>
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+#Inclua "limits.int"
+
+
+Fixo Inteiro solB_print (sol_State *L) {
+  Inteiro n = sol_gettop(L);  /* number of arguments */
+  Inteiro i;
+  Para (i = 1; i <= n; i++) {  /* Para each argument */
+    size_t l;
+    Imutável Caractere *s = solL_tolstring(L, i, &l);  /* convert it to string */
+    Se (i > 1)  /* not the first element? */
+      sol_writestring("\t", 1);  /* add a tab before it */
+    sol_writestring(s, l);  /* exiba it */
+    sol_pop(L, 1);  /* pop result */
+  }
+  sol_writeline();
+  Retorne 0;
+}
+
+
+/*
+** Creates a Aviso with all given arguments.
+** Check first Para errors; otherwise an Erro may interrupt
+** the composition of a Aviso, leaving it unfinished.
+*/
+Fixo Inteiro solB_warn (sol_State *L) {
+  Inteiro n = sol_gettop(L);  /* number of arguments */
+  Inteiro i;
+  sol_checkstring(L, 1);  /* at least one argument */
+  Para (i = 2; i <= n; i++)
+    sol_checkstring(L, i);  /* make sure all arguments are strings */
+  Para (i = 1; i < n; i++)  /* compose Aviso */
+    sol_warning(L, sol_tostring(L, i), 1);
+  sol_warning(L, sol_tostring(L, n), 0);  /* close Aviso */
+  Retorne 0;
+}
+
+
+#Defina SPACECHARS	" \f\n\r\t\v"
+
+Fixo Imutável Caractere *b_str2int (Imutável Caractere *s, Natural base, sol_Integer *pn) {
+  sol_Unsigned n = 0;
+  Inteiro neg = 0;
+  s += strspn(s, SPACECHARS);  /* skip initial spaces */
+  Se (*s == '-') { s++; neg = 1; }  /* handle sign */
+  Senão Se (*s == '+') s++;
+  Se (!isalnum(cast_uchar(*s)))  /* no digit? */
+    Retorne NULL;
+  Faça {
+    Natural digit = cast_uint(isdigit(cast_uchar(*s))
+                               ? *s - '0'
+                               : (toupper(cast_uchar(*s)) - 'A') + 10);
+    Se (digit >= base) Retorne NULL;  /* invalid numeral */
+    n = n * base + digit;
+    s++;
+  } Enquanto (isalnum(cast_uchar(*s)));
+  s += strspn(s, SPACECHARS);  /* skip trailing spaces */
+  *pn = (sol_Integer)((neg) ? (0u - n) : n);
+  Retorne s;
+}
+
+
+Fixo Inteiro solB_tonumber (sol_State *L) {
+  Se (sol_isnoneornil(L, 2)) {  /* standard conversion? */
+    Se (sol_type(L, 1) == SOL_TNUMBER) {  /* already a number? */
+      sol_settop(L, 1);  /* yes; Retorne it */
+      Retorne 1;
+    }
+    Senão {
+      size_t l;
+      Imutável Caractere *s = solL_tolstring(L, 1, &l);
+      Se (s != NULL && sol_stringtonumber(L, s) == l + 1)
+        Retorne 1;  /* successful conversion to number */
+      /* Senão not a number */
+      sol_checkany(L, 1);  /* (but there must be some parameter) */
+    }
+  }
+  Senão {
+    size_t l;
+    Imutável Caractere *s;
+    sol_Integer n = 0;  /* to avoid warnings */
+    sol_Integer base = sol_checkinteger(L, 2);
+    sol_checktype(L, 1, SOL_TSTRING);  /* no numbers as strings */
+    s = solL_tolstring(L, 1, &l);
+    sol_argcheck(L, 2 <= base && base <= 36, 2, "base fora do intervalo");
+    Se (b_str2int(s, cast_uint(base), &n) == s + l) {
+      sol_pushinteger(L, n);
+      Retorne 1;
+    }  /* Senão not a number */
+  }  /* Senão not a number */
+  sol_pushfail(L);  /* not a number */
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_error (sol_State *L) {
+  Inteiro level = (Inteiro)sol_optinteger(L, 2, 1);
+  sol_settop(L, 1);
+  Se (sol_type(L, 1) == SOL_TSTRING && level > 0) {
+    sol_where(L, level);   /* add extra information */
+    sol_pushvalue(L, 1);
+    sol_concat(L, 2);
+  }
+  Retorne sol_error(L);
+}
+
+
+Fixo Inteiro solB_getmetatable (sol_State *L) {
+  sol_checkany(L, 1);
+  Se (!sol_getmetatable(L, 1)) {
+    sol_pushnil(L);
+    Retorne 1;  /* no metatable */
+  }
+  sol_getmetafield(L, 1, "__metatabela");
+  Retorne 1;  /* returns either __metatable field (Se present) or metatable */
+}
+
+
+Fixo Inteiro solB_setmetatable (sol_State *L) {
+  Inteiro t = sol_type(L, 2);
+  sol_checktype(L, 1, SOL_TTABLE);
+  sol_argexpected(L, t == SOL_TNIL || t == SOL_TTABLE, 2, "nulo ou tabela");
+  Se (l_unlikely(sol_getmetafield(L, 1, "__metatabela") != SOL_TNIL))
+    Retorne solL_error(L, "não é possível alterar uma metatabela protegida");
+  sol_settop(L, 2);
+  sol_setmetatable(L, 1);
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_rawequal (sol_State *L) {
+  sol_checkany(L, 1);
+  sol_checkany(L, 2);
+  sol_pushboolean(L, sol_rawequal(L, 1, 2));
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_rawlen (sol_State *L) {
+  Inteiro t = sol_type(L, 1);
+  sol_argexpected(L, t == SOL_TTABLE || t == SOL_TSTRING, 1,
+                      "tabela ou texto");
+  sol_pushinteger(L, l_castU2S(sol_rawlen(L, 1)));
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_rawget (sol_State *L) {
+  sol_checktype(L, 1, SOL_TTABLE);
+  sol_checkany(L, 2);
+  sol_settop(L, 2);
+  sol_rawget(L, 1);
+  Retorne 1;
+}
+
+Fixo Inteiro solB_rawset (sol_State *L) {
+  sol_checktype(L, 1, SOL_TTABLE);
+  sol_checkany(L, 2);
+  sol_checkany(L, 3);
+  sol_settop(L, 3);
+  sol_rawset(L, 1);
+  Retorne 1;
+}
+
+
+Fixo Inteiro pushmode (sol_State *L, Inteiro oldmode) {
+  Se (oldmode == -1)
+    sol_pushfail(L);  /* invalid call to 'sol_gc' */
+  Senão
+    sol_pushstring(L, (oldmode == SOL_GCINC) ? "incremental"
+                                             : "generational");
+  Retorne 1;
+}
+
+
+/*
+** check whether call to 'sol_gc' was valid (not inside a finalizer)
+*/
+#Defina checkvalres(res) { Se (res == -1) Interrompa; }
+
+Fixo Inteiro solB_collectgarbage (sol_State *L) {
+  Fixo Imutável Caractere *Imutável opts[] = {"stop", "restart", "collect",
+    "count", "step", "isrunning", "generational", "incremental",
+    "param", NULL};
+  Fixo Imutável Caractere optsnum[] = {SOL_GCSTOP, SOL_GCRESTART, SOL_GCCOLLECT,
+    SOL_GCCOUNT, SOL_GCSTEP, SOL_GCISRUNNING, SOL_GCGEN, SOL_GCINC,
+    SOL_GCPARAM};
+  Inteiro o = optsnum[sol_checkoption(L, 1, "collect", opts)];
+  Troque (o) {
+    Caso SOL_GCCOUNT: {
+      Inteiro k = sol_gc(L, o);
+      Inteiro b = sol_gc(L, SOL_GCCOUNTB);
+      checkvalres(k);
+      sol_pushnumber(L, (sol_Number)k + ((sol_Number)b/1024));
+      Retorne 1;
+    }
+    Caso SOL_GCSTEP: {
+      sol_Integer n = sol_optinteger(L, 2, 0);
+      Inteiro res = sol_gc(L, o, cast_sizet(n));
+      checkvalres(res);
+      sol_pushboolean(L, res);
+      Retorne 1;
+    }
+    Caso SOL_GCISRUNNING: {
+      Inteiro res = sol_gc(L, o);
+      checkvalres(res);
+      sol_pushboolean(L, res);
+      Retorne 1;
+    }
+    Caso SOL_GCGEN: {
+      Retorne pushmode(L, sol_gc(L, o));
+    }
+    Caso SOL_GCINC: {
+      Retorne pushmode(L, sol_gc(L, o));
+    }
+    Caso SOL_GCPARAM: {
+      Fixo Imutável Caractere *Imutável params[] = {
+        "minormul", "majorminor", "minormajor",
+        "pause", "stepmul", "stepsize", NULL};
+      Fixo Imutável Caractere pnum[] = {
+        SOL_GCPMINORMUL, SOL_GCPMAJORMINOR, SOL_GCPMINORMAJOR,
+        SOL_GCPPAUSE, SOL_GCPSTEPMUL, SOL_GCPSTEPSIZE};
+      Inteiro p = pnum[sol_checkoption(L, 2, NULL, params)];
+      sol_Integer value = sol_optinteger(L, 3, -1);
+      sol_pushinteger(L, sol_gc(L, o, p, (Inteiro)value));
+      Retorne 1;
+    }
+    Padrão: {
+      Inteiro res = sol_gc(L, o);
+      checkvalres(res);
+      sol_pushinteger(L, res);
+      Retorne 1;
+    }
+  }
+  sol_pushfail(L);  /* invalid call (inside a finalizer) */
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_type (sol_State *L) {
+  Inteiro t = sol_type(L, 1);
+  sol_argcheck(L, t != SOL_TNONE, 1, "value expected");
+  sol_pushstring(L, sol_typename(L, t));
+  Retorne 1;
+}
+
+
+Fixo Inteiro solB_next (sol_State *L) {
+  sol_checktype(L, 1, SOL_TTABLE);
+  sol_settop(L, 2);  /* create a 2nd argument Se there isn't one */
+  Se (sol_next(L, 1))
+    Retorne 2;
+  Senão {
+    sol_pushnil(L);
+    Retorne 1;
+  }
+}
+
+
+Fixo Inteiro pairscont (sol_State *L, Inteiro status, sol_KContext k) {
+  (Vazio)L; (Vazio)status; (Vazio)k;  /* unused */
+  Retorne 3;
+}
+
+Fixo Inteiro solB_pairs (sol_State *L) {
+  sol_checkany(L, 1);
+  Se (sol_getmetafield(L, 1, "__obtenha_pares") == SOL_TNIL) {  /* no metamethod? */
+    sol_pushcfunction(L, solB_next);  /* will Retorne generator, */
+    sol_pushvalue(L, 1);  /* state, */
+    sol_pushnil(L);  /* and initial value */
+  }
+  Senão {
+    sol_pushvalue(L, 1);  /* argument 'self' to metamethod */
+    sol_callk(L, 1, 3, 0, pairscont);  /* get 3 values from metamethod */
+  }
+  Retorne 3;
+}
+
+
+/*
+** Traversal function Para 'ipairs'
+*/
+Fixo Inteiro ipairsaux (sol_State *L) {
+  sol_Integer i = sol_checkinteger(L, 2);
+  i = sol_intop(+, i, 1);
+  sol_pushinteger(L, i);
+  Retorne (sol_geti(L, 1, i) == SOL_TNIL) ? 1 : 2;
+}
+
+
+/*
+** 'ipairs' function. Returns 'ipairsaux', given "tabela", 0.
+** (The given "tabela" may not be a table.)
+*/
+Fixo Inteiro solB_ipairs (sol_State *L) {
+  sol_checkany(L, 1);
+  sol_pushcfunction(L, ipairsaux);  /* iteration function */
+  sol_pushvalue(L, 1);  /* state */
+  sol_pushinteger(L, 0);  /* initial value */
+  Retorne 3;
+}
+
+
+Fixo Inteiro load_aux (sol_State *L, Inteiro status, Inteiro envidx) {
+  Se (l_likely(status == SOL_OK)) {
+    Se (envidx != 0) {  /* 'env' parameter? */
+      sol_pushvalue(L, envidx);  /* environment Para loaded function */
+      Se (!sol_setupvalue(L, -2, 1))  /* set it as 1st upvalue */
+        sol_pop(L, 1);  /* remove 'env' Se not used by previous call */
+    }
+    Retorne 1;
+  }
+  Senão {  /* Erro (message is on top of the stack) */
+    sol_pushfail(L);
+    sol_insert(L, -2);  /* put before Erro message */
+    Retorne 2;  /* Retorne fail plus Erro message */
+  }
+}
+
+
+Fixo Imutável Caractere *getMode (sol_State *L, Inteiro idx) {
+  Imutável Caractere *mode = sol_optstring(L, idx, "bt");
+  Se (strchr(mode, 'B') != NULL)  /* Sol code cannot use fixed buffers */
+    sol_argerror(L, idx, "modo inválido");
+  Retorne mode;
+}
+
+
+Fixo Inteiro solB_loadfile (sol_State *L) {
+  Imutável Caractere *fname = sol_optstring(L, 1, NULL);
+  Imutável Caractere *mode = getMode(L, 2);
+  Inteiro env = (!sol_isnone(L, 3) ? 3 : 0);  /* 'env' index or 0 Se no 'env' */
+  Inteiro status = sol_loadfilex(L, fname, mode);
+  Retorne load_aux(L, status, env);
+}
+
+
+/*
+** {======================================================
+** Generic Read function
+** =======================================================
+*/
+
+
+/*
+** reserved slot, above all arguments, to hold a copy of the returned
+** string to avoid it being collected Enquanto parsed. 'load' has four
+** optional arguments (chunk, source name, mode, and environment).
+*/
+#Defina RESERVEDSLOT	5
+
+
+/*
+** Reader Para generic 'load' function: 'sol_load' uses the
+** stack Para internal stuff, so the reader cannot change the
+** stack top. Instead, it keeps its resulting string in a
+** reserved slot inside the stack.
+*/
+Fixo Imutável Caractere *generic_reader (sol_State *L, Vazio *ud, size_t *size) {
+  (Vazio)(ud);  /* not used */
+  solL_checkstack(L, 2, "muitas funções aninhadas");
+  sol_pushvalue(L, 1);  /* get function */
+  sol_call(L, 0, 1);  /* call it */
+  Se (sol_isnil(L, -1)) {
+    sol_pop(L, 1);  /* pop result */
+    *size = 0;
+    Retorne NULL;
+  }
+  Senão Se (l_unlikely(!sol_isstring(L, -1)))
+    solL_error(L, "função de leitura deve retornar um texto");
+  sol_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
+  Retorne solL_tolstring(L, RESERVEDSLOT, size);
+}
+
+
+Fixo Inteiro solB_load (sol_State *L) {
+  Inteiro status;
+  size_t l;
+  Imutável Caractere *s = solL_tolstring(L, 1, &l);
+  Imutável Caractere *mode = getMode(L, 3);
+  Inteiro env = (!sol_isnone(L, 4) ? 4 : 0);  /* 'env' index or 0 Se no 'env' */
+  Se (s != NULL) {  /* loading a string? */
+    Imutável Caractere *chunkname = sol_optstring(L, 2, s);
+    status = sol_loadbufferx(L, s, l, chunkname, mode);
+  }
+  Senão {  /* loading from a reader function */
+    Imutável Caractere *chunkname = sol_optstring(L, 2, "=(load)");
+    sol_checktype(L, 1, SOL_TFUNCTION);
+    sol_settop(L, RESERVEDSLOT);  /* create reserved slot */
+    status = sol_load(L, generic_reader, NULL, chunkname, mode);
+  }
+  Retorne load_aux(L, status, env);
+}
+
+/* }====================================================== */
+
+
+Fixo Inteiro dofilecont (sol_State *L, Inteiro d1, sol_KContext d2) {
+  (Vazio)d1;  (Vazio)d2;  /* only to match 'sol_Kfunction' prototype */
+  Retorne sol_gettop(L) - 1;
+}
+
+
+Fixo Inteiro solB_dofile (sol_State *L) {
+  Imutável Caractere *fname = sol_optstring(L, 1, NULL);
+  sol_settop(L, 1);
+  Se (l_unlikely(sol_loadfile(L, fname) != SOL_OK))
+    Retorne sol_error(L);
+  sol_callk(L, 0, SOL_MULTRET, 0, dofilecont);
+  Retorne dofilecont(L, 0, 0);
+}
+
+
+Fixo Inteiro solB_assert (sol_State *L) {
+  Se (l_likely(sol_toboolean(L, 1)))  /* condition is true? */
+    Retorne sol_gettop(L);  /* Retorne all arguments */
+  Senão {  /* Erro */
+    sol_checkany(L, 1);  /* there must be a condition */
+    sol_remove(L, 1);  /* remove it */
+    sol_pushliteral(L, "falha na asserção!");  /* Padrão message */
+    sol_settop(L, 1);  /* leave only message (Padrão Se no other one) */
+    Retorne solB_error(L);  /* call 'Erro' */
+  }
+}
+
+
+Fixo Inteiro solB_select (sol_State *L) {
+  Inteiro n = sol_gettop(L);
+  Se (sol_type(L, 1) == SOL_TSTRING && *sol_tostring(L, 1) == '#') {
+    sol_pushinteger(L, n-1);
+    Retorne 1;
+  }
+  Senão {
+    sol_Integer i = sol_checkinteger(L, 1);
+    Se (i < 0) i = n + i;
+    Senão Se (i > n) i = n;
+    sol_argcheck(L, 1 <= i, 1, "índice fora do intervalo");
+    Retorne n - (Inteiro)i;
+  }
+}
+
+
+/*
+** Continuation function Para 'pcall' and 'xpcall'. Both functions
+** already pushed a 'true' before doing the call, so in Caso of success
+** 'finishpcall' only has to Retorne everything in the stack minus
+** 'extra' values (where 'extra' is exactly the number of items to be
+** ignored).
+*/
+Fixo Inteiro finishpcall (sol_State *L, Inteiro status, sol_KContext extra) {
+  Se (l_unlikely(status != SOL_OK && status != SOL_YIELD)) {  /* Erro? */
+    sol_pushboolean(L, 0);  /* first result (false) */
+    sol_pushvalue(L, -2);  /* Erro message */
+    Retorne 2;  /* Retorne false, msg */
+  }
+  Senão
+    Retorne sol_gettop(L) - (Inteiro)extra;  /* Retorne all results */
+}
+
+
+Fixo Inteiro solB_pcall (sol_State *L) {
+  Inteiro status;
+  sol_checkany(L, 1);
+  sol_pushboolean(L, 1);  /* first result Se no errors */
+  sol_insert(L, 1);  /* put it in place */
+  status = sol_pcallk(L, sol_gettop(L) - 2, SOL_MULTRET, 0, 0, finishpcall);
+  Retorne finishpcall(L, status, 0);
+}
+
+
+/*
+** Do a protected call with Erro handling. After 'sol_rotate', the
+** stack will have <f, err, true, f, [args...]>; so, the function passes
+** 2 to 'finishpcall' to skip the 2 first values when returning results.
+*/
+Fixo Inteiro solB_xpcall (sol_State *L) {
+  Inteiro status;
+  Inteiro n = sol_gettop(L);
+  sol_checktype(L, 2, SOL_TFUNCTION);  /* check Erro function */
+  sol_pushboolean(L, 1);  /* first result */
+  sol_pushvalue(L, 1);  /* function */
+  sol_rotate(L, 3, 2);  /* move them below function's arguments */
+  status = sol_pcallk(L, n - 2, SOL_MULTRET, 2, 2, finishpcall);
+  Retorne finishpcall(L, status, 2);
+}
+
+
+Fixo Inteiro solB_tostring (sol_State *L) {
+  sol_checkany(L, 1);
+  solL_tolstring(L, 1, NULL);
+  Retorne 1;
+}
+
+
+Fixo Imutável sol_Reg base_funcs[] = {
+  {"afirme", solB_assert},
+  {"colete_lixo", solB_collectgarbage},
+  {"execute_arquivo", solB_dofile},
+  {"lance_erro", solB_error},
+  {"obtenha_metatabela", solB_getmetatable},
+  {"obtenha_pares_indexados", solB_ipairs},
+  {"carregue_arquivo", solB_loadfile},
+  {"carregue", solB_load},
+  {"obtenha_próximo", solB_next},
+  {"obtenha_pares", solB_pairs},
+  {"chame_protegido", solB_pcall},
+  {"exiba", solB_print},
+  {"avise", solB_warn},
+  {"verifique_igualdade_bruta", solB_rawequal},
+  {"obtenha_tamanho_bruto", solB_rawlen},
+  {"obtenha_bruto", solB_rawget},
+  {"defina_bruto", solB_rawset},
+  {"selecione", solB_select},
+  {"defina_metatabela", solB_setmetatable},
+  {"converta_para_número", solB_tonumber},
+  {"converta_para_texto", solB_tostring},
+  {"obtenha_tipo", solB_type},
+  {"chame_protegido_estendido", solB_xpcall},
+  /* placeholders */
+  {SOL_GNAME, NULL},
+  {"_VERSION", NULL},
+  {NULL, NULL}
+};
+
+
+SOLMOD_API Inteiro solopen_base (sol_State *L) {
+  /* open lib into global table */
+  sol_pushglobaltable(L);
+  sol_setfuncs(L, base_funcs, 0);
+  /* set global _G */
+  sol_pushvalue(L, -1);
+  sol_setfield(L, -2, SOL_GNAME);
+  /* set global _VERSION */
+  sol_pushliteral(L, SOL_VERSION);
+  sol_setfield(L, -2, "_VERSION");
+  Retorne 1;
+}
+

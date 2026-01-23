@@ -1,0 +1,928 @@
+/*
+** $Id: object.h $
+** Type definitions Para Sol objects
+** See Copyright Notice in sol.h
+*/
+
+
+#SeNãoDefinido object_h
+#Defina object_h
+
+
+#Inclua <stdarg.h>
+
+
+#Inclua "limits.int"
+#Inclua "sol.int"
+
+
+/*
+** Extra types Para collectable non-values
+*/
+#Defina SOL_TUPVAL	SOL_NUMTYPES  /* upvalues */
+#Defina SOL_TPROTO	(SOL_NUMTYPES+1)  /* function prototypes */
+#Defina SOL_TDEADKEY	(SOL_NUMTYPES+2)  /* removed keys in tables */
+
+
+
+/*
+** number of all possible types (including SOL_TNONE but excluding DEADKEY)
+*/
+#Defina SOL_TOTALTYPES		(SOL_TPROTO + 2)
+
+
+/*
+** tags Para Tagged Values have the following use of bits:
+** bits 0-3: actual tag (a SOL_T* constant)
+** bits 4-5: variant bits
+** bit 6: whether value is collectable
+*/
+
+/* add variant bits to a type */
+#Defina makevariant(t,v)	((t) | ((v) << 4))
+
+
+
+/*
+** Union of all Sol values
+*/
+Pseudônimo União Value {
+  Estrutura GCObject *gc;    /* collectable objects */
+  Vazio *p;         /* light userdata */
+  sol_CFunction f; /* light C functions */
+  sol_Integer i;   /* integer numbers */
+  sol_Number n;    /* Real numbers */
+  /* not used, but may avoid warnings Para uninitialized value */
+  lu_byte ub;
+} Value;
+
+
+/*
+** Tagged Values. This is the basic representation of values in Sol:
+** an actual value plus a tag with its type.
+*/
+
+#Defina TValuefields	Value value_; lu_byte tt_
+
+Pseudônimo Estrutura TValue {
+  TValuefields;
+} TValue;
+
+
+#Defina val_(o)		((o)->value_)
+#Defina valraw(o)	(val_(o))
+
+
+/* raw type tag of a TValue */
+#Defina rawtt(o)	((o)->tt_)
+
+/* tag with no variants (bits 0-3) */
+#Defina novariant(t)	((t) & 0x0F)
+
+/* type tag of a TValue (bits 0-3 Para tags + variant bits 4-5) */
+#Defina withvariant(t)	((t) & 0x3F)
+#Defina ttypetag(o)	withvariant(rawtt(o))
+
+/* type of a TValue */
+#Defina ttype(o)	(novariant(rawtt(o)))
+
+
+/* Macros to test type */
+#Defina checktag(o,t)		(rawtt(o) == (t))
+#Defina checktype(o,t)		(ttype(o) == (t))
+
+
+/* Macros Para internal tests */
+
+/* collectable object has the same tag as the original value */
+#Defina righttt(obj)		(ttypetag(obj) == gcvalue(obj)->tt)
+
+/*
+** Any value being manipulated by the program either is non
+** collectable, or the collectable object has the right tag
+** and it is not dead. The option 'L == NULL' allows other
+** macros using this one to be used where L is not available.
+*/
+#Defina checkliveness(L,obj) \
+	((Vazio)L, sol_longassert(!iscollectable(obj) || \
+		(righttt(obj) && (L == NULL || !isdead(G(L),gcvalue(obj))))))
+
+
+/* Macros to set values */
+
+/* set a value's tag */
+#Defina settt_(o,t)	((o)->tt_=(t))
+
+
+/* main macro to copy values (from 'obj2' to 'obj1') */
+#Defina setobj(L,obj1,obj2) \
+	{ TValue *io1=(obj1); Imutável TValue *io2=(obj2); \
+          io1->value_ = io2->value_; settt_(io1, io2->tt_); \
+	  checkliveness(L,io1); sol_assert(!isnonstrictnil(io1)); }
+
+/*
+** Different types of assignments, according to source and destination.
+** (They are mostly equal now, but may be different in the future.)
+*/
+
+/* from stack to stack */
+#Defina setobjs2s(L,o1,o2)	setobj(L,s2v(o1),s2v(o2))
+/* to stack (not from same stack) */
+#Defina setobj2s(L,o1,o2)	setobj(L,s2v(o1),o2)
+/* from table to same table */
+#Defina setobjt2t	setobj
+/* to new object */
+#Defina setobj2n	setobj
+/* to table */
+#Defina setobj2t	setobj
+
+
+/*
+** Entries in a Sol stack. Field 'tbclist' forms a list of all
+** to-be-closed variables active in this stack. Dummy entries are
+** used when the distance between two tbc variables does not fit
+** in an Natural Curto. They are represented by delta==0, and
+** their real delta is always the maximum value that fits in
+** that field.
+*/
+Pseudônimo União StackValue {
+  TValue val;
+  Estrutura {
+    TValuefields;
+    Natural Curto delta;
+  } tbclist;
+} StackValue;
+
+
+/* index to stack elements */
+Pseudônimo StackValue *StkId;
+
+
+/*
+** When reallocating the stack, change all pointers to the stack into
+** proper offsets.
+*/
+Pseudônimo União {
+  StkId p;  /* actual pointer */
+  ptrdiff_t offset;  /* used Enquanto the stack is being reallocated */
+} StkIdRel;
+
+
+/* convert a 'StackValue' to a 'TValue' */
+#Defina s2v(o)	(&(o)->val)
+
+
+
+/*
+** {==================================================================
+** Nil
+** ===================================================================
+*/
+
+/* Standard nil */
+#Defina SOL_VNIL	makevariant(SOL_TNIL, 0)
+
+/* Empty slot (which might be different from a slot containing nil) */
+#Defina SOL_VEMPTY	makevariant(SOL_TNIL, 1)
+
+/* Value returned Para a key not found in a table (absent key) */
+#Defina SOL_VABSTKEY	makevariant(SOL_TNIL, 2)
+
+/* Special variant to signal that a fast get is accessing a non-table */
+#Defina SOL_VNOTABLE    makevariant(SOL_TNIL, 3)
+
+
+/* macro to test Para (any kind of) nil */
+#Defina ttisnil(v)		checktype((v), SOL_TNIL)
+
+/*
+** Macro to test the result of a table access. Formally, it should
+** distinguish between SOL_VEMPTY/SOL_VABSTKEY/SOL_VNOTABLE and
+** other tags. As currently nil is equivalent to SOL_VEMPTY, it is
+** simpler to just test whether the value is nil.
+*/
+#Defina tagisempty(tag)		(novariant(tag) == SOL_TNIL)
+
+
+/* macro to test Para a standard nil */
+#Defina ttisstrictnil(o)	checktag((o), SOL_VNIL)
+
+
+#Defina setnilvalue(obj) settt_(obj, SOL_VNIL)
+
+
+#Defina isabstkey(v)		checktag((v), SOL_VABSTKEY)
+
+
+/*
+** macro to detect non-standard nils (used only in assertions)
+*/
+#Defina isnonstrictnil(v)	(ttisnil(v) && !ttisstrictnil(v))
+
+
+/*
+** By Padrão, entries with any kind of nil are considered empty.
+** (In any definition, values associated with absent keys must also
+** be accepted as empty.)
+*/
+#Defina isempty(v)		ttisnil(v)
+
+
+/* macro defining a value corresponding to an absent key */
+#Defina ABSTKEYCONSTANT		{NULL}, SOL_VABSTKEY
+
+
+/* mark an entry as empty */
+#Defina setempty(v)		settt_(v, SOL_VEMPTY)
+
+
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Booleans
+** ===================================================================
+*/
+
+
+#Defina SOL_VFALSE	makevariant(SOL_TBOOLEAN, 0)
+#Defina SOL_VTRUE	makevariant(SOL_TBOOLEAN, 1)
+
+#Defina ttisboolean(o)		checktype((o), SOL_TBOOLEAN)
+#Defina ttisfalse(o)		checktag((o), SOL_VFALSE)
+#Defina ttistrue(o)		checktag((o), SOL_VTRUE)
+
+
+#Defina l_isfalse(o)	(ttisfalse(o) || ttisnil(o))
+#Defina tagisfalse(t)	((t) == SOL_VFALSE || novariant(t) == SOL_TNIL)
+
+
+
+#Defina setbfvalue(obj)		settt_(obj, SOL_VFALSE)
+#Defina setbtvalue(obj)		settt_(obj, SOL_VTRUE)
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Threads
+** ===================================================================
+*/
+
+#Defina SOL_VTHREAD		makevariant(SOL_TTHREAD, 0)
+
+#Defina ttisthread(o)		checktag((o), ctb(SOL_VTHREAD))
+
+#Defina thvalue(o)	check_exp(ttisthread(o), gco2th(val_(o).gc))
+
+#Defina setthvalue(L,obj,x) \
+  { TValue *io = (obj); sol_State *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(SOL_VTHREAD)); \
+    checkliveness(L,io); }
+
+#Defina setthvalue2s(L,o,t)	setthvalue(L,s2v(o),t)
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Channels
+** ===================================================================
+*/
+#Defina SOL_VCHANNEL		makevariant(SOL_TCHANNEL, 0)
+#Defina ttischannel(o)		checktag((o), ctb(SOL_VCHANNEL))
+#Defina chvalue(o)		check_exp(ttischannel(o), gco2ch(val_(o).gc))
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Tasks (Async Promises)
+** ===================================================================
+*/
+#Defina SOL_VTASK		makevariant(SOL_TTASK, 0)
+#Defina ttistask(o)		checktag((o), ctb(SOL_VTASK))
+#Defina tkvalue(o)		check_exp(ttistask(o), gco2tk(val_(o).gc))
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Processes (Parallel Actors)
+** ===================================================================
+*/
+#Defina SOL_VPROCESS		makevariant(SOL_TPROCESS, 0)
+#Defina ttisprocess(o)		checktag((o), ctb(SOL_VPROCESS))
+#Defina procvalue(o)		check_exp(ttisprocess(o), gco2proc(val_(o).gc))
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Collectable Objects
+** ===================================================================
+*/
+
+/*
+** Common Header Para all collectable objects (in macro form, to be
+** included in other objects)
+*/
+#Defina CommonHeader	Estrutura GCObject *next; lu_byte tt; lu_byte marked
+
+
+/* Common type Para all collectable objects */
+Pseudônimo Estrutura GCObject {
+  CommonHeader;
+} GCObject;
+
+/* Forward declarations */
+Estrutura Channel;
+Estrutura Task;
+Estrutura Process;
+
+
+/* Bit mark Para collectable types */
+#Defina BIT_ISCOLLECTABLE	(1 << 6)
+
+#Defina iscollectable(o)	(rawtt(o) & BIT_ISCOLLECTABLE)
+
+/* mark a tag as collectable */
+#Defina ctb(t)			((t) | BIT_ISCOLLECTABLE)
+
+#Defina gcvalue(o)	check_exp(iscollectable(o), val_(o).gc)
+
+#Defina gcvalueraw(v)	((v).gc)
+
+#Defina setgcovalue(L,obj,x) \
+  { TValue *io = (obj); GCObject *i_g=(x); \
+    val_(io).gc = i_g; settt_(io, ctb(i_g->tt)); }
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Numbers
+** ===================================================================
+*/
+
+/* Variant tags Para numbers */
+#Defina SOL_VNUMINT	makevariant(SOL_TNUMBER, 0)  /* integer numbers */
+#Defina SOL_VNUMFLT	makevariant(SOL_TNUMBER, 1)  /* Real numbers */
+
+#Defina ttisnumber(o)		checktype((o), SOL_TNUMBER)
+#Defina ttisfloat(o)		checktag((o), SOL_VNUMFLT)
+#Defina ttisinteger(o)		checktag((o), SOL_VNUMINT)
+
+#Defina nvalue(o)	check_exp(ttisnumber(o), \
+	(ttisinteger(o) ? cast_num(ivalue(o)) : fltvalue(o)))
+#Defina fltvalue(o)	check_exp(ttisfloat(o), val_(o).n)
+#Defina ivalue(o)	check_exp(ttisinteger(o), val_(o).i)
+
+#Defina fltvalueraw(v)	((v).n)
+#Defina ivalueraw(v)	((v).i)
+
+#Defina setfltvalue(obj,x) \
+  { TValue *io=(obj); val_(io).n=(x); settt_(io, SOL_VNUMFLT); }
+
+#Defina chgfltvalue(obj,x) \
+  { TValue *io=(obj); sol_assert(ttisfloat(io)); val_(io).n=(x); }
+
+#Defina setivalue(obj,x) \
+  { TValue *io=(obj); val_(io).i=(x); settt_(io, SOL_VNUMINT); }
+
+#Defina chgivalue(obj,x) \
+  { TValue *io=(obj); sol_assert(ttisinteger(io)); val_(io).i=(x); }
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Strings
+** ===================================================================
+*/
+
+/* Variant tags Para strings */
+#Defina SOL_VSHRSTR	makevariant(SOL_TSTRING, 0)  /* Curto strings */
+#Defina SOL_VLNGSTR	makevariant(SOL_TSTRING, 1)  /* Longo strings */
+
+#Defina ttisstring(o)		checktype((o), SOL_TSTRING)
+#Defina ttisshrstring(o)	checktag((o), ctb(SOL_VSHRSTR))
+#Defina ttislngstring(o)	checktag((o), ctb(SOL_VLNGSTR))
+
+#Defina tsvalueraw(v)	(gco2ts((v).gc))
+
+#Defina tsvalue(o)	check_exp(ttisstring(o), gco2ts(val_(o).gc))
+
+#Defina setsvalue(L,obj,x) \
+  { TValue *io = (obj); TString *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(x_->tt)); \
+    checkliveness(L,io); }
+
+/* set a string to the stack */
+#Defina setsvalue2s(L,o,s)	setsvalue(L,s2v(o),s)
+
+/* set a string to a new object */
+#Defina setsvalue2n	setsvalue
+
+
+/* Kinds of Longo strings (stored in 'shrlen') */
+#Defina LSTRREG		-1  /* regular Longo string */
+#Defina LSTRFIX		-2  /* fixed external Longo string */
+#Defina LSTRMEM		-3  /* external Longo string with deallocation */
+
+
+/*
+** Header Para a string value.
+*/
+Pseudônimo Estrutura TString {
+  CommonHeader;
+  lu_byte extra;  /* reserved words Para Curto strings; "has hash" Para longs */
+  ls_byte shrlen;  /* length Para Curto strings, negative Para Longo strings */
+  Natural Inteiro hash;
+  União {
+    size_t lnglen;  /* length Para Longo strings */
+    Estrutura TString *hnext;  /* linked list Para hash table */
+  } u;
+  Caractere *contents;  /* pointer to content in Longo strings */
+  sol_Alloc falloc;  /* deallocation function Para external strings */
+  Vazio *ud;  /* user data Para external strings */
+} TString;
+
+
+#Defina strisshr(ts)	((ts)->shrlen >= 0)
+#Defina isextstr(ts)	(ttislngstring(ts) && tsvalue(ts)->shrlen != LSTRREG)
+
+
+/*
+** Get the actual string (array of bytes) from a 'TString'. (Generic
+** version and specialized versions Para Longo and Curto strings.)
+*/
+#Defina rawgetshrstr(ts)  (cast_charp(&(ts)->contents))
+#Defina getshrstr(ts)	check_exp(strisshr(ts), rawgetshrstr(ts))
+#Defina getlngstr(ts)	check_exp(!strisshr(ts), (ts)->contents)
+#Defina getstr(ts) 	(strisshr(ts) ? rawgetshrstr(ts) : (ts)->contents)
+
+
+/* get string length from 'TString *ts' */
+#Defina tsslen(ts)  \
+	(strisshr(ts) ? cast_sizet((ts)->shrlen) : (ts)->u.lnglen)
+
+/*
+** Get string and length */
+#Defina getlstr(ts, len)  \
+	(strisshr(ts) \
+	? (cast_void((len) = cast_sizet((ts)->shrlen)), rawgetshrstr(ts)) \
+	: (cast_void((len) = (ts)->u.lnglen), (ts)->contents))
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Userdata
+** ===================================================================
+*/
+
+
+/*
+** Light userdata should be a variant of userdata, but Para compatibility
+** reasons they are also different types.
+*/
+#Defina SOL_VLIGHTUSERDATA	makevariant(SOL_TLIGHTUSERDATA, 0)
+
+#Defina SOL_VUSERDATA		makevariant(SOL_TUSERDATA, 0)
+
+#Defina ttislightuserdata(o)	checktag((o), SOL_VLIGHTUSERDATA)
+#Defina ttisfulluserdata(o)	checktag((o), ctb(SOL_VUSERDATA))
+
+#Defina pvalue(o)	check_exp(ttislightuserdata(o), val_(o).p)
+#Defina uvalue(o)	check_exp(ttisfulluserdata(o), gco2u(val_(o).gc))
+
+#Defina pvalueraw(v)	((v).p)
+
+#Defina setpvalue(obj,x) \
+  { TValue *io=(obj); val_(io).p=(x); settt_(io, SOL_VLIGHTUSERDATA); }
+
+#Defina setuvalue(L,obj,x) \
+  { TValue *io = (obj); Udata *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(SOL_VUSERDATA)); \
+    checkliveness(L,io); }
+
+
+/* Ensures that addresses after this type are always fully aligned. */
+Pseudônimo União UValue {
+  TValue uv;
+  SOL_MAXALIGN;  /* ensures maximum alignment Para udata bytes */
+} UValue;
+
+
+/*
+** Header Para userdata with user values;
+** memory area follows the end of this structure.
+*/
+Pseudônimo Estrutura Udata {
+  CommonHeader;
+  Natural Curto nuvalue;  /* number of user values */
+  size_t len;  /* number of bytes */
+  Estrutura Table *metatable;
+  GCObject *gclist;
+  UValue uv[1];  /* user values */
+} Udata;
+
+
+/*
+** Header Para userdata with no user values. These userdata Faça not need
+** to be gray during GC, and therefore Faça not need a 'gclist' field.
+** To simplify, the code always use 'Udata' Para both kinds of userdata,
+** making sure it never accesses 'gclist' on userdata with no user values.
+** This structure here is used only to compute the correct size Para
+** this representation. (The 'bindata' field in its end ensures correct
+** alignment Para binary data following this header.)
+*/
+Pseudônimo Estrutura Udata0 {
+  CommonHeader;
+  Natural Curto nuvalue;  /* number of user values */
+  size_t len;  /* number of bytes */
+  Estrutura Table *metatable;
+  União {SOL_MAXALIGN;} bindata;
+} Udata0;
+
+
+/* compute the offset of the memory area of a userdata */
+#Defina udatamemoffset(nuv) \
+       ((nuv) == 0 ? offsetof(Udata0, bindata)  \
+		   : offsetof(Udata, uv) + (Meça(UValue) * (nuv)))
+
+/* get the address of the memory block inside 'Udata' */
+#Defina getudatamem(u)	(cast_charp(u) + udatamemoffset((u)->nuvalue))
+
+/* compute the size of a userdata */
+#Defina sizeudata(nuv,nb)	(udatamemoffset(nuv) + (nb))
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Concurrency Types Structs
+** ===================================================================
+*/
+
+Pseudônimo Estrutura Channel {
+  CommonHeader;
+  Inteiro capacity;
+  Inteiro count;
+  Inteiro head;
+  Inteiro tail;
+  Vazio *lock;      /* OS specific lock handle */
+  Vazio *cond_snd;  /* OS specific condition decl */
+  Vazio *cond_rcv;  /* OS specific condition decl */
+  TValue *buffer;   /* Dynamic array */
+} Channel;
+
+Pseudônimo Estrutura Task {
+  CommonHeader;
+  Curto status;    /* 0=PENDING, 1=RESOLVED, 2=REJECTED */
+  TValue result;   /* Result value or Error Reason */
+  GCObject *callbacks_list; /* Linked list of callbacks? Or just a table ref? */
+} Task;
+
+Pseudônimo Estrutura Process {
+  CommonHeader;
+  Vazio *os_thread; /* OS thread handle */
+  Estrutura sol_State *L_isolated; /* Isolated VM state */
+  Channel *inbox;   /* Default input channel */
+} Process;
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Prototypes
+** ===================================================================
+*/
+
+#Defina SOL_VPROTO	makevariant(SOL_TPROTO, 0)
+
+
+Pseudônimo l_uint32 Instruction;
+
+
+/*
+** Description of an upvalue Para function prototypes
+*/
+Pseudônimo Estrutura Upvaldesc {
+  TString *name;  /* upvalue name (Para debug information) */
+  lu_byte instack;  /* whether it is in stack (Registrador) */
+  lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
+  lu_byte kind;  /* kind of corresponding variable */
+} Upvaldesc;
+
+
+/*
+** Description of a local variable Para function prototypes
+** (used Para debug information)
+*/
+Pseudônimo Estrutura LocVar {
+  TString *varname;
+  Inteiro startpc;  /* first point where variable is active */
+  Inteiro endpc;    /* first point where variable is dead */
+} LocVar;
+
+
+/*
+** Associates the absolute Linha source Para a given instruction ('pc').
+** The array 'lineinfo' gives, Para each instruction, the difference in
+** lines from the previous instruction. When that difference does not
+** fit into a byte, Sol saves the absolute Linha Para that instruction.
+** (Sol also saves the absolute Linha periodically, to speed up the
+** computation of a Linha number: we can use binary search in the
+** absolute-Linha array, but we must traverse the 'lineinfo' array
+** linearly to compute a Linha.)
+*/
+Pseudônimo Estrutura AbsLineInfo {
+  Inteiro pc;
+  Inteiro Linha;
+} AbsLineInfo;
+
+
+/*
+** Flags in Prototypes
+*/
+#Defina PF_ISVARARG	1
+#Defina PF_FIXED	2  /* prototype has parts in fixed memory */
+
+
+/*
+** Function Prototypes
+*/
+Pseudônimo Estrutura Proto {
+  CommonHeader;
+  lu_byte numparams;  /* number of fixed (named) parameters */
+  lu_byte flag;
+  lu_byte maxstacksize;  /* number of registers needed by this function */
+  Inteiro sizeupvalues;  /* size of 'upvalues' */
+  Inteiro sizek;  /* size of 'k' */
+  Inteiro sizecode;
+  Inteiro sizelineinfo;
+  Inteiro sizep;  /* size of 'p' */
+  Inteiro sizelocvars;
+  Inteiro sizeabslineinfo;  /* size of 'abslineinfo' */
+  Inteiro linedefined;  /* debug information  */
+  Inteiro lastlinedefined;  /* debug information  */
+  TValue *k;  /* constants used by the function */
+  Instruction *code;  /* opcodes */
+  Estrutura Proto **p;  /* functions Definido inside the function */
+  Upvaldesc *upvalues;  /* upvalue information */
+  ls_byte *lineinfo;  /* information about source lines (debug information) */
+  AbsLineInfo *abslineinfo;  /* idem */
+  LocVar *locvars;  /* information about local variables (debug information) */
+  TString  *source;  /* used Para debug information */
+  GCObject *gclist;
+} Proto;
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Functions
+** ===================================================================
+*/
+
+#Defina SOL_VUPVAL	makevariant(SOL_TUPVAL, 0)
+
+
+/* Variant tags Para functions */
+#Defina SOL_VLCL	makevariant(SOL_TFUNCTION, 0)  /* Sol closure */
+#Defina SOL_VLCF	makevariant(SOL_TFUNCTION, 1)  /* light C function */
+#Defina SOL_VCCL	makevariant(SOL_TFUNCTION, 2)  /* C closure */
+
+#Defina ttisfunction(o)		checktype(o, SOL_TFUNCTION)
+#Defina ttisLclosure(o)		checktag((o), ctb(SOL_VLCL))
+#Defina ttislcf(o)		checktag((o), SOL_VLCF)
+#Defina ttisCclosure(o)		checktag((o), ctb(SOL_VCCL))
+#Defina ttisclosure(o)         (ttisLclosure(o) || ttisCclosure(o))
+
+
+#Defina isLfunction(o)	ttisLclosure(o)
+
+#Defina clvalue(o)	check_exp(ttisclosure(o), gco2cl(val_(o).gc))
+#Defina clLvalue(o)	check_exp(ttisLclosure(o), gco2lcl(val_(o).gc))
+#Defina fvalue(o)	check_exp(ttislcf(o), val_(o).f)
+#Defina clCvalue(o)	check_exp(ttisCclosure(o), gco2ccl(val_(o).gc))
+
+#Defina fvalueraw(v)	((v).f)
+
+#Defina setclLvalue(L,obj,x) \
+  { TValue *io = (obj); LClosure *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(SOL_VLCL)); \
+    checkliveness(L,io); }
+
+#Defina setclLvalue2s(L,o,cl)	setclLvalue(L,s2v(o),cl)
+
+#Defina setfvalue(obj,x) \
+  { TValue *io=(obj); val_(io).f=(x); settt_(io, SOL_VLCF); }
+
+#Defina setclCvalue(L,obj,x) \
+  { TValue *io = (obj); CClosure *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(SOL_VCCL)); \
+    checkliveness(L,io); }
+
+
+/*
+** Upvalues Para Sol closures
+*/
+Pseudônimo Estrutura UpVal {
+  CommonHeader;
+  União {
+    TValue *p;  /* points to stack or to its own value */
+    ptrdiff_t offset;  /* used Enquanto the stack is being reallocated */
+  } v;
+  União {
+    Estrutura {  /* (when open) */
+      Estrutura UpVal *next;  /* linked list */
+      Estrutura UpVal **previous;
+    } open;
+    TValue value;  /* the value (when closed) */
+  } u;
+} UpVal;
+
+
+
+#Defina ClosureHeader \
+	CommonHeader; lu_byte nupvalues; GCObject *gclist
+
+Pseudônimo Estrutura CClosure {
+  ClosureHeader;
+  sol_CFunction f;
+  TValue upvalue[1];  /* list of upvalues */
+} CClosure;
+
+
+Pseudônimo Estrutura LClosure {
+  ClosureHeader;
+  Estrutura Proto *p;
+  UpVal *upvals[1];  /* list of upvalues */
+} LClosure;
+
+
+Pseudônimo União Closure {
+  CClosure c;
+  LClosure l;
+} Closure;
+
+
+#Defina getproto(o)	(clLvalue(o)->p)
+
+/* }================================================================== */
+
+
+/*
+** {==================================================================
+** Tables
+** ===================================================================
+*/
+
+#Defina SOL_VTABLE	makevariant(SOL_TTABLE, 0)
+
+#Defina ttistable(o)		checktag((o), ctb(SOL_VTABLE))
+
+#Defina hvalue(o)	check_exp(ttistable(o), gco2t(val_(o).gc))
+
+#Defina sethvalue(L,obj,x) \
+  { TValue *io = (obj); Table *x_ = (x); \
+    val_(io).gc = obj2gco(x_); settt_(io, ctb(SOL_VTABLE)); \
+    checkliveness(L,io); }
+
+#Defina sethvalue2s(L,o,h)	sethvalue(L,s2v(o),h)
+
+
+/*
+** Nodes Para Hash tables: A pack of two TValue's (key-value pairs)
+** plus a 'next' field to link colliding entries. The distribution
+** of the key's fields ('key_tt' and 'key_val') not forming a proper
+** 'TValue' allows Para a smaller size Para 'Node' both in 4-byte
+** and 8-byte alignments.
+*/
+Pseudônimo União Node {
+  Estrutura NodeKey {
+    TValuefields;  /* fields Para value */
+    lu_byte key_tt;  /* key type */
+    Inteiro next;  /* Para chaining */
+    Value key_val;  /* key value */
+  } u;
+  TValue i_val;  /* direct access to node's value as a proper 'TValue' */
+} Node;
+
+
+/* copy a value into a key */
+#Defina setnodekey(node,obj) \
+	{ Node *n_=(node); Imutável TValue *io_=(obj); \
+	  n_->u.key_val = io_->value_; n_->u.key_tt = io_->tt_; }
+
+
+/* copy a value from a key */
+#Defina getnodekey(L,obj,node) \
+	{ TValue *io_=(obj); Imutável Node *n_=(node); \
+	  io_->value_ = n_->u.key_val; io_->tt_ = n_->u.key_tt; \
+	  checkliveness(L,io_); }
+
+
+
+Pseudônimo Estrutura Table {
+  CommonHeader;
+  lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
+  lu_byte lsizenode;  /* log2 of number of slots of 'node' array */
+  Natural Inteiro asize;  /* number of slots in 'array' array */
+  Value *array;  /* array part */
+  Node *node;
+  Estrutura Table *metatable;
+  GCObject *gclist;
+} Table;
+
+
+/*
+** Macros to manipulate keys inserted in nodes
+*/
+#Defina keytt(node)		((node)->u.key_tt)
+#Defina keyval(node)		((node)->u.key_val)
+
+#Defina keyisnil(node)		(keytt(node) == SOL_TNIL)
+#Defina keyisinteger(node)	(keytt(node) == SOL_VNUMINT)
+#Defina keyival(node)		(keyval(node).i)
+#Defina keyisshrstr(node)	(keytt(node) == ctb(SOL_VSHRSTR))
+#Defina keystrval(node)		(gco2ts(keyval(node).gc))
+
+#Defina setnilkey(node)		(keytt(node) = SOL_TNIL)
+
+#Defina keyiscollectable(n)	(keytt(n) & BIT_ISCOLLECTABLE)
+
+#Defina gckey(n)	(keyval(n).gc)
+#Defina gckeyN(n)	(keyiscollectable(n) ? gckey(n) : NULL)
+
+
+/*
+** Dead keys in tables have the tag DEADKEY but keep their original
+** gcvalue. This distinguishes them from regular keys but allows them to
+** be found when searched in a special way. ('next' needs that to find
+** keys removed from a table during a traversal.)
+*/
+#Defina setdeadkey(node)	(keytt(node) = SOL_TDEADKEY)
+#Defina keyisdead(node)		(keytt(node) == SOL_TDEADKEY)
+
+/* }================================================================== */
+
+
+
+/*
+** 'module' operation Para hashing (size is always a power of 2)
+*/
+#Defina lmod(s,size) \
+	(check_exp((size&(size-1))==0, (cast_uint(s) & cast_uint((size)-1))))
+
+
+#Defina twoto(x)	(1u<<(x))
+#Defina sizenode(t)	(twoto((t)->lsizenode))
+
+
+/* size of buffer Para 'sol_o_utf8esc' function */
+#Defina UTF8BUFFSZ	8
+
+
+/* macro to call 'sol_o_pushvfstring' correctly */
+#Defina pushvfstring(L, argp, fmt, msg)	\
+  { va_start(argp, fmt); \
+  msg = sol_o_pushvfstring(L, fmt, argp); \
+  va_end(argp); \
+  Se (msg == NULL) sol_d_throw(L, SOL_ERRMEM);  /* only after 'va_end' */ }
+
+
+SOL_FUNC Inteiro sol_o_utf8esc (Caractere *buff, l_uint32 x);
+SOL_FUNC lu_byte sol_o_ceillog2 (Natural Inteiro x);
+SOL_FUNC lu_byte sol_o_codeparam (Natural Inteiro p);
+SOL_FUNC l_mem sol_o_applyparam (lu_byte p, l_mem x);
+
+SOL_FUNC Inteiro sol_o_rawarith (sol_State *L, Inteiro op, Imutável TValue *p1,
+                             Imutável TValue *p2, TValue *res);
+SOL_FUNC Vazio sol_o_arith (sol_State *L, Inteiro op, Imutável TValue *p1,
+                           Imutável TValue *p2, StkId res);
+SOL_FUNC size_t sol_o_str2num (Imutável Caractere *s, TValue *o);
+SOL_FUNC Natural sol_o_tostringbuff (Imutável TValue *obj, Caractere *buff);
+SOL_FUNC lu_byte sol_o_hexavalue (Inteiro c);
+SOL_FUNC Vazio sol_o_tostring (sol_State *L, TValue *obj);
+SOL_FUNC Imutável Caractere *sol_o_pushvfstring (sol_State *L, Imutável Caractere *fmt,
+                                                       va_list argp);
+SOL_FUNC Imutável Caractere *sol_o_pushfstring (sol_State *L, Imutável Caractere *fmt, ...);
+SOL_FUNC Vazio sol_o_chunkid (Caractere *out, Imutável Caractere *source, size_t srclen);
+
+
+#FimSe
+

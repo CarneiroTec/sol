@@ -1,0 +1,971 @@
+/*
+** $Id: ldebug.c $
+** Debug Interface
+** See Copyright Notice in sol.h
+*/
+
+#Defina debug_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <stdarg.h>
+#Inclua <stddef.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "code.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "object.int"
+#Inclua "opcodes.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "tm.int"
+#Inclua "vm.int"
+
+
+
+#Defina LuaClosure(f)		((f) != NULL && (f)->c.tt == SOL_VLCL)
+
+Fixo Imutável Caractere strlocal[] = "local";
+Fixo Imutável Caractere strupval[] = "upvalue";
+
+Fixo Imutável Caractere *funcnamefromcall (sol_State *L, CallInfo *ci,
+                                                   Imutável Caractere **name);
+
+
+Fixo Inteiro currentpc (CallInfo *ci) {
+  sol_assert(isLua(ci));
+  Retorne pcRel(ci->u.l.savedpc, ci_func(ci)->p);
+}
+
+
+/*
+** Get a "base Linha" to find the Linha corresponding to an instruction.
+** Base lines are regularly placed at MAXIWTHABS intervals, so usually
+** an integer division gets the right place. When the source file has
+** large sequences of empty/comment lines, it may need extra entries,
+** so the original estimate needs a correction.
+** If the original estimate is -1, the initial 'Se' ensures that the
+** 'Enquanto' will run at least once.
+** The assertion that the estimate is a lower bound Para the correct base
+** is valid as Longo as the debug info has been generated with the same
+** value Para MAXIWTHABS or smaller. (Previous releases use a little
+** smaller value.)
+*/
+Fixo Inteiro getbaseline (Imutável Proto *f, Inteiro pc, Inteiro *basepc) {
+  Se (f->sizeabslineinfo == 0 || pc < f->abslineinfo[0].pc) {
+    *basepc = -1;  /* start from the beginning */
+    Retorne f->linedefined;
+  }
+  Senão {
+    Inteiro i = pc / MAXIWTHABS - 1;  /* get an estimate */
+    /* estimate must be a lower bound of the correct base */
+    sol_assert(i < 0 ||
+              (i < f->sizeabslineinfo && f->abslineinfo[i].pc <= pc));
+    Enquanto (i + 1 < f->sizeabslineinfo && pc >= f->abslineinfo[i + 1].pc)
+      i++;  /* low estimate; adjust it */
+    *basepc = f->abslineinfo[i].pc;
+    Retorne f->abslineinfo[i].Linha;
+  }
+}
+
+
+/*
+** Get the Linha corresponding to instruction 'pc' in function 'f';
+** first gets a base Linha and from there does the increments until
+** the desired instruction.
+*/
+Inteiro sol_g_getfuncline (Imutável Proto *f, Inteiro pc) {
+  Se (f->lineinfo == NULL)  /* no debug information? */
+    Retorne -1;
+  Senão {
+    Inteiro basepc;
+    Inteiro baseline = getbaseline(f, pc, &basepc);
+    Enquanto (basepc++ < pc) {  /* walk until given instruction */
+      sol_assert(f->lineinfo[basepc] != ABSLINEINFO);
+      baseline += f->lineinfo[basepc];  /* correct Linha */
+    }
+    Retorne baseline;
+  }
+}
+
+
+Fixo Inteiro getcurrentline (CallInfo *ci) {
+  Retorne sol_g_getfuncline(ci_func(ci)->p, currentpc(ci));
+}
+
+
+/*
+** Set 'trap' Para all active Sol frames.
+** This function can be called during a signal, under "reasonable"
+** assumptions. A new 'ci' is completely linked in the list before it
+** becomes part of the "active" list, and we assume that pointers are
+** atomic; see comment in next function.
+** (A compiler doing interprocedural optimizations could, theoretically,
+** reorder memory writes in such a way that the list could be
+** temporarily broken Enquanto inserting a new element. We simply assume it
+** has no good reasons to Faça that.)
+*/
+Fixo Vazio settraps (CallInfo *ci) {
+  Para (; ci != NULL; ci = ci->previous)
+    Se (isLua(ci))
+      ci->u.l.trap = 1;
+}
+
+
+/*
+** This function can be called during a signal, under "reasonable"
+** assumptions.
+** Fields 'basehookcount' and 'hookcount' (set by 'resethookcount')
+** are Para debug only, and it is no problem Se they get arbitrary
+** values (causes at most one wrong hook call). 'hookmask' is an atomic
+** value. We assume that pointers are atomic too (e.g., gcc ensures that
+** Para all platforms where it runs). Moreover, 'hook' is always checked
+** before being called (see 'sol_d_hook').
+*/
+SOL_API Vazio sol_sethook (sol_State *L, sol_Hook func, Inteiro mask, Inteiro count) {
+  Se (func == NULL || mask == 0) {  /* turn off hooks? */
+    mask = 0;
+    func = NULL;
+  }
+  L->hook = func;
+  L->basehookcount = count;
+  resethookcount(L);
+  L->hookmask = cast_byte(mask);
+  Se (mask)
+    settraps(L->ci);  /* to trace inside 'sol_v_execute' */
+}
+
+
+SOL_API sol_Hook sol_gethook (sol_State *L) {
+  Retorne L->hook;
+}
+
+
+SOL_API Inteiro sol_gethookmask (sol_State *L) {
+  Retorne L->hookmask;
+}
+
+
+SOL_API Inteiro sol_gethookcount (sol_State *L) {
+  Retorne L->basehookcount;
+}
+
+
+SOL_API Inteiro sol_getstack (sol_State *L, Inteiro level, sol_Debug *ar) {
+  Inteiro status;
+  CallInfo *ci;
+  Se (level < 0) Retorne 0;  /* invalid (negative) level */
+  sol_lock(L);
+  Para (ci = L->ci; level > 0 && ci != &L->base_ci; ci = ci->previous)
+    level--;
+  Se (level == 0 && ci != &L->base_ci) {  /* level found? */
+    status = 1;
+    ar->i_ci = ci;
+  }
+  Senão status = 0;  /* no such level */
+  sol_unlock(L);
+  Retorne status;
+}
+
+
+Fixo Imutável Caractere *upvalname (Imutável Proto *p, Inteiro uv) {
+  TString *s = check_exp(uv < p->sizeupvalues, p->upvalues[uv].name);
+  Se (s == NULL) Retorne "?";
+  Senão Retorne getstr(s);
+}
+
+
+Fixo Imutável Caractere *findvararg (CallInfo *ci, Inteiro n, StkId *pos) {
+  Se (clLvalue(s2v(ci->func.p))->p->flag & PF_ISVARARG) {
+    Inteiro nextra = ci->u.l.nextraargs;
+    Se (n >= -nextra) {  /* 'n' is negative */
+      *pos = ci->func.p - nextra - (n + 1);
+      Retorne "(vararg)";  /* generic name Para any vararg */
+    }
+  }
+  Retorne NULL;  /* no such vararg */
+}
+
+
+Imutável Caractere *sol_g_findlocal (sol_State *L, CallInfo *ci, Inteiro n, StkId *pos) {
+  StkId base = ci->func.p + 1;
+  Imutável Caractere *name = NULL;
+  Se (isLua(ci)) {
+    Se (n < 0)  /* access to vararg values? */
+      Retorne findvararg(ci, n, pos);
+    Senão
+      name = sol_f_getlocalname(ci_func(ci)->p, n, currentpc(ci));
+  }
+  Se (name == NULL) {  /* no 'standard' name? */
+    StkId limit = (ci == L->ci) ? L->top.p : ci->next->func.p;
+    Se (limit - base >= n && n > 0) {  /* is 'n' inside 'ci' stack? */
+      /* generic name Para any valid slot */
+      name = isLua(ci) ? "(temporário)" : "(temporário C)";
+    }
+    Senão
+      Retorne NULL;  /* no name */
+  }
+  Se (pos)
+    *pos = base + (n - 1);
+  Retorne name;
+}
+
+
+SOL_API Imutável Caractere *sol_getlocal (sol_State *L, Imutável sol_Debug *ar, Inteiro n) {
+  Imutável Caractere *name;
+  sol_lock(L);
+  Se (ar == NULL) {  /* information about non-active function? */
+    Se (!isLfunction(s2v(L->top.p - 1)))  /* not a Sol function? */
+      name = NULL;
+    Senão  /* consider live variables at function start (parameters) */
+      name = sol_f_getlocalname(clLvalue(s2v(L->top.p - 1))->p, n, 0);
+  }
+  Senão {  /* active function; get information through 'ar' */
+    StkId pos = NULL;  /* to avoid warnings */
+    name = sol_g_findlocal(L, ar->i_ci, n, &pos);
+    Se (name) {
+      setobjs2s(L, L->top.p, pos);
+      api_incr_top(L);
+    }
+  }
+  sol_unlock(L);
+  Retorne name;
+}
+
+
+SOL_API Imutável Caractere *sol_setlocal (sol_State *L, Imutável sol_Debug *ar, Inteiro n) {
+  StkId pos = NULL;  /* to avoid warnings */
+  Imutável Caractere *name;
+  sol_lock(L);
+  name = sol_g_findlocal(L, ar->i_ci, n, &pos);
+  Se (name) {
+    api_checkpop(L, 1);
+    setobjs2s(L, pos, L->top.p - 1);
+    L->top.p--;  /* pop value */
+  }
+  sol_unlock(L);
+  Retorne name;
+}
+
+
+Fixo Vazio funcinfo (sol_Debug *ar, Closure *cl) {
+  Se (!LuaClosure(cl)) {
+    ar->source = "=[C]";
+    ar->srclen = LL("=[C]");
+    ar->linedefined = -1;
+    ar->lastlinedefined = -1;
+    ar->what = "C";
+  }
+  Senão {
+    Imutável Proto *p = cl->l.p;
+    Se (p->source) {
+      ar->source = getlstr(p->source, ar->srclen);
+    }
+    Senão {
+      ar->source = "=?";
+      ar->srclen = LL("=?");
+    }
+    ar->linedefined = p->linedefined;
+    ar->lastlinedefined = p->lastlinedefined;
+    ar->what = (ar->linedefined == 0) ? "main" : "Sol";
+  }
+  sol_o_chunkid(ar->short_src, ar->source, ar->srclen);
+}
+
+
+Fixo Inteiro nextline (Imutável Proto *p, Inteiro currentline, Inteiro pc) {
+  Se (p->lineinfo[pc] != ABSLINEINFO)
+    Retorne currentline + p->lineinfo[pc];
+  Senão
+    Retorne sol_g_getfuncline(p, pc);
+}
+
+
+Fixo Vazio collectvalidlines (sol_State *L, Closure *f) {
+  Se (!LuaClosure(f)) {
+    setnilvalue(s2v(L->top.p));
+    api_incr_top(L);
+  }
+  Senão {
+    Imutável Proto *p = f->l.p;
+    Inteiro currentline = p->linedefined;
+    Table *t = sol_h_new(L);  /* new table to store active lines */
+    sethvalue2s(L, L->top.p, t);  /* push it on stack */
+    api_incr_top(L);
+    Se (p->lineinfo != NULL) {  /* proto with debug information? */
+      Inteiro i;
+      TValue v;
+      setbtvalue(&v);  /* boolean 'true' to be the value of all indices */
+      Se (!(p->flag & PF_ISVARARG))  /* regular function? */
+        i = 0;  /* consider all instructions */
+      Senão {  /* vararg function */
+        sol_assert(GET_OPCODE(p->code[0]) == OP_VARARGPREP);
+        currentline = nextline(p, currentline, 0);
+        i = 1;  /* skip first instruction (OP_VARARGPREP) */
+      }
+      Para (; i < p->sizelineinfo; i++) {  /* Para each instruction */
+        currentline = nextline(p, currentline, i);  /* get its Linha */
+        sol_h_setint(L, t, currentline, &v);  /* table[Linha] = true */
+      }
+    }
+  }
+}
+
+
+Fixo Imutável Caractere *getfuncname (sol_State *L, CallInfo *ci, Imutável Caractere **name) {
+  /* calling function is a known function? */
+  Se (ci != NULL && !(ci->callstatus & CIST_TAIL))
+    Retorne funcnamefromcall(L, ci->previous, name);
+  Senão Retorne NULL;  /* no way to find a name */
+}
+
+
+Fixo Inteiro auxgetinfo (sol_State *L, Imutável Caractere *what, sol_Debug *ar,
+                       Closure *f, CallInfo *ci) {
+  Inteiro status = 1;
+  Para (; *what; what++) {
+    Troque (*what) {
+      Caso 'S': {
+        funcinfo(ar, f);
+        Interrompa;
+      }
+      Caso 'l': {
+        ar->currentline = (ci && isLua(ci)) ? getcurrentline(ci) : -1;
+        Interrompa;
+      }
+      Caso 'u': {
+        ar->nups = (f == NULL) ? 0 : f->c.nupvalues;
+        Se (!LuaClosure(f)) {
+          ar->isvararg = 1;
+          ar->nparams = 0;
+        }
+        Senão {
+          ar->isvararg = (f->l.p->flag & PF_ISVARARG) ? 1 : 0;
+          ar->nparams = f->l.p->numparams;
+        }
+        Interrompa;
+      }
+      Caso 't': {
+        Se (ci != NULL) {
+          ar->istailcall = !!(ci->callstatus & CIST_TAIL);
+          ar->extraargs =
+                   cast_uchar((ci->callstatus & MAX_CCMT) >> CIST_CCMT);
+        }
+        Senão {
+          ar->istailcall = 0;
+          ar->extraargs = 0;
+        }
+        Interrompa;
+      }
+      Caso 'n': {
+        ar->namewhat = getfuncname(L, ci, &ar->name);
+        Se (ar->namewhat == NULL) {
+          ar->namewhat = "";  /* not found */
+          ar->name = NULL;
+        }
+        Interrompa;
+      }
+      Caso 'r': {
+        Se (ci == NULL || !(ci->callstatus & CIST_HOOKED))
+          ar->ftransfer = ar->ntransfer = 0;
+        Senão {
+          ar->ftransfer = L->transferinfo.ftransfer;
+          ar->ntransfer = L->transferinfo.ntransfer;
+        }
+        Interrompa;
+      }
+      Caso 'L':
+      Caso 'f':  /* handled by sol_getinfo */
+        Interrompa;
+      Padrão: status = 0;  /* invalid option */
+    }
+  }
+  Retorne status;
+}
+
+
+SOL_API Inteiro sol_getinfo (sol_State *L, Imutável Caractere *what, sol_Debug *ar) {
+  Inteiro status;
+  Closure *cl;
+  CallInfo *ci;
+  TValue *func;
+  sol_lock(L);
+  Se (*what == '>') {
+    ci = NULL;
+    func = s2v(L->top.p - 1);
+    api_check(L, ttisfunction(func), "function expected");
+    what++;  /* skip the '>' */
+    L->top.p--;  /* pop function */
+  }
+  Senão {
+    ci = ar->i_ci;
+    func = s2v(ci->func.p);
+    sol_assert(ttisfunction(func));
+  }
+  cl = ttisclosure(func) ? clvalue(func) : NULL;
+  status = auxgetinfo(L, what, ar, cl, ci);
+  Se (strchr(what, 'f')) {
+    setobj2s(L, L->top.p, func);
+    api_incr_top(L);
+  }
+  Se (strchr(what, 'L'))
+    collectvalidlines(L, cl);
+  sol_unlock(L);
+  Retorne status;
+}
+
+
+/*
+** {======================================================
+** Symbolic Execution
+** =======================================================
+*/
+
+
+Fixo Inteiro filterpc (Inteiro pc, Inteiro jmptarget) {
+  Se (pc < jmptarget)  /* is code conditional (inside a jump)? */
+    Retorne -1;  /* cannot know who sets that Registrador */
+  Senão Retorne pc;  /* current position sets that Registrador */
+}
+
+
+/*
+** Try to find last instruction before 'lastpc' that modified Registrador 'reg'.
+*/
+Fixo Inteiro findsetreg (Imutável Proto *p, Inteiro lastpc, Inteiro reg) {
+  Inteiro pc;
+  Inteiro setreg = -1;  /* keep last instruction that changed 'reg' */
+  Inteiro jmptarget = 0;  /* any code before this address is conditional */
+  Se (testMMMode(GET_OPCODE(p->code[lastpc])))
+    lastpc--;  /* previous instruction was not actually executed */
+  Para (pc = 0; pc < lastpc; pc++) {
+    Instruction i = p->code[pc];
+    OpCode op = GET_OPCODE(i);
+    Inteiro a = GETARG_A(i);
+    Inteiro change;  /* true Se current instruction changed 'reg' */
+    Troque (op) {
+      Caso OP_LOADNIL: {  /* set registers from 'a' to 'a+b' */
+        Inteiro b = GETARG_B(i);
+        change = (a <= reg && reg <= a + b);
+        Interrompa;
+      }
+      Caso OP_TFORCALL: {  /* affect all regs above its base */
+        change = (reg >= a + 2);
+        Interrompa;
+      }
+      Caso OP_CALL:
+      Caso OP_TAILCALL: {  /* affect all registers above base */
+        change = (reg >= a);
+        Interrompa;
+      }
+      Caso OP_JMP: {  /* doesn't change registers, but changes 'jmptarget' */
+        Inteiro b = GETARG_sJ(i);
+        Inteiro dest = pc + 1 + b;
+        /* jump does not skip 'lastpc' and is larger than current one? */
+        Se (dest <= lastpc && dest > jmptarget)
+          jmptarget = dest;  /* update 'jmptarget' */
+        change = 0;
+        Interrompa;
+      }
+      Padrão:  /* any instruction that sets A */
+        change = (testAMode(op) && reg == a);
+        Interrompa;
+    }
+    Se (change)
+      setreg = filterpc(pc, jmptarget);
+  }
+  Retorne setreg;
+}
+
+
+/*
+** Find a "name" Para the constant 'c'.
+*/
+Fixo Imutável Caractere *kname (Imutável Proto *p, Inteiro index, Imutável Caractere **name) {
+  TValue *kvalue = &p->k[index];
+  Se (ttisstring(kvalue)) {
+    *name = getstr(tsvalue(kvalue));
+    Retorne "constant";
+  }
+  Senão {
+    *name = "?";
+    Retorne NULL;
+  }
+}
+
+
+Fixo Imutável Caractere *basicgetobjname (Imutável Proto *p, Inteiro *ppc, Inteiro reg,
+                                    Imutável Caractere **name) {
+  Inteiro pc = *ppc;
+  *name = sol_f_getlocalname(p, reg + 1, pc);
+  Se (*name)  /* is a local? */
+    Retorne strlocal;
+  /* Senão try symbolic execution */
+  *ppc = pc = findsetreg(p, pc, reg);
+  Se (pc != -1) {  /* could find instruction? */
+    Instruction i = p->code[pc];
+    OpCode op = GET_OPCODE(i);
+    Troque (op) {
+      Caso OP_MOVE: {
+        Inteiro b = GETARG_B(i);  /* move from 'b' to 'a' */
+        Se (b < GETARG_A(i))
+          Retorne basicgetobjname(p, ppc, b, name);  /* get name Para 'b' */
+        Interrompa;
+      }
+      Caso OP_GETUPVAL: {
+        *name = upvalname(p, GETARG_B(i));
+        Retorne strupval;
+      }
+      Caso OP_LOADK: Retorne kname(p, GETARG_Bx(i), name);
+      Caso OP_LOADKX: Retorne kname(p, GETARG_Ax(p->code[pc + 1]), name);
+      Padrão: Interrompa;
+    }
+  }
+  Retorne NULL;  /* could not find reasonable name */
+}
+
+
+/*
+** Find a "name" Para the Registrador 'c'.
+*/
+Fixo Vazio rname (Imutável Proto *p, Inteiro pc, Inteiro c, Imutável Caractere **name) {
+  Imutável Caractere *what = basicgetobjname(p, &pc, c, name); /* search Para 'c' */
+  Se (!(what && *what == 'c'))  /* did not find a constant name? */
+    *name = "?";
+}
+
+
+/*
+** Check whether table being indexed by instruction 'i' is the
+** environment '_ENV'
+*/
+Fixo Imutável Caractere *isEnv (Imutável Proto *p, Inteiro pc, Instruction i, Inteiro isup) {
+  Inteiro t = GETARG_B(i);  /* table index */
+  Imutável Caractere *name;  /* name of indexed variable */
+  Se (isup)  /* is 't' an upvalue? */
+    name = upvalname(p, t);
+  Senão {  /* 't' is a Registrador */
+    Imutável Caractere *what = basicgetobjname(p, &pc, t, &name);
+    /* 'name' must be the name of a local variable (at the current
+       level or an upvalue) */
+    Se (what != strlocal && what != strupval)
+      name = NULL;  /* cannot be the variable _ENV */
+  }
+  Retorne (name && strcmp(name, SOL_ENV) == 0) ? "global" : "field";
+}
+
+
+/*
+** Extend 'basicgetobjname' to handle table accesses
+*/
+Fixo Imutável Caractere *getobjname (Imutável Proto *p, Inteiro lastpc, Inteiro reg,
+                               Imutável Caractere **name) {
+  Imutável Caractere *kind = basicgetobjname(p, &lastpc, reg, name);
+  Se (kind != NULL)
+    Retorne kind;
+  Senão Se (lastpc != -1) {  /* could find instruction? */
+    Instruction i = p->code[lastpc];
+    OpCode op = GET_OPCODE(i);
+    Troque (op) {
+      Caso OP_GETTABUP: {
+        Inteiro k = GETARG_C(i);  /* key index */
+        kname(p, k, name);
+        Retorne isEnv(p, lastpc, i, 1);
+      }
+      Caso OP_GETTABLE: {
+        Inteiro k = GETARG_C(i);  /* key index */
+        rname(p, lastpc, k, name);
+        Retorne isEnv(p, lastpc, i, 0);
+      }
+      Caso OP_GETI: {
+        *name = "integer index";
+        Retorne "field";
+      }
+      Caso OP_GETFIELD: {
+        Inteiro k = GETARG_C(i);  /* key index */
+        kname(p, k, name);
+        Retorne isEnv(p, lastpc, i, 0);
+      }
+      Caso OP_SELF: {
+        Inteiro k = GETARG_C(i);  /* key index */
+        kname(p, k, name);
+        Retorne "method";
+      }
+      Padrão: Interrompa;  /* go through to Retorne NULL */
+    }
+  }
+  Retorne NULL;  /* could not find reasonable name */
+}
+
+
+/*
+** Try to find a name Para a function based on the code that called it.
+** (Only works when function was called by a Sol function.)
+** Returns what the name is (e.g., "Para iterator", "method",
+** "metamethod") and sets '*name' to point to the name.
+*/
+Fixo Imutável Caractere *funcnamefromcode (sol_State *L, Imutável Proto *p,
+                                     Inteiro pc, Imutável Caractere **name) {
+  TMS tm = (TMS)0;  /* (initial value avoids warnings) */
+  Instruction i = p->code[pc];  /* calling instruction */
+  Troque (GET_OPCODE(i)) {
+    Caso OP_CALL:
+    Caso OP_TAILCALL:
+      Retorne getobjname(p, pc, GETARG_A(i), name);  /* get function name */
+    Caso OP_TFORCALL: {  /* Para iterator */
+      *name = "Para iterator";
+       Retorne "Para iterator";
+    }
+    /* other instructions can Faça calls through metamethods */
+    Caso OP_SELF: Caso OP_GETTABUP: Caso OP_GETTABLE:
+    Caso OP_GETI: Caso OP_GETFIELD:
+      tm = TM_INDEX;
+      Interrompa;
+    Caso OP_SETTABUP: Caso OP_SETTABLE: Caso OP_SETI: Caso OP_SETFIELD:
+      tm = TM_NEWINDEX;
+      Interrompa;
+    Caso OP_MMBIN: Caso OP_MMBINI: Caso OP_MMBINK: {
+      tm = cast(TMS, GETARG_C(i));
+      Interrompa;
+    }
+    Caso OP_UNM: tm = TM_UNM; Interrompa;
+    Caso OP_BNOT: tm = TM_BNOT; Interrompa;
+    Caso OP_LEN: tm = TM_LEN; Interrompa;
+    Caso OP_CONCAT: tm = TM_CONCAT; Interrompa;
+    Caso OP_EQ: tm = TM_EQ; Interrompa;
+    /* no cases Para OP_EQI and OP_EQK, as they don't call metamethods */
+    Caso OP_LT: Caso OP_LTI: Caso OP_GTI: tm = TM_LT; Interrompa;
+    Caso OP_LE: Caso OP_LEI: Caso OP_GEI: tm = TM_LE; Interrompa;
+    Caso OP_CLOSE: Caso OP_RETURN: tm = TM_CLOSE; Interrompa;
+    Padrão:
+      Retorne NULL;  /* cannot find a reasonable name */
+  }
+  *name = getshrstr(G(L)->tmname[tm]) + 2;
+  Retorne "metamethod";
+}
+
+
+/*
+** Try to find a name Para a function based on how it was called.
+*/
+Fixo Imutável Caractere *funcnamefromcall (sol_State *L, CallInfo *ci,
+                                                   Imutável Caractere **name) {
+  Se (ci->callstatus & CIST_HOOKED) {  /* was it called inside a hook? */
+    *name = "?";
+    Retorne "hook";
+  }
+  Senão Se (ci->callstatus & CIST_FIN) {  /* was it called as a finalizer? */
+    *name = "__coletor_lixo";
+    Retorne "metamethod";  /* report it as such */
+  }
+  Senão Se (isLua(ci))
+    Retorne funcnamefromcode(L, ci_func(ci)->p, currentpc(ci), name);
+  Senão
+    Retorne NULL;
+}
+
+/* }====================================================== */
+
+
+
+/*
+** Check whether pointer 'o' points to some value in the stack frame of
+** the current function and, Se so, returns its index.  Because 'o' may
+** not point to a value in this stack, we cannot compare it with the
+** region boundaries (undefined behavior in ISO C).
+*/
+Fixo Inteiro instack (CallInfo *ci, Imutável TValue *o) {
+  Inteiro pos;
+  StkId base = ci->func.p + 1;
+  Para (pos = 0; base + pos < ci->top.p; pos++) {
+    Se (o == s2v(base + pos))
+      Retorne pos;
+  }
+  Retorne -1;  /* not found */
+}
+
+
+/*
+** Checks whether value 'o' came from an upvalue. (That can only happen
+** with instructions OP_GETTABUP/OP_SETTABUP, which operate directly on
+** upvalues.)
+*/
+Fixo Imutável Caractere *getupvalname (CallInfo *ci, Imutável TValue *o,
+                                 Imutável Caractere **name) {
+  LClosure *c = ci_func(ci);
+  Inteiro i;
+  Para (i = 0; i < c->nupvalues; i++) {
+    Se (c->upvals[i]->v.p == o) {
+      *name = upvalname(c->p, i);
+      Retorne strupval;
+    }
+  }
+  Retorne NULL;
+}
+
+
+Fixo Imutável Caractere *formatvarinfo (sol_State *L, Imutável Caractere *kind,
+                                                Imutável Caractere *name) {
+  Se (kind == NULL)
+    Retorne "";  /* no information */
+  Senão
+    Retorne sol_o_pushfstring(L, " (%s '%s')", kind, name);
+}
+
+/*
+** Build a string with a "description" Para the value 'o', such as
+** "variable 'x'" or "upvalue 'y'".
+*/
+Fixo Imutável Caractere *varinfo (sol_State *L, Imutável TValue *o) {
+  CallInfo *ci = L->ci;
+  Imutável Caractere *name = NULL;  /* to avoid warnings */
+  Imutável Caractere *kind = NULL;
+  Se (isLua(ci)) {
+    kind = getupvalname(ci, o, &name);  /* check whether 'o' is an upvalue */
+    Se (!kind) {  /* not an upvalue? */
+      Inteiro reg = instack(ci, o);  /* try a Registrador */
+      Se (reg >= 0)  /* is 'o' a Registrador? */
+        kind = getobjname(ci_func(ci)->p, currentpc(ci), reg, &name);
+    }
+  }
+  Retorne formatvarinfo(L, kind, name);
+}
+
+
+/*
+** Raise a type Erro
+*/
+Fixo l_noret typeerror (sol_State *L, Imutável TValue *o, Imutável Caractere *op,
+                          Imutável Caractere *extra) {
+  Imutável Caractere *t = sol_t_objtypename(L, o);
+  sol_g_runerror(L, "tentativa de %s um valor %s%s", op, t, extra);
+}
+
+
+/*
+** Raise a type Erro with "standard" information about the faulty
+** object 'o' (using 'varinfo').
+*/
+l_noret sol_g_typeerror (sol_State *L, Imutável TValue *o, Imutável Caractere *op) {
+  typeerror(L, o, op, varinfo(L, o));
+}
+
+
+/*
+** Raise an Erro Para calling a non-callable object. Try to find a name
+** Para the object based on how it was called ('funcnamefromcall'); Se it
+** cannot get a name there, try 'varinfo'.
+*/
+l_noret sol_g_callerror (sol_State *L, Imutável TValue *o) {
+  CallInfo *ci = L->ci;
+  Imutável Caractere *name = NULL;  /* to avoid warnings */
+  Imutável Caractere *kind = funcnamefromcall(L, ci, &name);
+  Imutável Caractere *extra = kind ? formatvarinfo(L, kind, name) : varinfo(L, o);
+  typeerror(L, o, "call", extra);
+}
+
+
+l_noret sol_g_forerror (sol_State *L, Imutável TValue *o, Imutável Caractere *what) {
+  sol_g_runerror(L, "bad 'Para' %s (number expected, got %s)",
+                   what, sol_t_objtypename(L, o));
+}
+
+
+l_noret sol_g_concaterror (sol_State *L, Imutável TValue *p1, Imutável TValue *p2) {
+  Se (ttisstring(p1) || cvt2str(p1)) p1 = p2;
+  sol_g_typeerror(L, p1, "concatenate");
+}
+
+
+l_noret sol_g_opinterror (sol_State *L, Imutável TValue *p1,
+                         Imutável TValue *p2, Imutável Caractere *msg) {
+  Se (!ttisnumber(p1))  /* first operand is wrong? */
+    p2 = p1;  /* now second is wrong */
+  sol_g_typeerror(L, p2, msg);
+}
+
+
+/*
+** Error when both values are convertible to numbers, but not to integers
+*/
+l_noret sol_g_tointerror (sol_State *L, Imutável TValue *p1, Imutável TValue *p2) {
+  sol_Integer temp;
+  Se (!sol_v_tointegerns(p1, &temp, SOL_FLOORN2I))
+    p2 = p1;
+  sol_g_runerror(L, "number%s has no integer representation", varinfo(L, p2));
+}
+
+
+l_noret sol_g_ordererror (sol_State *L, Imutável TValue *p1, Imutável TValue *p2) {
+  Imutável Caractere *t1 = sol_t_objtypename(L, p1);
+  Imutável Caractere *t2 = sol_t_objtypename(L, p2);
+  Se (strcmp(t1, t2) == 0)
+    sol_g_runerror(L, "tentativa de comparar dois valores %s", t1);
+  Senão
+    sol_g_runerror(L, "tentativa de comparar %s com %s", t1, t2);
+}
+
+
+/* add src:Linha information to 'msg' */
+Imutável Caractere *sol_g_addinfo (sol_State *L, Imutável Caractere *msg, TString *src,
+                                        Inteiro Linha) {
+  Se (src == NULL)  /* no debug information? */
+    Retorne sol_o_pushfstring(L, "?:?: %s", msg);
+  Senão {
+    Caractere buff[SOL_IDSIZE];
+    size_t idlen;
+    Imutável Caractere *id = getlstr(src, idlen);
+    sol_o_chunkid(buff, id, idlen);
+    Retorne sol_o_pushfstring(L, "%s:%d: %s", buff, Linha, msg);
+  }
+}
+
+
+l_noret sol_g_errormsg (sol_State *L) {
+  Se (L->errfunc != 0) {  /* is there an Erro handling function? */
+    StkId errfunc = restorestack(L, L->errfunc);
+    sol_assert(ttisfunction(s2v(errfunc)));
+    setobjs2s(L, L->top.p, L->top.p - 1);  /* move argument */
+    setobjs2s(L, L->top.p - 1, errfunc);  /* push function */
+    L->top.p++;  /* assume EXTRA_STACK */
+    sol_d_callnoyield(L, L->top.p - 2, 1);  /* call it */
+  }
+  Se (ttisnil(s2v(L->top.p - 1))) {  /* Erro object is nil? */
+    /* change it to a proper message */
+    setsvalue2s(L, L->top.p - 1, sol_s_newliteral(L, "<no Erro object>"));
+  }
+  sol_d_throw(L, SOL_ERRRUN);
+}
+
+
+l_noret sol_g_runerror (sol_State *L, Imutável Caractere *fmt, ...) {
+  CallInfo *ci = L->ci;
+  Imutável Caractere *msg;
+  va_list argp;
+  sol_c_checkGC(L);  /* Erro message uses memory */
+  pushvfstring(L, argp, fmt, msg);
+  Se (isLua(ci)) {  /* Sol function? */
+    /* add source:Linha information */
+    sol_g_addinfo(L, msg, ci_func(ci)->p->source, getcurrentline(ci));
+    setobjs2s(L, L->top.p - 2, L->top.p - 1);  /* remove 'msg' */
+    L->top.p--;
+  }
+  sol_g_errormsg(L);
+}
+
+
+/*
+** Check whether new instruction 'newpc' is in a different Linha from
+** previous instruction 'oldpc'. More often than not, 'newpc' is only
+** one or a few instructions after 'oldpc' (it must be after, see
+** caller), so try to avoid calling 'sol_g_getfuncline'. If they are
+** too far apart, there is a good chance of a ABSLINEINFO in the way,
+** so it goes directly to 'sol_g_getfuncline'.
+*/
+Fixo Inteiro changedline (Imutável Proto *p, Inteiro oldpc, Inteiro newpc) {
+  Se (p->lineinfo == NULL)  /* no debug information? */
+    Retorne 0;
+  Se (newpc - oldpc < MAXIWTHABS / 2) {  /* not too far apart? */
+    Inteiro delta = 0;  /* Linha difference */
+    Inteiro pc = oldpc;
+    Para (;;) {
+      Inteiro lineinfo = p->lineinfo[++pc];
+      Se (lineinfo == ABSLINEINFO)
+        Interrompa;  /* cannot compute delta; fall through */
+      delta += lineinfo;
+      Se (pc == newpc)
+        Retorne (delta != 0);  /* delta computed successfully */
+    }
+  }
+  /* either instructions are too far apart or there is an absolute Linha
+     info in the way; compute Linha difference explicitly */
+  Retorne (sol_g_getfuncline(p, oldpc) != sol_g_getfuncline(p, newpc));
+}
+
+
+/*
+** Traces Sol calls. If code is running the first instruction of a function,
+** and function is not vararg, and it is not coming from an yield,
+** calls 'sol_d_hookcall'. (Vararg functions will call 'sol_d_hookcall'
+** after adjusting its variable arguments; otherwise, they could call
+** a Linha/count hook before the call hook. Functions coming from
+** an yield already called 'sol_d_hookcall' before yielding.)
+*/
+Inteiro sol_g_tracecall (sol_State *L) {
+  CallInfo *ci = L->ci;
+  Proto *p = ci_func(ci)->p;
+  ci->u.l.trap = 1;  /* ensure hooks will be checked */
+  Se (ci->u.l.savedpc == p->code) {  /* first instruction (not resuming)? */
+    Se (p->flag & PF_ISVARARG)
+      Retorne 0;  /* hooks will start at VARARGPREP instruction */
+    Senão Se (!(ci->callstatus & CIST_HOOKYIELD))  /* not yielded? */
+      sol_d_hookcall(L, ci);  /* check 'call' hook */
+  }
+  Retorne 1;  /* keep 'trap' on */
+}
+
+
+/*
+** Traces the execution of a Sol function. Called before the execution
+** of each opcode, when debug is on. 'L->oldpc' stores the last
+** instruction traced, to detect Linha changes. When entering a new
+** function, 'npci' will be zero and will test as a new Linha whatever
+** the value of 'oldpc'.  Some exceptional conditions may Retorne to
+** a function without setting 'oldpc'. In that Caso, 'oldpc' may be
+** invalid; Se so, use zero as a valid value. (A wrong but valid 'oldpc'
+** at most causes an extra call to a Linha hook.)
+** This function is not "Protected" when called, so it should correct
+** 'L->top.p' before calling anything that can run the GC.
+*/
+Inteiro sol_g_traceexec (sol_State *L, Imutável Instruction *pc) {
+  CallInfo *ci = L->ci;
+  lu_byte mask = cast_byte(L->hookmask);
+  Imutável Proto *p = ci_func(ci)->p;
+  Inteiro counthook;
+  Se (!(mask & (SOL_MASKLINE | SOL_MASKCOUNT))) {  /* no hooks? */
+    ci->u.l.trap = 0;  /* don't need to stop again */
+    Retorne 0;  /* turn off 'trap' */
+  }
+  pc++;  /* reference is always next instruction */
+  ci->u.l.savedpc = pc;  /* save 'pc' */
+  counthook = (mask & SOL_MASKCOUNT) && (--L->hookcount == 0);
+  Se (counthook)
+    resethookcount(L);  /* reset count */
+  Senão Se (!(mask & SOL_MASKLINE))
+    Retorne 1;  /* no Linha hook and count != 0; nothing to be done now */
+  Se (ci->callstatus & CIST_HOOKYIELD) {  /* hook yielded last time? */
+    ci->callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
+    Retorne 1;  /* Faça not call hook again (VM yielded, so it did not move) */
+  }
+  Se (!sol_p_isIT(*(ci->u.l.savedpc - 1)))  /* top not being used? */
+    L->top.p = ci->top.p;  /* correct top */
+  Se (counthook)
+    sol_d_hook(L, SOL_HOOKCOUNT, -1, 0, 0);  /* call count hook */
+  Se (mask & SOL_MASKLINE) {
+    /* 'L->oldpc' may be invalid; use zero in this Caso */
+    Inteiro oldpc = (L->oldpc < p->sizecode) ? L->oldpc : 0;
+    Inteiro npci = pcRel(pc, p);
+    Se (npci <= oldpc ||  /* call hook when jump back (loop), */
+        changedline(p, oldpc, npci)) {  /* or when enter new Linha */
+      Inteiro newline = sol_g_getfuncline(p, npci);
+      sol_d_hook(L, SOL_HOOKLINE, newline, 0, 0);  /* call Linha hook */
+    }
+    L->oldpc = npci;  /* 'pc' of last call to Linha hook */
+  }
+  Se (L->status == SOL_YIELD) {  /* did hook yield? */
+    Se (counthook)
+      L->hookcount = 1;  /* undo decrement to zero */
+    ci->callstatus |= CIST_HOOKYIELD;  /* mark that it yielded */
+    sol_d_throw(L, SOL_YIELD);
+  }
+  Retorne 1;  /* keep 'trap' on */
+}
+

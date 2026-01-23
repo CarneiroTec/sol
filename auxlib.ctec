@@ -1,0 +1,1202 @@
+/*
+** $Id: lauxlib.c $
+** Auxiliary functions Para building Sol libraries
+** See Copyright Notice in sol.h
+*/
+
+#Defina auxlib_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+
+
+#Inclua <errno.h>
+#Inclua <stdarg.h>
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+
+/*
+** This file uses only the official API of Sol.
+** Any function declared here could be written as an application function.
+*/
+
+#Inclua "sol.int"
+
+#Inclua "auxlib.int"
+#Inclua "limits.int"
+
+
+/*
+** {======================================================
+** Traceback
+** =======================================================
+*/
+
+
+#Defina LEVELS1	10	/* size of the first part of the stack */
+#Defina LEVELS2	11	/* size of the second part of the stack */
+
+
+
+/*
+** Search Para 'objidx' in table at index -1. ('objidx' must be an
+** absolute index.) Return 1 + string at top Se it found a good name.
+*/
+Fixo Inteiro findfield (sol_State *L, Inteiro objidx, Inteiro level) {
+  Se (level == 0 || !sol_istable(L, -1))
+    Retorne 0;  /* not found */
+  sol_pushnil(L);  /* start 'next' loop */
+  Enquanto (sol_next(L, -2)) {  /* Para each pair in table */
+    Se (sol_type(L, -2) == SOL_TSTRING) {  /* ignore non-string keys */
+      Se (sol_rawequal(L, objidx, -1)) {  /* found object? */
+        sol_pop(L, 1);  /* remove value (but keep name) */
+        Retorne 1;
+      }
+      Senão Se (findfield(L, objidx, level - 1)) {  /* try recursively */
+        /* stack: lib_name, lib_table, field_name (top) */
+        sol_pushliteral(L, ".");  /* place '.' between the two names */
+        sol_replace(L, -3);  /* (in the slot occupied by table) */
+        sol_concat(L, 3);  /* lib_name.field_name */
+        Retorne 1;
+      }
+    }
+    sol_pop(L, 1);  /* remove value */
+  }
+  Retorne 0;  /* not found */
+}
+
+
+/*
+** Search Para a name Para a function in all loaded modules
+*/
+Fixo Inteiro pushglobalfuncname (sol_State *L, sol_Debug *ar) {
+  Inteiro top = sol_gettop(L);
+  sol_getinfo(L, "f", ar);  /* push function */
+  sol_getfield(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
+  solL_checkstack(L, 6, "not enough stack");  /* slots Para 'findfield' */
+  Se (findfield(L, top + 1, 2)) {
+    Imutável Caractere *name = sol_tostring(L, -1);
+    Se (strncmp(name, SOL_GNAME ".", 3) == 0) {  /* name start with '_G.'? */
+      sol_pushstring(L, name + 3);  /* push name without prefix */
+      sol_remove(L, -2);  /* remove original name */
+    }
+    sol_copy(L, -1, top + 1);  /* copy name to proper place */
+    sol_settop(L, top + 1);  /* remove table "loaded" and name copy */
+    Retorne 1;
+  }
+  Senão {
+    sol_settop(L, top);  /* remove function and global table */
+    Retorne 0;
+  }
+}
+
+
+Fixo Vazio pushfuncname (sol_State *L, sol_Debug *ar) {
+  Se (*ar->namewhat != '\0')  /* is there a name from code? */
+    sol_pushfstring(L, "%s '%s'", ar->namewhat, ar->name);  /* use it */
+  Senão Se (*ar->what == 'm')  /* main? */
+      sol_pushliteral(L, "main chunk");
+  Senão Se (pushglobalfuncname(L, ar)) {  /* try a global name */
+    sol_pushfstring(L, "function '%s'", sol_tostring(L, -1));
+    sol_remove(L, -2);  /* remove name */
+  }
+  Senão Se (*ar->what != 'C')  /* Para Sol functions, use <file:Linha> */
+    sol_pushfstring(L, "function <%s:%d>", ar->short_src, ar->linedefined);
+  Senão  /* nothing left... */
+    sol_pushliteral(L, "?");
+}
+
+
+Fixo Inteiro lastlevel (sol_State *L) {
+  sol_Debug ar;
+  Inteiro li = 1, le = 1;
+  /* find an upper bound */
+  Enquanto (sol_getstack(L, le, &ar)) { li = le; le *= 2; }
+  /* Faça a binary search */
+  Enquanto (li < le) {
+    Inteiro m = (li + le)/2;
+    Se (sol_getstack(L, m, &ar)) li = m + 1;
+    Senão le = m;
+  }
+  Retorne le - 1;
+}
+
+
+SOLIB_API Vazio sol_traceback (sol_State *L, sol_State *L1,
+                                Imutável Caractere *msg, Inteiro level) {
+  sol_Buffer b;
+  sol_Debug ar;
+  Inteiro last = lastlevel(L1);
+  Inteiro limit2show = (last - level > LEVELS1 + LEVELS2) ? LEVELS1 : -1;
+  sol_buffinit(L, &b);
+  Se (msg) {
+    sol_addstring(&b, msg);
+    sol_addchar(&b, '\n');
+  }
+  sol_addstring(&b, "rastreamento de pilha:");
+  Enquanto (sol_getstack(L1, level++, &ar)) {
+    Se (limit2show-- == 0) {  /* too many levels? */
+      Inteiro n = last - level - LEVELS2 + 1;  /* number of levels to skip */
+      sol_pushfstring(L, "\n\t...\t(pulando %d níveis)", n);
+      sol_addvalue(&b);  /* add Aviso about skip */
+      level += n;  /* and skip to last levels */
+    }
+    Senão {
+      sol_getinfo(L1, "Slnt", &ar);
+      Se (ar.currentline <= 0)
+        sol_pushfstring(L, "\n\t%s: em ", ar.short_src);
+      Senão
+        sol_pushfstring(L, "\n\t%s:%d: em ", ar.short_src, ar.currentline);
+      sol_addvalue(&b);
+      pushfuncname(L, &ar);
+      sol_addvalue(&b);
+      Se (ar.istailcall)
+        sol_addstring(&b, "\n\t(...tail calls...)");
+    }
+  }
+  sol_pushresult(&b);
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** Error-report functions
+** =======================================================
+*/
+
+SOLIB_API Inteiro sol_argerror (sol_State *L, Inteiro arg, Imutável Caractere *extramsg) {
+  sol_Debug ar;
+  Imutável Caractere *argword;
+  Se (!sol_getstack(L, 0, &ar))  /* no stack frame? */
+    Retorne solL_error(L, "argumento mau formado #%d (%s)", arg, extramsg);
+  sol_getinfo(L, "nt", &ar);
+  Se (arg <= ar.extraargs)  /* Erro in an extra argument? */
+    argword =  "argumento extra";
+  Senão {
+    arg -= ar.extraargs;  /* Faça not count extra arguments */
+    Se (strcmp(ar.namewhat, "method") == 0) {  /* colon syntax? */
+      arg--;  /* Faça not count (extra) self argument */
+      Se (arg == 0)  /* Erro in self argument? */
+        Retorne solL_error(L, "chamada de '%s' com ego inválido (%s)",
+                               ar.name, extramsg);
+      /* Senão go through; Erro in a regular argument */
+    }
+    argword = "argument";
+  }
+  Se (ar.name == NULL)
+    ar.name = (pushglobalfuncname(L, &ar)) ? sol_tostring(L, -1) : "?";
+  Retorne solL_error(L, "%s incorreto #%d para '%s' (%s)",
+                       argword, arg, ar.name, extramsg);
+}
+
+
+SOLIB_API Inteiro sol_typeerror (sol_State *L, Inteiro arg, Imutável Caractere *tname) {
+  Imutável Caractere *msg;
+  Imutável Caractere *typearg;  /* name Para the type of the actual argument */
+  Se (sol_getmetafield(L, arg, "__nome") == SOL_TSTRING)
+    typearg = sol_tostring(L, -1);  /* use the given type name */
+  Senão Se (sol_type(L, arg) == SOL_TLIGHTUSERDATA)
+    typearg = "dados de usuário leves";  /* special name Para messages */
+  Senão
+    typearg = solL_typename(L, arg);  /* standard name */
+  msg = sol_pushfstring(L, "esperava %s, recebeu %s", tname, typearg);
+  Retorne sol_argerror(L, arg, msg);
+}
+
+
+Fixo Vazio tag_error (sol_State *L, Inteiro arg, Inteiro tag) {
+  sol_typeerror(L, arg, sol_typename(L, tag));
+}
+
+
+/*
+** The use of 'sol_pushfstring' ensures this function does not
+** need reserved stack space when called.
+*/
+SOLIB_API Vazio sol_where (sol_State *L, Inteiro level) {
+  sol_Debug ar;
+  Se (sol_getstack(L, level, &ar)) {  /* check function at level */
+    sol_getinfo(L, "Sl", &ar);  /* get info about it */
+    Se (ar.currentline > 0) {  /* is there info? */
+      sol_pushfstring(L, "%s:%d: ", ar.short_src, ar.currentline);
+      Retorne;
+    }
+  }
+  sol_pushfstring(L, "");  /* Senão, no information available... */
+}
+
+
+/*
+** Again, the use of 'sol_pushvfstring' ensures this function does
+** not need reserved stack space when called. (At worst, it generates
+** a memory Erro instead of the given message.)
+*/
+SOLIB_API Inteiro solL_error (sol_State *L, Imutável Caractere *fmt, ...) {
+  va_list argp;
+  va_start(argp, fmt);
+  sol_where(L, 1);
+  sol_pushvfstring(L, fmt, argp);
+  va_end(argp);
+  sol_concat(L, 2);
+  Retorne sol_error(L);
+}
+
+
+SOLIB_API Inteiro sol_fileresult (sol_State *L, Inteiro stat, Imutável Caractere *fname) {
+  Inteiro en = errno;  /* calls to Sol API may change this value */
+  Se (stat) {
+    sol_pushboolean(L, 1);
+    Retorne 1;
+  }
+  Senão {
+    Imutável Caractere *msg;
+    sol_pushfail(L);
+    msg = (en != 0) ? strerror(en) : "(no extra info)";
+    Se (fname)
+      sol_pushfstring(L, "%s: %s", fname, msg);
+    Senão
+      sol_pushstring(L, msg);
+    sol_pushinteger(L, en);
+    Retorne 3;
+  }
+}
+
+
+#Se !Definido(l_inspectstat)	/* { */
+
+#Se Definido(SOL_USE_POSIX)
+
+#Inclua <sys/wait.int>
+
+/*
+** use appropriate macros to interpret 'pclose' Retorne status
+*/
+#Defina l_inspectstat(stat,what)  \
+   Se (WIFEXITED(stat)) { stat = WEXITSTATUS(stat); } \
+   Senão Se (WIFSIGNALED(stat)) { stat = WTERMSIG(stat); what = "signal"; }
+
+#Senão
+
+#Defina l_inspectstat(stat,what)  /* no op */
+
+#FimSe
+
+#FimSe				/* } */
+
+
+SOLIB_API Inteiro sol_execresult (sol_State *L, Inteiro stat) {
+  Se (stat != 0 && errno != 0)  /* Erro with an 'errno'? */
+    Retorne sol_fileresult(L, 0, NULL);
+  Senão {
+    Imutável Caractere *what = "exit";  /* type of termination */
+    l_inspectstat(stat, what);  /* interpret result */
+    Se (*what == 'e' && stat == 0)  /* successful termination? */
+      sol_pushboolean(L, 1);
+    Senão
+      sol_pushfail(L);
+    sol_pushstring(L, what);
+    sol_pushinteger(L, stat);
+    Retorne 3;  /* Retorne true/fail,what,code */
+  }
+}
+
+/* }====================================================== */
+
+
+
+/*
+** {======================================================
+** Userdata's metatable manipulation
+** =======================================================
+*/
+
+SOLIB_API Inteiro sol_newmetatable (sol_State *L, Imutável Caractere *tname) {
+  Se (solL_getmetatable(L, tname) != SOL_TNIL)  /* name already in use? */
+    Retorne 0;  /* leave previous value on top, but Retorne 0 */
+  sol_pop(L, 1);
+  sol_createtable(L, 0, 2);  /* create metatable */
+  sol_pushstring(L, tname);
+  sol_setfield(L, -2, "__nome");  /* metatable.__name = tname */
+  sol_pushvalue(L, -1);
+  sol_setfield(L, SOL_REGISTRYINDEX, tname);  /* registry.name = metatable */
+  Retorne 1;
+}
+
+
+SOLIB_API Vazio solL_setmetatable (sol_State *L, Imutável Caractere *tname) {
+  solL_getmetatable(L, tname);
+  sol_setmetatable(L, -2);
+}
+
+
+SOLIB_API Vazio *sol_testudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
+  Vazio *p = sol_touserdata(L, ud);
+  Se (p != NULL) {  /* value is a userdata? */
+    Se (sol_getmetatable(L, ud)) {  /* does it have a metatable? */
+      solL_getmetatable(L, tname);  /* get correct metatable */
+      Se (!sol_rawequal(L, -1, -2))  /* not the same? */
+        p = NULL;  /* value is a userdata with wrong metatable */
+      sol_pop(L, 2);  /* remove both metatables */
+      Retorne p;
+    }
+  }
+  Retorne NULL;  /* value is not a userdata with a metatable */
+}
+
+
+SOLIB_API Vazio *sol_checkudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
+  Vazio *p = sol_testudata(L, ud, tname);
+  sol_argexpected(L, p != NULL, ud, tname);
+  Retorne p;
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** Argument check functions
+** =======================================================
+*/
+
+SOLIB_API Inteiro sol_checkoption (sol_State *L, Inteiro arg, Imutável Caractere *def,
+                                 Imutável Caractere *Imutável lst[]) {
+  Imutável Caractere *name = (def) ? sol_optstring(L, arg, def) :
+                             sol_checkstring(L, arg);
+  Inteiro i;
+  Para (i=0; lst[i]; i++)
+    Se (strcmp(lst[i], name) == 0)
+      Retorne i;
+  Retorne sol_argerror(L, arg,
+                       sol_pushfstring(L, "opção inválida '%s'", name));
+}
+
+
+/*
+** Ensures the stack has at least 'space' extra slots, raising an Erro
+** Se it cannot fulfill the request. (The Erro handling needs a few
+** extra slots to format the Erro message. In Caso of an Erro without
+** this extra space, Sol will generate the same 'stack overflow' Erro,
+** but without 'msg'.)
+*/
+SOLIB_API Vazio solL_checkstack (sol_State *L, Inteiro space, Imutável Caractere *msg) {
+  Se (l_unlikely(!sol_checkstack(L, space))) {
+    Se (msg)
+      solL_error(L, "estouro de pilha (%s)", msg);
+    Senão
+      solL_error(L, "estouro de pilha");
+  }
+}
+
+
+SOLIB_API Vazio sol_checktype (sol_State *L, Inteiro arg, Inteiro t) {
+  Se (l_unlikely(sol_type(L, arg) != t))
+    tag_error(L, arg, t);
+}
+
+
+SOLIB_API Vazio sol_checkany (sol_State *L, Inteiro arg) {
+  Se (l_unlikely(sol_type(L, arg) == SOL_TNONE))
+    sol_argerror(L, arg, "esperava um valor");
+}
+
+
+SOLIB_API Imutável Caractere *sol_checklstring (sol_State *L, Inteiro arg, size_t *len) {
+  Imutável Caractere *s = sol_tolstring(L, arg, len);
+  Se (l_unlikely(!s)) tag_error(L, arg, SOL_TSTRING);
+  Retorne s;
+}
+
+
+SOLIB_API Imutável Caractere *sol_optlstring (sol_State *L, Inteiro arg,
+                                        Imutável Caractere *def, size_t *len) {
+  Se (sol_isnoneornil(L, arg)) {
+    Se (len)
+      *len = (def ? strlen(def) : 0);
+    Retorne def;
+  }
+  Senão Retorne sol_checklstring(L, arg, len);
+}
+
+
+SOLIB_API sol_Number sol_checknumber (sol_State *L, Inteiro arg) {
+  Inteiro isnum;
+  sol_Number d = sol_tonumberx(L, arg, &isnum);
+  Se (l_unlikely(!isnum))
+    tag_error(L, arg, SOL_TNUMBER);
+  Retorne d;
+}
+
+
+SOLIB_API sol_Number sol_optnumber (sol_State *L, Inteiro arg, sol_Number def) {
+  Retorne sol_opt(L, sol_checknumber, arg, def);
+}
+
+
+Fixo Vazio interror (sol_State *L, Inteiro arg) {
+  Se (sol_isnumber(L, arg))
+    sol_argerror(L, arg, "número não tem representação inteira");
+  Senão
+    tag_error(L, arg, SOL_TNUMBER);
+}
+
+
+SOLIB_API sol_Integer sol_checkinteger (sol_State *L, Inteiro arg) {
+  Inteiro isnum;
+  sol_Integer d = sol_tointegerx(L, arg, &isnum);
+  Se (l_unlikely(!isnum)) {
+    interror(L, arg);
+  }
+  Retorne d;
+}
+
+
+SOLIB_API sol_Integer sol_optinteger (sol_State *L, Inteiro arg,
+                                                      sol_Integer def) {
+  Retorne sol_opt(L, sol_checkinteger, arg, def);
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** Generic Buffer manipulation
+** =======================================================
+*/
+
+/* userdata to box arbitrary data */
+Pseudônimo Estrutura UBox {
+  Vazio *box;
+  size_t bsize;
+} UBox;
+
+
+/* Resize the buffer used by a box. Optimize Para the common Caso of
+** resizing to the old size. (For instance, __gc will resize the box
+** to 0 even after it was closed. 'pushresult' may also resize it to a
+** final size that is equal to the one set when the buffer was created.)
+*/
+Fixo Vazio *resizebox (sol_State *L, Inteiro idx, size_t newsize) {
+  UBox *box = (UBox *)sol_touserdata(L, idx);
+  Se (box->bsize == newsize)  /* not changing size? */
+    Retorne box->box;  /* keep the buffer */
+  Senão {
+    Vazio *ud;
+    sol_Alloc allocf = sol_getallocf(L, &ud);
+    Vazio *temp = allocf(ud, box->box, box->bsize, newsize);
+    Se (l_unlikely(temp == NULL && newsize > 0)) {  /* allocation Erro? */
+      sol_pushliteral(L, "memória insuficiente");
+      sol_error(L);  /* raise a memory Erro */
+    }
+    box->box = temp;
+    box->bsize = newsize;
+    Retorne temp;
+  }
+}
+
+
+Fixo Inteiro boxgc (sol_State *L) {
+  resizebox(L, 1, 0);
+  Retorne 0;
+}
+
+
+Fixo Imutável sol_Reg boxmt[] = {  /* box metamethods */
+  {"__coletor_lixo", boxgc},
+  {"__feche", boxgc},
+  {NULL, NULL}
+};
+
+
+Fixo Vazio newbox (sol_State *L) {
+  UBox *box = (UBox *)sol_newuserdatauv(L, Meça(UBox), 0);
+  box->box = NULL;
+  box->bsize = 0;
+  Se (sol_newmetatable(L, "_UBOX*"))  /* creating metatable? */
+    sol_setfuncs(L, boxmt, 0);  /* set its metamethods */
+  sol_setmetatable(L, -2);
+}
+
+
+/*
+** check whether buffer is using a userdata on the stack as a temporary
+** buffer
+*/
+#Defina buffonstack(B)	((B)->b != (B)->init.b)
+
+
+/*
+** Whenever buffer is accessed, slot 'idx' must either be a box (which
+** cannot be NULL) or it is a placeholder Para the buffer.
+*/
+#Defina checkbufferlevel(B,idx)  \
+  sol_assert(buffonstack(B) ? sol_touserdata(B->L, idx) != NULL  \
+                            : sol_touserdata(B->L, idx) == (Vazio*)B)
+
+
+/*
+** Compute new size Para buffer 'B', enough to accommodate extra 'sz'
+** bytes plus one Para a terminating zero.
+*/
+Fixo size_t newbuffsize (sol_Buffer *B, size_t sz) {
+  size_t newsize = B->size;
+  Se (l_unlikely(sz >= MAX_SIZE - B->n))
+    Retorne cast_sizet(solL_error(B->L, "texto resultante muito longo"));
+  /* Senão  B->n + sz + 1 <= MAX_SIZE */
+  Se (newsize <= MAX_SIZE/3 * 2)  /* no overflow? */
+    newsize += (newsize >> 1);  /* new size *= 1.5 */
+  Se (newsize < B->n + sz + 1)  /* not big enough? */
+    newsize = B->n + sz + 1;
+  Retorne newsize;
+}
+
+
+/*
+** Returns a pointer to a free area with at least 'sz' bytes in buffer
+** 'B'. 'boxidx' is the relative position in the stack where is the
+** buffer's box or its placeholder.
+*/
+Fixo Caractere *prepbuffsize (sol_Buffer *B, size_t sz, Inteiro boxidx) {
+  checkbufferlevel(B, boxidx);
+  Se (B->size - B->n >= sz)  /* enough space? */
+    Retorne B->b + B->n;
+  Senão {
+    sol_State *L = B->L;
+    Caractere *newbuff;
+    size_t newsize = newbuffsize(B, sz);
+    /* create larger buffer */
+    Se (buffonstack(B))  /* buffer already has a box? */
+      newbuff = (Caractere *)resizebox(L, boxidx, newsize);  /* resize it */
+    Senão {  /* no box yet */
+      sol_remove(L, boxidx);  /* remove placeholder */
+      newbox(L);  /* create a new box */
+      sol_insert(L, boxidx);  /* move box to its intended position */
+      sol_toclose(L, boxidx);
+      newbuff = (Caractere *)resizebox(L, boxidx, newsize);
+      memcpy(newbuff, B->b, B->n * Meça(Caractere));  /* copy original content */
+    }
+    B->b = newbuff;
+    B->size = newsize;
+    Retorne newbuff + B->n;
+  }
+}
+
+/*
+** returns a pointer to a free area with at least 'sz' bytes
+*/
+SOLIB_API Caractere *sol_prepbuffsize (sol_Buffer *B, size_t sz) {
+  Retorne prepbuffsize(B, sz, -1);
+}
+
+
+SOLIB_API Vazio sol_addlstring (sol_Buffer *B, Imutável Caractere *s, size_t l) {
+  Se (l > 0) {  /* avoid 'memcpy' when 's' can be NULL */
+    Caractere *b = prepbuffsize(B, l, -1);
+    memcpy(b, s, l * Meça(Caractere));
+    sol_addsize(B, l);
+  }
+}
+
+
+SOLIB_API Vazio sol_addstring (sol_Buffer *B, Imutável Caractere *s) {
+  sol_addlstring(B, s, strlen(s));
+}
+
+
+SOLIB_API Vazio sol_pushresult (sol_Buffer *B) {
+  sol_State *L = B->L;
+  checkbufferlevel(B, -1);
+  Se (!buffonstack(B))  /* using Fixo buffer? */
+    sol_pushlstring(L, B->b, B->n);  /* save result as regular string */
+  Senão {  /* reuse buffer already allocated */
+    UBox *box = (UBox *)sol_touserdata(L, -1);
+    Vazio *ud;
+    sol_Alloc allocf = sol_getallocf(L, &ud);  /* function to free buffer */
+    size_t len = B->n;  /* final string length */
+    Caractere *s;
+    resizebox(L, -1, len + 1);  /* adjust box size to content size */
+    s = (Caractere*)box->box;  /* final buffer address */
+    s[len] = '\0';  /* add ending zero */
+    /* clear box, as Sol will take control of the buffer */
+    box->bsize = 0;  box->box = NULL;
+    sol_pushexternalstring(L, s, len, allocf, ud);
+    sol_closeslot(L, -2);  /* close the box */
+    sol_gc(L, SOL_GCSTEP, len);
+  }
+  sol_remove(L, -2);  /* remove box or placeholder from the stack */
+}
+
+
+SOLIB_API Vazio sol_pushresultsize (sol_Buffer *B, size_t sz) {
+  sol_addsize(B, sz);
+  sol_pushresult(B);
+}
+
+
+/*
+** 'sol_addvalue' is the only function in the Buffer system where the
+** box (Se existent) is not on the top of the stack. So, instead of
+** calling 'sol_addlstring', it replicates the code using -2 as the
+** last argument to 'prepbuffsize', signaling that the box is (or will
+** be) below the string being added to the buffer. (Box creation can
+** trigger an emergency GC, so we should not remove the string from the
+** stack before we have the space guaranteed.)
+*/
+SOLIB_API Vazio sol_addvalue (sol_Buffer *B) {
+  sol_State *L = B->L;
+  size_t len;
+  Imutável Caractere *s = sol_tolstring(L, -1, &len);
+  Caractere *b = prepbuffsize(B, len, -2);
+  memcpy(b, s, len * Meça(Caractere));
+  sol_addsize(B, len);
+  sol_pop(L, 1);  /* pop string */
+}
+
+
+SOLIB_API Vazio sol_buffinit (sol_State *L, sol_Buffer *B) {
+  B->L = L;
+  B->b = B->init.b;
+  B->n = 0;
+  B->size = SOL_BUFFERSIZE;
+  sol_pushlightuserdata(L, (Vazio*)B);  /* push placeholder */
+}
+
+
+SOLIB_API Caractere *sol_buffinitsize (sol_State *L, sol_Buffer *B, size_t sz) {
+  sol_buffinit(L, B);
+  Retorne prepbuffsize(B, sz, -1);
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** Reference system
+** =======================================================
+*/
+
+/*
+** The previously freed references form a linked list: t[1] is the index
+** of a first free index, t[t[1]] is the index of the second element,
+** etc. A zero signals the end of the list.
+*/
+SOLIB_API Inteiro sol_ref (sol_State *L, Inteiro t) {
+  Inteiro ref;
+  Se (sol_isnil(L, -1)) {
+    sol_pop(L, 1);  /* remove from stack */
+    Retorne SOL_REFNIL;  /* 'nil' has a unique fixed reference */
+  }
+  t = sol_absindex(L, t);
+  Se (sol_rawgeti(L, t, 1) == SOL_TNUMBER)  /* already initialized? */
+    ref = (Inteiro)sol_tointeger(L, -1);  /* ref = t[1] */
+  Senão {  /* first access */
+    sol_assert(!sol_toboolean(L, -1));  /* must be nil or false */
+    ref = 0;  /* list is empty */
+    sol_pushinteger(L, 0);  /* initialize as an empty list */
+    sol_rawseti(L, t, 1);  /* ref = t[1] = 0 */
+  }
+  sol_pop(L, 1);  /* remove element from stack */
+  Se (ref != 0) {  /* any free element? */
+    sol_rawgeti(L, t, ref);  /* remove it from list */
+    sol_rawseti(L, t, 1);  /* (t[1] = t[ref]) */
+  }
+  Senão  /* no free elements */
+    ref = (Inteiro)sol_rawlen(L, t) + 1;  /* get a new reference */
+  sol_rawseti(L, t, ref);
+  Retorne ref;
+}
+
+
+SOLIB_API Vazio sol_unref (sol_State *L, Inteiro t, Inteiro ref) {
+  Se (ref >= 0) {
+    t = sol_absindex(L, t);
+    sol_rawgeti(L, t, 1);
+    sol_assert(sol_isinteger(L, -1));
+    sol_rawseti(L, t, ref);  /* t[ref] = t[1] */
+    sol_pushinteger(L, ref);
+    sol_rawseti(L, t, 1);  /* t[1] = ref */
+  }
+}
+
+/* }====================================================== */
+
+
+/*
+** {======================================================
+** Load functions
+** =======================================================
+*/
+
+Pseudônimo Estrutura LoadF {
+  Natural n;  /* number of pre-read characters */
+  FILE *f;  /* file being read */
+  Caractere buff[BUFSIZ];  /* area Para reading file */
+} LoadF;
+
+
+Fixo Imutável Caractere *getF (sol_State *L, Vazio *ud, size_t *size) {
+  LoadF *lf = (LoadF *)ud;
+  (Vazio)L;  /* not used */
+  Se (lf->n > 0) {  /* are there pre-read characters to be read? */
+    *size = lf->n;  /* Retorne them (chars already in buffer) */
+    lf->n = 0;  /* no more pre-read characters */
+  }
+  Senão {  /* read a block from file */
+    /* 'fread' can Retorne > 0 *and* set the EOF flag. If next call to
+       'getF' called 'fread', it might still wait Para user input.
+       The next check avoids this problem. */
+    Se (feof(lf->f)) Retorne NULL;
+    *size = fread(lf->buff, 1, Meça(lf->buff), lf->f);  /* read block */
+  }
+  Retorne lf->buff;
+}
+
+
+Fixo Inteiro errfile (sol_State *L, Imutável Caractere *what, Inteiro fnameindex) {
+  Inteiro err = errno;
+  Imutável Caractere *filename = sol_tostring(L, fnameindex) + 1;
+  Se (err != 0)
+    sol_pushfstring(L, "não foi possível %s %s: %s", what, filename, strerror(err));
+  Senão
+    sol_pushfstring(L, "não foi possível %s %s", what, filename);
+  sol_remove(L, fnameindex);
+  Retorne SOL_ERRFILE;
+}
+
+
+/*
+** Skip an optional BOM at the start of a stream. If there is an
+** incomplete BOM (the first character is correct but the rest is
+** not), returns the first character anyway to force an Erro
+** (as no chunk can start with 0xEF).
+*/
+Fixo Inteiro skipBOM (FILE *f) {
+  Inteiro c = getc(f);  /* read first character */
+  Se (c == 0xEF && getc(f) == 0xBB && getc(f) == 0xBF)  /* correct BOM? */
+    Retorne getc(f);  /* ignore BOM and Retorne next Caractere */
+  Senão  /* no (valid) BOM */
+    Retorne c;  /* Retorne first character */
+}
+
+
+/*
+** reads the first character of file 'f' and skips an optional BOM mark
+** in its beginning plus its first Linha Se it starts with '#'. Returns
+** true Se it skipped the first Linha.  In any Caso, '*cp' has the
+** first "valid" character of the file (after the optional BOM and
+** a first-Linha comment).
+*/
+Fixo Inteiro skipcomment (FILE *f, Inteiro *cp) {
+  Inteiro c = *cp = skipBOM(f);
+  Se (c == '#') {  /* first Linha is a comment (Unix exec. file)? */
+    Faça {  /* skip first Linha */
+      c = getc(f);
+    } Enquanto (c != EOF && c != '\n');
+    *cp = getc(f);  /* next character after comment, Se present */
+    Retorne 1;  /* there was a comment */
+  }
+  Senão Retorne 0;  /* no comment */
+}
+
+
+SOLIB_API Inteiro sol_loadfilex (sol_State *L, Imutável Caractere *filename,
+                                             Imutável Caractere *mode) {
+  LoadF lf;
+  Inteiro status, readstatus;
+  Inteiro c;
+  Inteiro fnameindex = sol_gettop(L) + 1;  /* index of filename on the stack */
+  Se (filename == NULL) {
+    sol_pushliteral(L, "=stdin");
+    lf.f = stdin;
+  }
+  Senão {
+    sol_pushfstring(L, "@%s", filename);
+    errno = 0;
+    lf.f = fopen(filename, "r");
+    Se (lf.f == NULL) Retorne errfile(L, "open", fnameindex);
+  }
+  lf.n = 0;
+  Se (skipcomment(lf.f, &c))  /* read initial portion */
+    lf.buff[lf.n++] = '\n';  /* add newline to correct Linha numbers */
+  Se (c == SOL_SIGNATURE[0]) {  /* binary file? */
+    lf.n = 0;  /* remove possible newline */
+    Se (filename) {  /* "real" file? */
+      errno = 0;
+      lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
+      Se (lf.f == NULL) Retorne errfile(L, "reopen", fnameindex);
+      skipcomment(lf.f, &c);  /* re-read initial portion */
+    }
+  }
+  Se (c != EOF)
+    lf.buff[lf.n++] = cast_char(c);  /* 'c' is the first character */
+  status = sol_load(L, getF, &lf, sol_tostring(L, -1), mode);
+  readstatus = ferror(lf.f);
+  errno = 0;  /* no useful Erro number until here */
+  Se (filename) fclose(lf.f);  /* close file (even in Caso of errors) */
+  Se (readstatus) {
+    sol_settop(L, fnameindex);  /* ignore results from 'sol_load' */
+    Retorne errfile(L, "read", fnameindex);
+  }
+  sol_remove(L, fnameindex);
+  Retorne status;
+}
+
+
+Pseudônimo Estrutura LoadS {
+  Imutável Caractere *s;
+  size_t size;
+} LoadS;
+
+
+Fixo Imutável Caractere *getS (sol_State *L, Vazio *ud, size_t *size) {
+  LoadS *ls = (LoadS *)ud;
+  (Vazio)L;  /* not used */
+  Se (ls->size == 0) Retorne NULL;
+  *size = ls->size;
+  ls->size = 0;
+  Retorne ls->s;
+}
+
+
+SOLIB_API Inteiro sol_loadbufferx (sol_State *L, Imutável Caractere *buff, size_t size,
+                                 Imutável Caractere *name, Imutável Caractere *mode) {
+  LoadS ls;
+  ls.s = buff;
+  ls.size = size;
+  Retorne sol_load(L, getS, &ls, name, mode);
+}
+
+
+SOLIB_API Inteiro sol_loadstring (sol_State *L, Imutável Caractere *s) {
+  Retorne sol_loadbuffer(L, s, strlen(s), s);
+}
+
+/* }====================================================== */
+
+
+
+SOLIB_API Inteiro sol_getmetafield (sol_State *L, Inteiro obj, Imutável Caractere *event) {
+  Se (!sol_getmetatable(L, obj))  /* no metatable? */
+    Retorne SOL_TNIL;
+  Senão {
+    Inteiro tt;
+    sol_pushstring(L, event);
+    tt = sol_rawget(L, -2);
+    Se (tt == SOL_TNIL)  /* is metafield nil? */
+      sol_pop(L, 2);  /* remove metatable and metafield */
+    Senão
+      sol_remove(L, -2);  /* remove only metatable */
+    Retorne tt;  /* Retorne metafield type */
+  }
+}
+
+
+SOLIB_API Inteiro sol_callmeta (sol_State *L, Inteiro obj, Imutável Caractere *event) {
+  obj = sol_absindex(L, obj);
+  Se (sol_getmetafield(L, obj, event) == SOL_TNIL)  /* no metafield? */
+    Retorne 0;
+  sol_pushvalue(L, obj);
+  sol_call(L, 1, 1);
+  Retorne 1;
+}
+
+
+SOLIB_API sol_Integer solL_len (sol_State *L, Inteiro idx) {
+  sol_Integer l;
+  Inteiro isnum;
+  sol_len(L, idx);
+  l = sol_tointegerx(L, -1, &isnum);
+  Se (l_unlikely(!isnum))
+    solL_error(L, "object length is not an integer");
+  sol_pop(L, 1);  /* remove object */
+  Retorne l;
+}
+
+
+SOLIB_API Imutável Caractere *solL_tolstring (sol_State *L, Inteiro idx, size_t *len) {
+  idx = sol_absindex(L,idx);
+  Se (sol_callmeta(L, idx, "__converta_para_texto")) {  /* metafield? */
+    Se (!sol_isstring(L, -1))
+      solL_error(L, "'__tostring' must Retorne a string");
+  }
+  Senão {
+    Troque (sol_type(L, idx)) {
+      Caso SOL_TNUMBER: {
+        Caractere buff[SOL_N2SBUFFSZ];
+        sol_numbertocstring(L, idx, buff);
+        sol_pushstring(L, buff);
+        Interrompa;
+      }
+      Caso SOL_TSTRING:
+        sol_pushvalue(L, idx);
+        Interrompa;
+      Caso SOL_TBOOLEAN:
+        sol_pushstring(L, (sol_toboolean(L, idx) ? "true" : "false"));
+        Interrompa;
+      Caso SOL_TNIL:
+        sol_pushliteral(L, "nulo");
+        Interrompa;
+      Padrão: {
+        Inteiro tt = sol_getmetafield(L, idx, "__nome");  /* try name */
+        Imutável Caractere *kind = (tt == SOL_TSTRING) ? sol_tostring(L, -1) :
+                                                 solL_typename(L, idx);
+        sol_pushfstring(L, "%s: %p", kind, sol_topointer(L, idx));
+        Se (tt != SOL_TNIL)
+          sol_remove(L, -2);  /* remove '__name' */
+        Interrompa;
+      }
+    }
+  }
+  Retorne sol_tolstring(L, -1, len);
+}
+
+
+/*
+** set functions from list 'l' into table at top - 'nup'; each
+** function gets the 'nup' elements at the top as upvalues.
+** Returns with only the table at the stack.
+*/
+SOLIB_API Vazio sol_setfuncs (sol_State *L, Imutável sol_Reg *l, Inteiro nup) {
+  solL_checkstack(L, nup, "muitos upvalues");
+  Para (; l->name != NULL; l++) {  /* fill the table with given functions */
+    Se (l->func == NULL)  /* placeholder? */
+      sol_pushboolean(L, 0);
+    Senão {
+      Inteiro i;
+      Para (i = 0; i < nup; i++)  /* copy upvalues to the top */
+        sol_pushvalue(L, -nup);
+      sol_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
+    }
+    sol_setfield(L, -(nup + 2), l->name);
+  }
+  sol_pop(L, nup);  /* remove upvalues */
+}
+
+
+/*
+** ensure that stack[idx][fname] has a table and push that table
+** into the stack
+*/
+SOLIB_API Inteiro sol_getsubtable (sol_State *L, Inteiro idx, Imutável Caractere *fname) {
+  Se (sol_getfield(L, idx, fname) == SOL_TTABLE)
+    Retorne 1;  /* table already there */
+  Senão {
+    sol_pop(L, 1);  /* remove previous result */
+    idx = sol_absindex(L, idx);
+    sol_newtable(L);
+    sol_pushvalue(L, -1);  /* copy to be left at top */
+    sol_setfield(L, idx, fname);  /* assign new table to field */
+    Retorne 0;  /* false, because did not find table there */
+  }
+}
+
+
+/*
+** Stripped-down 'require': After checking "loaded" table, calls 'openf'
+** to open a module, registers the result in 'package.loaded' table and,
+** Se 'glb' is true, also registers the result in the global table.
+** Leaves resulting module on the top.
+*/
+SOLIB_API Vazio sol_requiref (sol_State *L, Imutável Caractere *modname,
+                               sol_CFunction openf, Inteiro glb) {
+  sol_getsubtable(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
+  sol_getfield(L, -1, modname);  /* LOADED[modname] */
+  Se (!sol_toboolean(L, -1)) {  /* package not already loaded? */
+    sol_pop(L, 1);  /* remove field */
+    sol_pushcfunction(L, openf);
+    sol_pushstring(L, modname);  /* argument to open function */
+    sol_call(L, 1, 1);  /* call 'openf' to open module */
+    sol_pushvalue(L, -1);  /* make copy of module (call result) */
+    sol_setfield(L, -3, modname);  /* LOADED[modname] = module */
+  }
+  sol_remove(L, -2);  /* remove LOADED table */
+  Se (glb) {
+    sol_pushvalue(L, -1);  /* copy of module */
+    sol_setglobal(L, modname);  /* _G[modname] = module */
+  }
+}
+
+
+SOLIB_API Vazio sol_addgsub (sol_Buffer *b, Imutável Caractere *s,
+                                     Imutável Caractere *p, Imutável Caractere *r) {
+  Imutável Caractere *wild;
+  size_t l = strlen(p);
+  Enquanto ((wild = strstr(s, p)) != NULL) {
+    sol_addlstring(b, s, ct_diff2sz(wild - s));  /* push prefix */
+    sol_addstring(b, r);  /* push replacement in place of pattern */
+    s = wild + l;  /* Continue after 'p' */
+  }
+  sol_addstring(b, s);  /* push last suffix */
+}
+
+
+SOLIB_API Imutável Caractere *sol_gsub (sol_State *L, Imutável Caractere *s,
+                                  Imutável Caractere *p, Imutável Caractere *r) {
+  sol_Buffer b;
+  sol_buffinit(L, &b);
+  sol_addgsub(&b, s, p, r);
+  sol_pushresult(&b);
+  Retorne sol_tostring(L, -1);
+}
+
+
+Fixo Vazio *l_alloc (Vazio *ud, Vazio *ptr, size_t osize, size_t nsize) {
+  (Vazio)ud; (Vazio)osize;  /* not used */
+  Se (nsize == 0) {
+    free(ptr);
+    Retorne NULL;
+  }
+  Senão
+    Retorne realloc(ptr, nsize);
+}
+
+
+/*
+** Standard panic function just prints an Erro message. The test
+** with 'sol_type' avoids possible memory errors in 'sol_tostring'.
+*/
+Fixo Inteiro panic (sol_State *L) {
+  Imutável Caractere *msg = (sol_type(L, -1) == SOL_TSTRING)
+                  ? sol_tostring(L, -1)
+                  : "Erro object is not a string";
+  sol_writestringerror("PANIC: unprotected Erro in call to Sol API (%s)\n",
+                        msg);
+  Retorne 0;  /* Retorne to Sol to abort */
+}
+
+
+/*
+** Warning functions:
+** warnfoff: Aviso system is off
+** warnfon: ready to start a new message
+** warnfcont: previous message is to be continued
+*/
+Fixo Vazio warnfoff (Vazio *ud, Imutável Caractere *message, Inteiro tocont);
+Fixo Vazio warnfon (Vazio *ud, Imutável Caractere *message, Inteiro tocont);
+Fixo Vazio warnfcont (Vazio *ud, Imutável Caractere *message, Inteiro tocont);
+
+
+/*
+** Check whether message is a control message. If so, execute the
+** control or ignore it Se unknown.
+*/
+Fixo Inteiro checkcontrol (sol_State *L, Imutável Caractere *message, Inteiro tocont) {
+  Se (tocont || *(message++) != '@')  /* not a control message? */
+    Retorne 0;
+  Senão {
+    Se (strcmp(message, "off") == 0)
+      sol_setwarnf(L, warnfoff, L);  /* turn warnings off */
+    Senão Se (strcmp(message, "on") == 0)
+      sol_setwarnf(L, warnfon, L);   /* turn warnings on */
+    Retorne 1;  /* it was a control message */
+  }
+}
+
+
+Fixo Vazio warnfoff (Vazio *ud, Imutável Caractere *message, Inteiro tocont) {
+  checkcontrol((sol_State *)ud, message, tocont);
+}
+
+
+/*
+** Writes the message and handle 'tocont', finishing the message
+** Se needed and setting the next warn function.
+*/
+Fixo Vazio warnfcont (Vazio *ud, Imutável Caractere *message, Inteiro tocont) {
+  sol_State *L = (sol_State *)ud;
+  sol_writestringerror("%s", message);  /* write message */
+  Se (tocont)  /* not the last part? */
+    sol_setwarnf(L, warnfcont, L);  /* to be continued */
+  Senão {  /* last part */
+    sol_writestringerror("%s", "\n");  /* finish message with end-of-Linha */
+    sol_setwarnf(L, warnfon, L);  /* next call is a new message */
+  }
+}
+
+
+Fixo Vazio warnfon (Vazio *ud, Imutável Caractere *message, Inteiro tocont) {
+  Se (checkcontrol((sol_State *)ud, message, tocont))  /* control message? */
+    Retorne;  /* nothing Senão to be done */
+  sol_writestringerror("%s", "Sol Aviso: ");  /* start a new Aviso */
+  warnfcont(ud, message, tocont);  /* finish processing */
+}
+
+
+
+/*
+** A function to compute an Natural Inteiro with some level of
+** randomness. Rely on Address Space Layout Randomization (Se present)
+** and the current time.
+*/
+#Se !Definido(sol_makeseed)
+
+#Inclua <time.h>
+
+
+/* Size Para the buffer, in bytes */
+#Defina BUFSEEDB	(Meça(Vazio*) + Meça(time_t))
+
+/* Size Para the buffer in Inteiro's, rounded up */
+#Defina BUFSEED		((BUFSEEDB + Meça(Inteiro) - 1) / Meça(Inteiro))
+
+/*
+** Copy the contents of variable 'v' into the buffer pointed by 'b'.
+** (The '&b[0]' disguises 'b' to fix an absurd Aviso from clang.)
+*/
+#Defina addbuff(b,v)	(memcpy(&b[0], &(v), Meça(v)), b += Meça(v))
+
+
+Fixo Natural Inteiro makeseed (Vazio) {
+  Natural Inteiro buff[BUFSEED];
+  Natural Inteiro res;
+  Natural Inteiro i;
+  time_t t = time(NULL);
+  Caractere *b = (Caractere*)buff;
+  addbuff(b, b);  /* local variable's address */
+  addbuff(b, t);  /* time */
+  /* fill (rare but possible) remain of the buffer with zeros */
+  memset(b, 0, Meça(buff) - BUFSEEDB);
+  res = buff[0];
+  Para (i = 1; i < BUFSEED; i++)
+    res ^= (res >> 3) + (res << 7) + buff[i];
+  Retorne res;
+}
+
+#FimSe
+
+
+SOLIB_API Natural Inteiro sol_makeseed (sol_State *L) {
+  (Vazio)L;  /* unused */
+  Retorne makeseed();
+}
+
+
+/*
+** Use the name with parentheses so that headers can redefine it
+** as a macro.
+*/
+SOLIB_API sol_State *(solL_newstate) (Vazio) {
+  sol_State *L = sol_newstate(l_alloc, NULL, makeseed());
+  Se (l_likely(L)) {
+    sol_atpanic(L, &panic);
+    sol_setwarnf(L, warnfoff, L);  /* Padrão is warnings off */
+  }
+  Retorne L;
+}
+
+
+SOLIB_API Vazio sol_checkversion_ (sol_State *L, sol_Number ver, size_t sz) {
+  sol_Number v = sol_version(L);
+  Se (sz != SOL_NUMSIZES)  /* check numeric types */
+    solL_error(L, "core and library have incompatible numeric types");
+  Senão Se (v != ver)
+    solL_error(L, "version mismatch: app. needs %f, Sol core provides %f",
+                  (SOL_UACNUMBER)ver, (SOL_UACNUMBER)v);
+}
+

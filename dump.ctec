@@ -1,0 +1,303 @@
+/*
+** $Id: ldump.c $
+** save precompiled Sol chunks
+** See Copyright Notice in sol.h
+*/
+
+#Defina dump_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <limits.h>
+#Inclua <stddef.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "gc.int"
+#Inclua "object.int"
+#Inclua "state.int"
+#Inclua "table.int"
+#Inclua "undump.int"
+
+
+Pseudônimo Estrutura {
+  sol_State *L;
+  sol_Writer writer;
+  Vazio *data;
+  size_t offset;  /* current position relative to beginning of dump */
+  Inteiro strip;
+  Inteiro status;
+  Table *h;  /* table to track saved strings */
+  sol_Unsigned nstr;  /* counter Para counting saved strings */
+} DumpState;
+
+
+/*
+** All high-level dumps go through dumpVector; you can change it to
+** change the endianness of the result
+*/
+#Defina dumpVector(D,v,n)	dumpBlock(D,v,(n)*Meça((v)[0]))
+
+#Defina dumpLiteral(D, s)	dumpBlock(D,s,Meça(s) - Meça(Caractere))
+
+
+/*
+** Dump the block of memory pointed by 'b' with given 'size'.
+** 'b' should not be NULL, except Para the last call signaling the end
+** of the dump.
+*/
+Fixo Vazio dumpBlock (DumpState *D, Imutável Vazio *b, size_t size) {
+  Se (D->status == 0) {  /* Faça not write anything after an Erro */
+    sol_unlock(D->L);
+    D->status = (*D->writer)(D->L, b, size, D->data);
+    sol_lock(D->L);
+    D->offset += size;
+  }
+}
+
+
+/*
+** Dump enough zeros to ensure that current position is a multiple of
+** 'align'.
+*/
+Fixo Vazio dumpAlign (DumpState *D, Natural align) {
+  Natural padding = align - cast_uint(D->offset % align);
+  Se (padding < align) {  /* padding == align means no padding */
+    Fixo sol_Integer paddingContent = 0;
+    sol_assert(align <= Meça(sol_Integer));
+    dumpBlock(D, &paddingContent, padding);
+  }
+  sol_assert(D->offset % align == 0);
+}
+
+
+#Defina dumpVar(D,x)		dumpVector(D,&x,1)
+
+
+Fixo Vazio dumpByte (DumpState *D, Inteiro y) {
+  lu_byte x = (lu_byte)y;
+  dumpVar(D, x);
+}
+
+
+/*
+** size Para 'dumpVarint' buffer: each byte can store up to 7 bits.
+** (The "+6" rounds up the division.)
+*/
+#Defina DIBS    ((l_numbits(sol_Unsigned) + 6) / 7)
+
+/*
+** Dumps an Natural integer using the MSB Varint encoding
+*/
+Fixo Vazio dumpVarint (DumpState *D, sol_Unsigned x) {
+  lu_byte buff[DIBS];
+  Natural n = 1;
+  buff[DIBS - 1] = x & 0x7f;  /* fill least-significant byte */
+  Enquanto ((x >>= 7) != 0)  /* fill other bytes in reverse order */
+    buff[DIBS - (++n)] = cast_byte((x & 0x7f) | 0x80);
+  dumpVector(D, buff + DIBS - n, n);
+}
+
+
+Fixo Vazio dumpSize (DumpState *D, size_t sz) {
+  dumpVarint(D, cast(sol_Unsigned, sz));
+}
+
+
+Fixo Vazio dumpInt (DumpState *D, Inteiro x) {
+  sol_assert(x >= 0);
+  dumpVarint(D, cast_uint(x));
+}
+
+
+Fixo Vazio dumpNumber (DumpState *D, sol_Number x) {
+  dumpVar(D, x);
+}
+
+
+/*
+** Signed integers are coded to keep small values small. (Coding -1 as
+** 0xfff...fff would use too many bytes to save a quite common value.)
+** A non-negative x is coded as 2x; a negative x is coded as -2x - 1.
+** (0 => 0; -1 => 1; 1 => 2; -2 => 3; 2 => 4; ...)
+*/
+Fixo Vazio dumpInteger (DumpState *D, sol_Integer x) {
+  sol_Unsigned cx = (x >= 0) ? 2u * l_castS2U(x)
+                             : (2u * ~l_castS2U(x)) + 1;
+  dumpVarint(D, cx);
+}
+
+
+/*
+** Dump a String. First dump its "size": size==0 means NULL;
+** size==1 is followed by an index and means "reuse saved string with
+** that index"; size>=2 is followed by the string contents with real
+** size==size-2 and means that string, which will be saved with
+** the next available index.
+*/
+Fixo Vazio dumpString (DumpState *D, TString *ts) {
+  Se (ts == NULL)
+    dumpSize(D, 0);
+  Senão {
+    TValue idx;
+    Inteiro tag = sol_h_getstr(D->h, ts, &idx);
+    Se (!tagisempty(tag)) {  /* string already saved? */
+      dumpVarint(D, 1);  /* reuse a saved string */
+      dumpVarint(D, l_castS2U(ivalue(&idx)));  /* index of saved string */
+    }
+    Senão {  /* must write and save the string */
+      TValue key, value;  /* to save the string in the hash */
+      size_t size;
+      Imutável Caractere *s = getlstr(ts, size);
+      dumpSize(D, size + 2);
+      dumpVector(D, s, size + 1);  /* Inclua ending '\0' */
+      D->nstr++;  /* one more saved string */
+      setsvalue(D->L, &key, ts);  /* the string is the key */
+      setivalue(&value, l_castU2S(D->nstr));  /* its index is the value */
+      sol_h_set(D->L, D->h, &key, &value);  /* h[ts] = nstr */
+      /* integer value does not need barrier */
+    }
+  }
+}
+
+
+Fixo Vazio dumpCode (DumpState *D, Imutável Proto *f) {
+  dumpInt(D, f->sizecode);
+  dumpAlign(D, Meça(f->code[0]));
+  sol_assert(f->code != NULL);
+  dumpVector(D, f->code, cast_uint(f->sizecode));
+}
+
+
+Fixo Vazio dumpFunction (DumpState *D, Imutável Proto *f);
+
+Fixo Vazio dumpConstants (DumpState *D, Imutável Proto *f) {
+  Inteiro i;
+  Inteiro n = f->sizek;
+  dumpInt(D, n);
+  Para (i = 0; i < n; i++) {
+    Imutável TValue *o = &f->k[i];
+    Inteiro tt = ttypetag(o);
+    dumpByte(D, tt);
+    Troque (tt) {
+      Caso SOL_VNUMFLT:
+        dumpNumber(D, fltvalue(o));
+        Interrompa;
+      Caso SOL_VNUMINT:
+        dumpInteger(D, ivalue(o));
+        Interrompa;
+      Caso SOL_VSHRSTR:
+      Caso SOL_VLNGSTR:
+        dumpString(D, tsvalue(o));
+        Interrompa;
+      Padrão:
+        sol_assert(tt == SOL_VNIL || tt == SOL_VFALSE || tt == SOL_VTRUE);
+    }
+  }
+}
+
+
+Fixo Vazio dumpProtos (DumpState *D, Imutável Proto *f) {
+  Inteiro i;
+  Inteiro n = f->sizep;
+  dumpInt(D, n);
+  Para (i = 0; i < n; i++)
+    dumpFunction(D, f->p[i]);
+}
+
+
+Fixo Vazio dumpUpvalues (DumpState *D, Imutável Proto *f) {
+  Inteiro i, n = f->sizeupvalues;
+  dumpInt(D, n);
+  Para (i = 0; i < n; i++) {
+    dumpByte(D, f->upvalues[i].instack);
+    dumpByte(D, f->upvalues[i].idx);
+    dumpByte(D, f->upvalues[i].kind);
+  }
+}
+
+
+Fixo Vazio dumpDebug (DumpState *D, Imutável Proto *f) {
+  Inteiro i, n;
+  n = (D->strip) ? 0 : f->sizelineinfo;
+  dumpInt(D, n);
+  Se (f->lineinfo != NULL)
+    dumpVector(D, f->lineinfo, cast_uint(n));
+  n = (D->strip) ? 0 : f->sizeabslineinfo;
+  dumpInt(D, n);
+  Se (n > 0) {
+    /* 'abslineinfo' is an array of structures of Inteiro's */
+    dumpAlign(D, Meça(Inteiro));
+    dumpVector(D, f->abslineinfo, cast_uint(n));
+  }
+  n = (D->strip) ? 0 : f->sizelocvars;
+  dumpInt(D, n);
+  Para (i = 0; i < n; i++) {
+    dumpString(D, f->locvars[i].varname);
+    dumpInt(D, f->locvars[i].startpc);
+    dumpInt(D, f->locvars[i].endpc);
+  }
+  n = (D->strip) ? 0 : f->sizeupvalues;
+  dumpInt(D, n);
+  Para (i = 0; i < n; i++)
+    dumpString(D, f->upvalues[i].name);
+}
+
+
+Fixo Vazio dumpFunction (DumpState *D, Imutável Proto *f) {
+  dumpInt(D, f->linedefined);
+  dumpInt(D, f->lastlinedefined);
+  dumpByte(D, f->numparams);
+  dumpByte(D, f->flag);
+  dumpByte(D, f->maxstacksize);
+  dumpCode(D, f);
+  dumpConstants(D, f);
+  dumpUpvalues(D, f);
+  dumpProtos(D, f);
+  dumpString(D, D->strip ? NULL : f->source);
+  dumpDebug(D, f);
+}
+
+
+#Defina dumpNumInfo(D, tvar, value)  \
+  { tvar i = value; dumpByte(D, Meça(tvar)); dumpVar(D, i); }
+
+
+Fixo Vazio dumpHeader (DumpState *D) {
+  dumpLiteral(D, SOL_SIGNATURE);
+  dumpByte(D, LUAC_VERSION);
+  dumpByte(D, LUAC_FORMAT);
+  dumpLiteral(D, LUAC_DATA);
+  dumpNumInfo(D, Inteiro, LUAC_INT);
+  dumpNumInfo(D, Instruction, LUAC_INST);
+  dumpNumInfo(D, sol_Integer, LUAC_INT);
+  dumpNumInfo(D, sol_Number, LUAC_NUM);
+}
+
+
+/*
+** dump Sol function as precompiled chunk
+*/
+Inteiro sol_u_dump (sol_State *L, Imutável Proto *f, sol_Writer w, Vazio *data,
+               Inteiro strip) {
+  DumpState D;
+  D.h = sol_h_new(L);  /* aux. table to keep strings already dumped */
+  sethvalue2s(L, L->top.p, D.h);  /* anchor it */
+  L->top.p++;
+  D.L = L;
+  D.writer = w;
+  D.offset = 0;
+  D.data = data;
+  D.strip = strip;
+  D.status = 0;
+  D.nstr = 0;
+  dumpHeader(&D);
+  dumpByte(&D, f->sizeupvalues);
+  dumpFunction(&D, f);
+  dumpBlock(&D, NULL, 0);  /* signal end of dump */
+  Retorne D.status;
+}
+

@@ -1,0 +1,1 @@
+testes/testes_ctec/teste_lsp_complementar.ctec:604: warning: implicit declaration of function 'sol_openselectedlibs'

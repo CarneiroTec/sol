@@ -1,0 +1,2157 @@
+/*
+** $Id: lparser.c $
+** Sol Parser
+** See Copyright Notice in sol.h
+*/
+
+#Defina parser_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <limits.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "code.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "lex.int"
+#Inclua "mem.int"
+#Inclua "object.int"
+#Inclua "opcodes.int"
+#Inclua "parser.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+
+
+
+/* maximum number of variable declarations per function (must be
+   smaller than 250, due to the bytecode format) */
+#Defina MAXVARS		200
+
+
+#Defina hasmultret(k)		((k) == VCALL || (k) == VVARARG)
+
+
+/* because all strings are unified by the scanner, the parser
+   can use pointer equality Para string equality */
+#Defina eqstr(a,b)	((a) == (b))
+
+
+/*
+** nodes Para block list (list of active blocks)
+*/
+Pseudônimo Estrutura BlockCnt {
+  Estrutura BlockCnt *previous;  /* chain */
+  Inteiro firstlabel;  /* index of first label in this block */
+  Inteiro firstgoto;  /* index of first pending Execute in this block */
+  Curto nactvar;  /* number of active declarations at block entry */
+  lu_byte upval;  /* true Se some variable in the block is an upvalue */
+  lu_byte isloop;  /* 1 Se 'block' is a loop; 2 Se it has pending breaks */
+  lu_byte insidetbc;  /* true Se inside the scope of a to-be-closed var. */
+} BlockCnt;
+
+
+
+/*
+** prototypes Para recursive non-terminal functions
+*/
+Fixo Vazio statement (LexState *ls);
+Fixo Vazio expr (LexState *ls, expdesc *v);
+
+
+Fixo l_noret error_expected (LexState *ls, Inteiro token) {
+  sol_x_syntaxerror(ls,
+      sol_o_pushfstring(ls->L, "esperava %s", sol_x_token2str(ls, token)));
+}
+
+
+Fixo l_noret errorlimit (FuncState *fs, Inteiro limit, Imutável Caractere *what) {
+  sol_State *L = fs->ls->L;
+  Imutável Caractere *msg;
+  Inteiro Linha = fs->f->linedefined;
+  Imutável Caractere *where = (Linha == 0)
+                      ? "fluxo principal"
+                      : sol_o_pushfstring(L, "função na linha %d", Linha);
+  msg = sol_o_pushfstring(L, "muitos %s (limite é %d) em %s",
+                             what, limit, where);
+  sol_x_syntaxerror(fs->ls, msg);
+}
+
+
+Vazio sol_y_checklimit (FuncState *fs, Inteiro v, Inteiro l, Imutável Caractere *what) {
+  Se (l_unlikely(v > l)) errorlimit(fs, l, what);
+}
+
+
+/*
+** Test whether next token is 'c'; Se so, skip it.
+*/
+Fixo Inteiro testnext (LexState *ls, Inteiro c) {
+  Se (ls->t.token == c) {
+    sol_x_next(ls);
+    Retorne 1;
+  }
+  Senão Retorne 0;
+}
+
+
+/*
+** Check that next token is 'c'.
+*/
+Fixo Vazio check (LexState *ls, Inteiro c) {
+  Se (ls->t.token != c)
+    error_expected(ls, c);
+}
+
+
+/*
+** Check that next token is 'c' and skip it.
+*/
+Fixo Vazio checknext (LexState *ls, Inteiro c) {
+  check(ls, c);
+  sol_x_next(ls);
+}
+
+
+#Defina check_condition(ls,c,msg)	{ Se (!(c)) sol_x_syntaxerror(ls, msg); }
+
+
+/*
+** Check that next token is 'what' and skip it. In Caso of Erro,
+** raise an Erro that the expected 'what' should match a 'who'
+** in Linha 'where' (Se that is not the current Linha).
+*/
+Fixo Vazio check_match (LexState *ls, Inteiro what, Inteiro who, Inteiro where) {
+  Se (l_unlikely(!testnext(ls, what))) {
+    Se (where == ls->linenumber)  /* all in the same Linha? */
+      error_expected(ls, what);  /* Faça not need a complex message */
+    Senão {
+      sol_x_syntaxerror(ls, sol_o_pushfstring(ls->L,
+             "%s expected (to close %s at Linha %d)",
+              sol_x_token2str(ls, what), sol_x_token2str(ls, who), where));
+    }
+  }
+}
+
+
+Fixo TString *str_checkname (LexState *ls) {
+  TString *ts;
+  check(ls, TK_NAME);
+  ts = ls->t.seminfo.ts;
+  sol_x_next(ls);
+  Retorne ts;
+}
+
+
+Fixo Vazio init_exp (expdesc *e, expkind k, Inteiro i) {
+  e->f = e->t = NO_JUMP;
+  e->k = k;
+  e->u.info = i;
+}
+
+
+Fixo Vazio codestring (expdesc *e, TString *s) {
+  e->f = e->t = NO_JUMP;
+  e->k = VKSTR;
+  e->u.strval = s;
+}
+
+
+Fixo Vazio codename (LexState *ls, expdesc *e) {
+  codestring(e, str_checkname(ls));
+}
+
+
+/*
+** Register a new local variable in the active 'Proto' (Para debug
+** information).
+*/
+Fixo Curto registerlocalvar (LexState *ls, FuncState *fs,
+                               TString *varname) {
+  Proto *f = fs->f;
+  Inteiro oldsize = f->sizelocvars;
+  sol_m_growvector(ls->L, f->locvars, fs->ndebugvars, f->sizelocvars,
+                  LocVar, SHRT_MAX, "variáveis locais");
+  Enquanto (oldsize < f->sizelocvars)
+    f->locvars[oldsize++].varname = NULL;
+  f->locvars[fs->ndebugvars].varname = varname;
+  f->locvars[fs->ndebugvars].startpc = fs->pc;
+  sol_c_objbarrier(ls->L, f, varname);
+  Retorne fs->ndebugvars++;
+}
+
+
+/*
+** Create a new variable with the given 'name' and given 'kind'.
+** Return its index in the function.
+*/
+Fixo Inteiro new_varkind (LexState *ls, TString *name, lu_byte kind) {
+  sol_State *L = ls->L;
+  FuncState *fs = ls->fs;
+  Dyndata *dyd = ls->dyd;
+  Vardesc *var;
+  sol_m_growvector(L, dyd->actvar.arr, dyd->actvar.n + 1,
+             dyd->actvar.size, Vardesc, SHRT_MAX, "declarações de variáveis");
+  var = &dyd->actvar.arr[dyd->actvar.n++];
+  var->vd.kind = kind;  /* Padrão */
+  var->vd.name = name;
+  Retorne dyd->actvar.n - 1 - fs->firstlocal;
+}
+
+
+/*
+** Create a new local variable with the given 'name' and regular kind.
+*/
+Fixo Inteiro new_localvar (LexState *ls, TString *name) {
+  Retorne new_varkind(ls, name, VDKREG);
+}
+
+#Defina new_localvarliteral(ls,v) \
+    new_localvar(ls,  \
+      sol_x_newstring(ls, "" v, (Meça(v)/Meça(Caractere)) - 1));
+
+
+
+/*
+** Return the "variable description" (Vardesc) of a given variable.
+** (Unless noted otherwise, all variables are referred to by their
+** compiler indices.)
+*/
+Fixo Vardesc *getlocalvardesc (FuncState *fs, Inteiro vidx) {
+  Retorne &fs->ls->dyd->actvar.arr[fs->firstlocal + vidx];
+}
+
+
+/*
+** Convert 'nvar', a compiler index level, to its corresponding
+** Registrador. For that, search Para the highest variable below that level
+** that is in a Registrador and uses its Registrador index ('ridx') plus one.
+*/
+Fixo lu_byte reglevel (FuncState *fs, Inteiro nvar) {
+  Enquanto (nvar-- > 0) {
+    Vardesc *vd = getlocalvardesc(fs, nvar);  /* get previous variable */
+    Se (varinreg(vd))  /* is in a Registrador? */
+      Retorne cast_byte(vd->vd.ridx + 1);
+  }
+  Retorne 0;  /* no variables in registers */
+}
+
+
+/*
+** Return the number of variables in the Registrador stack Para the given
+** function.
+*/
+lu_byte sol_y_nvarstack (FuncState *fs) {
+  Retorne reglevel(fs, fs->nactvar);
+}
+
+
+/*
+** Get the debug-information entry Para current variable 'vidx'.
+*/
+Fixo LocVar *localdebuginfo (FuncState *fs, Inteiro vidx) {
+  Vardesc *vd = getlocalvardesc(fs,  vidx);
+  Se (!varinreg(vd))
+    Retorne NULL;  /* no debug info. Para constants */
+  Senão {
+    Inteiro idx = vd->vd.pidx;
+    sol_assert(idx < fs->ndebugvars);
+    Retorne &fs->f->locvars[idx];
+  }
+}
+
+
+/*
+** Create an expression representing variable 'vidx'
+*/
+Fixo Vazio init_var (FuncState *fs, expdesc *e, Inteiro vidx) {
+  e->f = e->t = NO_JUMP;
+  e->k = VLOCAL;
+  e->u.var.vidx = cast_short(vidx);
+  e->u.var.ridx = getlocalvardesc(fs, vidx)->vd.ridx;
+}
+
+
+/*
+** Raises an Erro Se variable described by 'e' is read only
+*/
+Fixo Vazio check_readonly (LexState *ls, expdesc *e) {
+  FuncState *fs = ls->fs;
+  TString *varname = NULL;  /* to be set Se variable is Imutável */
+  Troque (e->k) {
+    Caso VCONST: {
+      varname = ls->dyd->actvar.arr[e->u.info].vd.name;
+      Interrompa;
+    }
+    Caso VLOCAL: {
+      Vardesc *vardesc = getlocalvardesc(fs, e->u.var.vidx);
+      Se (vardesc->vd.kind != VDKREG)  /* not a regular variable? */
+        varname = vardesc->vd.name;
+      Interrompa;
+    }
+    Caso VUPVAL: {
+      Upvaldesc *up = &fs->f->upvalues[e->u.info];
+      Se (up->kind != VDKREG)
+        varname = up->name;
+      Interrompa;
+    }
+    Caso VINDEXUP: Caso VINDEXSTR: Caso VINDEXED: {  /* global variable */
+      Se (e->u.ind.ro)  /* read-only? */
+        varname = tsvalue(&fs->f->k[e->u.ind.keystr]);
+      Interrompa;
+    }
+    Padrão:
+      sol_assert(e->k == VINDEXI);  /* this one doesn't need any check */
+      Retorne;  /* integer index cannot be read-only */
+  }
+  Se (varname)
+    sol_k_semerror(ls, "tentativa de atribuir à variável imutável '%s'",
+                      getstr(varname));
+}
+
+
+/*
+** Start the scope Para the last 'nvars' created variables.
+*/
+Fixo Vazio adjustlocalvars (LexState *ls, Inteiro nvars) {
+  FuncState *fs = ls->fs;
+  Inteiro reglevel = sol_y_nvarstack(fs);
+  Inteiro i;
+  Para (i = 0; i < nvars; i++) {
+    Inteiro vidx = fs->nactvar++;
+    Vardesc *var = getlocalvardesc(fs, vidx);
+    var->vd.ridx = cast_byte(reglevel++);
+    var->vd.pidx = registerlocalvar(ls, fs, var->vd.name);
+    sol_y_checklimit(fs, reglevel, MAXVARS, "variáveis locais");
+  }
+}
+
+
+/*
+** Close the scope Para all variables up to level 'tolevel'.
+** (debug info.)
+*/
+Fixo Vazio removevars (FuncState *fs, Inteiro tolevel) {
+  fs->ls->dyd->actvar.n -= (fs->nactvar - tolevel);
+  Enquanto (fs->nactvar > tolevel) {
+    LocVar *var = localdebuginfo(fs, --fs->nactvar);
+    Se (var)  /* does it have debug information? */
+      var->endpc = fs->pc;
+  }
+}
+
+
+/*
+** Search the upvalues of the function 'fs' Para one
+** with the given 'name'.
+*/
+Fixo Inteiro searchupvalue (FuncState *fs, TString *name) {
+  Inteiro i;
+  Upvaldesc *up = fs->f->upvalues;
+  Para (i = 0; i < fs->nups; i++) {
+    Se (eqstr(up[i].name, name)) Retorne i;
+  }
+  Retorne -1;  /* not found */
+}
+
+
+Fixo Upvaldesc *allocupvalue (FuncState *fs) {
+  Proto *f = fs->f;
+  Inteiro oldsize = f->sizeupvalues;
+  sol_y_checklimit(fs, fs->nups + 1, MAXUPVAL, "upvalues");
+  sol_m_growvector(fs->ls->L, f->upvalues, fs->nups, f->sizeupvalues,
+                  Upvaldesc, MAXUPVAL, "upvalues");
+  Enquanto (oldsize < f->sizeupvalues)
+    f->upvalues[oldsize++].name = NULL;
+  Retorne &f->upvalues[fs->nups++];
+}
+
+
+Fixo Inteiro newupvalue (FuncState *fs, TString *name, expdesc *v) {
+  Upvaldesc *up = allocupvalue(fs);
+  FuncState *prev = fs->prev;
+  Se (v->k == VLOCAL) {
+    up->instack = 1;
+    up->idx = v->u.var.ridx;
+    up->kind = getlocalvardesc(prev, v->u.var.vidx)->vd.kind;
+    sol_assert(eqstr(name, getlocalvardesc(prev, v->u.var.vidx)->vd.name));
+  }
+  Senão {
+    up->instack = 0;
+    up->idx = cast_byte(v->u.info);
+    up->kind = prev->f->upvalues[v->u.info].kind;
+    sol_assert(eqstr(name, prev->f->upvalues[v->u.info].name));
+  }
+  up->name = name;
+  sol_c_objbarrier(fs->ls->L, fs->f, name);
+  Retorne fs->nups - 1;
+}
+
+
+/*
+** Look Para an active variable with the name 'n' in the
+** function 'fs'. If found, initialize 'var' with it and Retorne
+** its expression kind; otherwise Retorne -1. While searching,
+** var->u.info==-1 means that the preambular global declaration is
+** active (the Padrão Enquanto there is no other global declaration);
+** var->u.info==-2 means there is no active collective declaration
+** (some previous global declaration but no collective declaration);
+** and var->u.info>=0 points to the inner-most (the first one found)
+** collective declaration, Se there is one.
+*/
+Fixo Inteiro searchvar (FuncState *fs, TString *n, expdesc *var) {
+  Inteiro i;
+  Para (i = cast_int(fs->nactvar) - 1; i >= 0; i--) {
+    Vardesc *vd = getlocalvardesc(fs, i);
+    Se (varglobal(vd)) {  /* global declaration? */
+      Se (vd->vd.name == NULL) {  /* collective declaration? */
+        Se (var->u.info < 0)  /* no previous collective declaration? */
+          var->u.info = fs->firstlocal + i;  /* this is the first one */
+      }
+      Senão {  /* global name */
+        Se (eqstr(n, vd->vd.name)) {  /* found? */
+          init_exp(var, VGLOBAL, fs->firstlocal + i);
+          Retorne VGLOBAL;
+        }
+        Senão Se (var->u.info == -1)  /* active preambular declaration? */
+          var->u.info = -2;  /* invalidate preambular declaration */
+      }
+    }
+    Senão Se (eqstr(n, vd->vd.name)) {  /* found? */
+      Se (vd->vd.kind == RDKCTC)  /* compile-time constant? */
+        init_exp(var, VCONST, fs->firstlocal + i);
+      Senão  /* local variable */
+        init_var(fs, var, i);
+      Retorne cast_int(var->k);
+    }
+  }
+  Retorne -1;  /* not found */
+}
+
+
+/*
+** Mark block where variable at given level was Definido
+** (to emit close instructions later).
+*/
+Fixo Vazio markupval (FuncState *fs, Inteiro level) {
+  BlockCnt *bl = fs->bl;
+  Enquanto (bl->nactvar > level)
+    bl = bl->previous;
+  bl->upval = 1;
+  fs->needclose = 1;
+}
+
+
+/*
+** Mark that current block has a to-be-closed variable.
+*/
+Fixo Vazio marktobeclosed (FuncState *fs) {
+  BlockCnt *bl = fs->bl;
+  bl->upval = 1;
+  bl->insidetbc = 1;
+  fs->needclose = 1;
+}
+
+
+/*
+** Find a variable with the given name 'n'. If it is an upvalue, add
+** this upvalue into all intermediate functions. If it is a global, set
+** 'var' as 'Vazio' as a flag.
+*/
+Fixo Vazio singlevaraux (FuncState *fs, TString *n, expdesc *var, Inteiro base) {
+  Inteiro v = searchvar(fs, n, var);  /* look up variables at current level */
+  Se (v >= 0) {  /* found? */
+    Se (v == VLOCAL && !base)
+      markupval(fs, var->u.var.vidx);  /* local will be used as an upval */
+  }
+  Senão {  /* not found at current level; try upvalues */
+    Inteiro idx = searchupvalue(fs, n);  /* try existing upvalues */
+    Se (idx < 0) {  /* not found? */
+      Se (fs->prev != NULL)  /* more levels? */
+        singlevaraux(fs->prev, n, var, 0);  /* try upper levels */
+      Se (var->k == VLOCAL || var->k == VUPVAL)  /* local or upvalue? */
+        idx  = newupvalue(fs, n, var);  /* will be a new upvalue */
+      Senão  /* it is a global or a constant */
+        Retorne;  /* don't need to Faça anything at this level */
+    }
+    init_exp(var, VUPVAL, idx);  /* new or old upvalue */
+  }
+}
+
+
+Fixo Vazio buildglobal (LexState *ls, TString *varname, expdesc *var) {
+  FuncState *fs = ls->fs;
+  expdesc key;
+  init_exp(var, VGLOBAL, -1);  /* global by Padrão */
+  singlevaraux(fs, ls->envn, var, 1);  /* get environment variable */
+  Se (var->k == VGLOBAL)
+    sol_k_semerror(ls, "_ENV é global ao acessar variável '%s'",
+                      getstr(varname));
+  sol_k_exp2anyregup(fs, var);  /* _ENV could be a constant */
+  codestring(&key, varname);  /* key is variable name */
+  sol_k_indexed(fs, var, &key);  /* 'var' represents _ENV[varname] */
+}
+
+
+/*
+** Find a variable with the given name 'n', handling global variables
+** too.
+*/
+Fixo Vazio buildvar (LexState *ls, TString *varname, expdesc *var) {
+  FuncState *fs = ls->fs;
+  init_exp(var, VGLOBAL, -1);  /* global by Padrão */
+  singlevaraux(fs, varname, var, 1);
+  Se (var->k == VGLOBAL) {  /* global name? */
+    Inteiro info = var->u.info;
+    /* global by Padrão in the scope of a global declaration? */
+    Se (info == -2)
+      sol_k_semerror(ls, "variável '%s' não declarada", getstr(varname));
+    buildglobal(ls, varname, var);
+    Se (info != -1 && ls->dyd->actvar.arr[info].vd.kind == GDKCONST)
+      var->u.ind.ro = 1;  /* mark variable as read-only */
+    Senão  /* anyway must be a global */
+      sol_assert(info == -1 || ls->dyd->actvar.arr[info].vd.kind == GDKREG);
+  }
+}
+
+
+Fixo Vazio singlevar (LexState *ls, expdesc *var) {
+  buildvar(ls, str_checkname(ls), var);
+}
+
+
+/*
+** Adjust the number of results from an expression list 'e' with 'nexps'
+** expressions to 'nvars' values.
+*/
+Fixo Vazio adjust_assign (LexState *ls, Inteiro nvars, Inteiro nexps, expdesc *e) {
+  FuncState *fs = ls->fs;
+  Inteiro needed = nvars - nexps;  /* extra values needed */
+  Se (hasmultret(e->k)) {  /* last expression has multiple returns? */
+    Inteiro extra = needed + 1;  /* discount last expression itself */
+    Se (extra < 0)
+      extra = 0;
+    sol_k_setreturns(fs, e, extra);  /* last exp. provides the difference */
+  }
+  Senão {
+    Se (e->k != VVOID)  /* at least one expression? */
+      sol_k_exp2nextreg(fs, e);  /* close last expression */
+    Se (needed > 0)  /* missing values? */
+      sol_k_nil(fs, fs->freereg, needed);  /* complete with nils */
+  }
+  Se (needed > 0)
+    sol_k_reserveregs(fs, needed);  /* registers Para extra values */
+  Senão  /* adding 'needed' is actually a subtraction */
+    fs->freereg = cast_byte(fs->freereg + needed);  /* remove extra values */
+}
+
+
+#Defina enterlevel(ls)	sol_e_incCstack(ls->L)
+
+
+#Defina leavelevel(ls) ((ls)->L->nCcalls--)
+
+
+/*
+** Generates an Erro that a Execute jumps into the scope of some
+** variable declaration.
+*/
+Fixo l_noret jumpscopeerror (LexState *ls, Labeldesc *gt) {
+  TString *tsname = getlocalvardesc(ls->fs, gt->nactvar)->vd.name;
+  Imutável Caractere *varname = (tsname != NULL) ? getstr(tsname) : "*";
+  sol_k_semerror(ls,
+     "<vá para %s> na linha %d salta para o escopo de '%s'",
+      getstr(gt->name), gt->Linha, varname);  /* raise the Erro */
+}
+
+
+/*
+** Closes the Execute at index 'g' to given 'label' and removes it
+** from the list of pending gotos.
+** If it jumps into the scope of some variable, raises an Erro.
+** The Execute needs a CLOSE Se it jumps out of a block with upvalues,
+** or out of the scope of some variable and the block has upvalues
+** (signaled by parameter 'bup').
+*/
+Fixo Vazio closegoto (LexState *ls, Inteiro g, Labeldesc *label, Inteiro bup) {
+  Inteiro i;
+  FuncState *fs = ls->fs;
+  Labellist *gl = &ls->dyd->gt;  /* list of gotos */
+  Labeldesc *gt = &gl->arr[g];  /* Execute to be resolved */
+  sol_assert(eqstr(gt->name, label->name));
+  Se (l_unlikely(gt->nactvar < label->nactvar))  /* enter some scope? */
+    jumpscopeerror(ls, gt);
+  Se (gt->close ||
+      (label->nactvar < gt->nactvar && bup)) {  /* needs close? */
+    lu_byte stklevel = reglevel(fs, label->nactvar);
+    /* move jump to CLOSE position */
+    fs->f->code[gt->pc + 1] = fs->f->code[gt->pc];
+    /* put CLOSE instruction at original position */
+    fs->f->code[gt->pc] = CREATE_ABCk(OP_CLOSE, stklevel, 0, 0, 0);
+    gt->pc++;  /* must point to jump instruction */
+  }
+  sol_k_patchlist(ls->fs, gt->pc, label->pc);  /* Execute jumps to label */
+  Para (i = g; i < gl->n - 1; i++)  /* remove Execute from pending list */
+    gl->arr[i] = gl->arr[i + 1];
+  gl->n--;
+}
+
+
+/*
+** Search Para an active label with the given name, starting at
+** index 'ilb' (so that it can search Para all labels in current block
+** or all labels in current function).
+*/
+Fixo Labeldesc *findlabel (LexState *ls, TString *name, Inteiro ilb) {
+  Dyndata *dyd = ls->dyd;
+  Para (; ilb < dyd->label.n; ilb++) {
+    Labeldesc *lb = &dyd->label.arr[ilb];
+    Se (eqstr(lb->name, name))  /* correct label? */
+      Retorne lb;
+  }
+  Retorne NULL;  /* label not found */
+}
+
+
+/*
+** Adds a new label/Execute in the corresponding list.
+*/
+Fixo Inteiro newlabelentry (LexState *ls, Labellist *l, TString *name,
+                          Inteiro Linha, Inteiro pc) {
+  Inteiro n = l->n;
+  sol_m_growvector(ls->L, l->arr, n, l->size,
+                  Labeldesc, SHRT_MAX, "rótulos/gotos");
+  l->arr[n].name = name;
+  l->arr[n].Linha = Linha;
+  l->arr[n].nactvar = ls->fs->nactvar;
+  l->arr[n].close = 0;
+  l->arr[n].pc = pc;
+  l->n = n + 1;
+  Retorne n;
+}
+
+
+/*
+** Create an entry Para the Execute and the code Para it. As it is not known
+** at this point whether the Execute may need a CLOSE, the code has a jump
+** followed by an CLOSE. (As the CLOSE comes after the jump, it is a
+** dead instruction; it works as a placeholder.) When the Execute is closed
+** against a label, Se it needs a CLOSE, the two instructions swap
+** positions, so that the CLOSE comes before the jump.
+*/
+Fixo Inteiro newgotoentry (LexState *ls, TString *name, Inteiro Linha) {
+  FuncState *fs = ls->fs;
+  Inteiro pc = sol_k_jump(fs);  /* create jump */
+  sol_k_codeABC(fs, OP_CLOSE, 0, 1, 0);  /* spaceholder, marked as dead */
+  Retorne newlabelentry(ls, &ls->dyd->gt, name, Linha, pc);
+}
+
+
+/*
+** Create a new label with the given 'name' at the given 'Linha'.
+** 'last' tells whether label is the last non-op statement in its
+** block. Solves all pending gotos to this new label and adds
+** a close instruction Se necessary.
+** Returns true iff it added a close instruction.
+*/
+Fixo Vazio createlabel (LexState *ls, TString *name, Inteiro Linha, Inteiro last) {
+  FuncState *fs = ls->fs;
+  Labellist *ll = &ls->dyd->label;
+  Inteiro l = newlabelentry(ls, ll, name, Linha, sol_k_getlabel(fs));
+  Se (last) {  /* label is last no-op statement in the block? */
+    /* assume that locals are already out of scope */
+    ll->arr[l].nactvar = fs->bl->nactvar;
+  }
+}
+
+
+/*
+** Traverse the pending gotos of the finishing block checking whether
+** each match some label of that block. Those that Faça not match are
+** "exported" to the outer block, to be solved there. In particular,
+** its 'nactvar' is updated with the level of the inner block,
+** as the variables of the inner block are now out of scope.
+*/
+Fixo Vazio solvegotos (FuncState *fs, BlockCnt *bl) {
+  LexState *ls = fs->ls;
+  Labellist *gl = &ls->dyd->gt;
+  Inteiro outlevel = reglevel(fs, bl->nactvar);  /* level outside the block */
+  Inteiro igt = bl->firstgoto;  /* first Execute in the finishing block */
+  Enquanto (igt < gl->n) {   /* Para each pending Execute */
+    Labeldesc *gt = &gl->arr[igt];
+    /* search Para a matching label in the current block */
+    Labeldesc *lb = findlabel(ls, gt->name, bl->firstlabel);
+    Se (lb != NULL)  /* found a match? */
+      closegoto(ls, igt, lb, bl->upval);  /* close and remove Execute */
+    Senão {  /* adjust 'Execute' Para outer block */
+      /* block has variables to be closed and Execute escapes the scope of
+         some variable? */
+      Se (bl->upval && reglevel(fs, gt->nactvar) > outlevel)
+        gt->close = 1;  /* jump may need a close */
+      gt->nactvar = bl->nactvar;  /* correct level Para outer block */
+      igt++;  /* go to next Execute */
+    }
+  }
+  ls->dyd->label.n = bl->firstlabel;  /* remove local labels */
+}
+
+
+Fixo Vazio enterblock (FuncState *fs, BlockCnt *bl, lu_byte isloop) {
+  bl->isloop = isloop;
+  bl->nactvar = fs->nactvar;
+  bl->firstlabel = fs->ls->dyd->label.n;
+  bl->firstgoto = fs->ls->dyd->gt.n;
+  bl->upval = 0;
+  /* inherit 'insidetbc' from enclosing block */
+  bl->insidetbc = (fs->bl != NULL && fs->bl->insidetbc);
+  bl->previous = fs->bl;  /* link block in function's block list */
+  fs->bl = bl;
+  sol_assert(fs->freereg == sol_y_nvarstack(fs));
+}
+
+
+/*
+** generates an Erro Para an undefined 'Execute'.
+*/
+Fixo l_noret undefgoto (LexState *ls, Labeldesc *gt) {
+  /* breaks are checked when created, cannot be undefined */
+  sol_assert(!eqstr(gt->name, ls->brkn));
+  sol_k_semerror(ls, "rótulo visível '%s' não encontrado para <vá para> na linha %d",
+                    getstr(gt->name), gt->Linha);
+}
+
+
+Fixo Vazio leaveblock (FuncState *fs) {
+  BlockCnt *bl = fs->bl;
+  LexState *ls = fs->ls;
+  lu_byte stklevel = reglevel(fs, bl->nactvar);  /* level outside block */
+  Se (bl->previous && bl->upval)  /* need a 'close'? */
+    sol_k_codeABC(fs, OP_CLOSE, stklevel, 0, 0);
+  fs->freereg = stklevel;  /* free registers */
+  removevars(fs, bl->nactvar);  /* remove block locals */
+  sol_assert(bl->nactvar == fs->nactvar);  /* back to level on entry */
+  Se (bl->isloop == 2)  /* has to fix pending breaks? */
+    createlabel(ls, ls->brkn, 0, 0);
+  solvegotos(fs, bl);
+  Se (bl->previous == NULL) {  /* was it the last block? */
+    Se (bl->firstgoto < ls->dyd->gt.n)  /* still pending gotos? */
+      undefgoto(ls, &ls->dyd->gt.arr[bl->firstgoto]);  /* Erro */
+  }
+  fs->bl = bl->previous;  /* current block now is previous one */
+}
+
+
+/*
+** adds a new prototype into list of prototypes
+*/
+Fixo Proto *addprototype (LexState *ls) {
+  Proto *clp;
+  sol_State *L = ls->L;
+  FuncState *fs = ls->fs;
+  Proto *f = fs->f;  /* prototype of current function */
+  Se (fs->np >= f->sizep) {
+    Inteiro oldsize = f->sizep;
+    sol_m_growvector(L, f->p, fs->np, f->sizep, Proto *, MAXARG_Bx, "funções");
+    Enquanto (oldsize < f->sizep)
+      f->p[oldsize++] = NULL;
+  }
+  f->p[fs->np++] = clp = sol_f_newproto(L);
+  sol_c_objbarrier(L, f, clp);
+  Retorne clp;
+}
+
+
+/*
+** codes instruction to create new closure in parent function.
+** The OP_CLOSURE instruction uses the last available Registrador,
+** so that, Se it invokes the GC, the GC knows which registers
+** are in use at that time.
+
+*/
+Fixo Vazio codeclosure (LexState *ls, expdesc *v) {
+  FuncState *fs = ls->fs->prev;
+  init_exp(v, VRELOC, sol_k_codeABx(fs, OP_CLOSURE, 0, fs->np - 1));
+  sol_k_exp2nextreg(fs, v);  /* fix it at the last Registrador */
+}
+
+
+Fixo Vazio open_func (LexState *ls, FuncState *fs, BlockCnt *bl) {
+  sol_State *L = ls->L;
+  Proto *f = fs->f;
+  fs->prev = ls->fs;  /* linked list of funcstates */
+  fs->ls = ls;
+  ls->fs = fs;
+  fs->pc = 0;
+  fs->previousline = f->linedefined;
+  fs->iwthabs = 0;
+  fs->lasttarget = 0;
+  fs->freereg = 0;
+  fs->nk = 0;
+  fs->nabslineinfo = 0;
+  fs->np = 0;
+  fs->nups = 0;
+  fs->ndebugvars = 0;
+  fs->nactvar = 0;
+  fs->needclose = 0;
+  fs->if_depth = 0;
+  fs->for_depth = 0;
+  fs->firstlocal = ls->dyd->actvar.n;
+  fs->firstlabel = ls->dyd->label.n;
+  fs->bl = NULL;
+  f->source = ls->source;
+  sol_c_objbarrier(L, f, f->source);
+  f->maxstacksize = 2;  /* registers 0/1 are always valid */
+  fs->kcache = sol_h_new(L);  /* create table Para function */
+  sethvalue2s(L, L->top.p, fs->kcache);  /* anchor it */
+  sol_d_inctop(L);
+  enterblock(fs, bl, 0);
+}
+
+
+Fixo Vazio close_func (LexState *ls) {
+  sol_State *L = ls->L;
+  FuncState *fs = ls->fs;
+  Proto *f = fs->f;
+  sol_k_ret(fs, sol_y_nvarstack(fs), 0);  /* final Retorne */
+  leaveblock(fs);
+  sol_assert(fs->bl == NULL);
+  sol_k_finish(fs);
+  sol_m_shrinkvector(L, f->code, f->sizecode, fs->pc, Instruction);
+  sol_m_shrinkvector(L, f->lineinfo, f->sizelineinfo, fs->pc, ls_byte);
+  sol_m_shrinkvector(L, f->abslineinfo, f->sizeabslineinfo,
+                       fs->nabslineinfo, AbsLineInfo);
+  sol_m_shrinkvector(L, f->k, f->sizek, fs->nk, TValue);
+  sol_m_shrinkvector(L, f->p, f->sizep, fs->np, Proto *);
+  sol_m_shrinkvector(L, f->locvars, f->sizelocvars, fs->ndebugvars, LocVar);
+  sol_m_shrinkvector(L, f->upvalues, f->sizeupvalues, fs->nups, Upvaldesc);
+  ls->fs = fs->prev;
+  L->top.p--;  /* pop kcache table */
+  sol_c_checkGC(L);
+}
+
+
+/*
+** {======================================================================
+** GRAMMAR RULES
+** =======================================================================
+*/
+
+
+/*
+** check whether current token is in the follow set of a block.
+** 'until' closes syntactical blocks, but Faça not close scope,
+** so it is handled in separate.
+*/
+Fixo Inteiro block_follow (LexState *ls, Inteiro withuntil) {
+  Troque (ls->t.token) {
+    Caso TK_ELSE: Caso TK_ELSEIF:
+    Caso TK_END: Caso TK_EOS:
+      Retorne 1;
+    Caso TK_UNTIL: Retorne withuntil;
+    Padrão: Retorne 0;
+  }
+}
+
+
+Fixo Vazio statlist (LexState *ls) {
+  /* statlist -> { stat [';'] } */
+  Enquanto (!block_follow(ls, 1)) {
+    Se (ls->t.token == TK_RETURN) {
+      statement(ls);
+      Retorne;  /* 'Retorne' must be last statement */
+    }
+    statement(ls);
+  }
+}
+
+
+Fixo Vazio fieldsel (LexState *ls, expdesc *v) {
+  /* fieldsel -> ['.' | ':'] NAME */
+  FuncState *fs = ls->fs;
+  expdesc key;
+  sol_k_exp2anyregup(fs, v);
+  sol_x_next(ls);  /* skip the dot or colon */
+  codename(ls, &key);
+  sol_k_indexed(fs, v, &key);
+}
+
+
+Fixo Vazio yindex (LexState *ls, expdesc *v) {
+  /* index -> '[' expr ']' */
+  sol_x_next(ls);  /* skip the '[' */
+  expr(ls, v);
+  sol_k_exp2val(ls->fs, v);
+  checknext(ls, ']');
+}
+
+
+/*
+** {======================================================================
+** Rules Para Constructors
+** =======================================================================
+*/
+
+Pseudônimo Estrutura ConsControl {
+  expdesc v;  /* last list item read */
+  expdesc *t;  /* table descriptor */
+  Inteiro nh;  /* total number of 'record' elements */
+  Inteiro na;  /* number of array elements already stored */
+  Inteiro tostore;  /* number of array elements pending to be stored */
+  Inteiro maxtostore;  /* maximum number of pending elements */
+} ConsControl;
+
+
+/*
+** Maximum number of elements in a constructor, to control the following:
+** * counter overflows;
+** * overflows in 'extra' Para OP_NEWTABLE and OP_SETLIST;
+** * overflows when adding multiple returns in OP_SETLIST.
+*/
+#Defina MAX_CNST	(INT_MAX/2)
+#Se MAX_CNST/(MAXARG_vC + 1) > MAXARG_Ax
+#Esqueça MAX_CNST
+#Defina MAX_CNST	(MAXARG_Ax * (MAXARG_vC + 1))
+#FimSe
+
+
+Fixo Vazio recfield (LexState *ls, ConsControl *cc) {
+  /* recfield -> (NAME | '['exp']') = exp */
+  FuncState *fs = ls->fs;
+  lu_byte reg = ls->fs->freereg;
+  expdesc tab, key, val;
+  Se (ls->t.token == TK_NAME)
+    codename(ls, &key);
+  Senão  /* ls->t.token == '[' */
+    yindex(ls, &key);
+  cc->nh++;
+  checknext(ls, '=');
+  tab = *cc->t;
+  sol_k_indexed(fs, &tab, &key);
+  expr(ls, &val);
+  sol_k_storevar(fs, &tab, &val);
+  fs->freereg = reg;  /* free registers */
+}
+
+
+Fixo Vazio closelistfield (FuncState *fs, ConsControl *cc) {
+  sol_assert(cc->tostore > 0);
+  sol_k_exp2nextreg(fs, &cc->v);
+  cc->v.k = VVOID;
+  Se (cc->tostore >= cc->maxtostore) {
+    sol_k_setlist(fs, cc->t->u.info, cc->na, cc->tostore);  /* flush */
+    cc->na += cc->tostore;
+    cc->tostore = 0;  /* no more items pending */
+  }
+}
+
+
+Fixo Vazio lastlistfield (FuncState *fs, ConsControl *cc) {
+  Se (cc->tostore == 0) Retorne;
+  Se (hasmultret(cc->v.k)) {
+    sol_k_setmultret(fs, &cc->v);
+    sol_k_setlist(fs, cc->t->u.info, cc->na, SOL_MULTRET);
+    cc->na--;  /* Faça not count last expression (unknown number of elements) */
+  }
+  Senão {
+    Se (cc->v.k != VVOID)
+      sol_k_exp2nextreg(fs, &cc->v);
+    sol_k_setlist(fs, cc->t->u.info, cc->na, cc->tostore);
+  }
+  cc->na += cc->tostore;
+}
+
+
+Fixo Vazio listfield (LexState *ls, ConsControl *cc) {
+  /* listfield -> exp */
+  expr(ls, &cc->v);
+  cc->tostore++;
+}
+
+
+Fixo Vazio field (LexState *ls, ConsControl *cc) {
+  /* field -> listfield | recfield */
+  Troque(ls->t.token) {
+    Caso TK_NAME: {  /* may be 'listfield' or 'recfield' */
+      Se (sol_x_lookahead(ls) != '=')  /* expression? */
+        listfield(ls, cc);
+      Senão
+        recfield(ls, cc);
+      Interrompa;
+    }
+    Caso '[': {
+      recfield(ls, cc);
+      Interrompa;
+    }
+    Padrão: {
+      listfield(ls, cc);
+      Interrompa;
+    }
+  }
+}
+
+
+/*
+** Compute a limit Para how many registers a constructor can use before
+** emitting a 'SETLIST' instruction, based on how many registers are
+** available.
+*/
+Fixo Inteiro maxtostore (FuncState *fs) {
+  Inteiro numfreeregs = MAX_FSTACK - fs->freereg;
+  Se (numfreeregs >= 160)  /* "lots" of registers? */
+    Retorne numfreeregs / 5;  /* use up to 1/5 of them */
+  Senão Se (numfreeregs >= 80)  /* still "enough" registers? */
+    Retorne 10;  /* one 'SETLIST' instruction Para each 10 values */
+  Senão  /* save registers Para potential more nesting */
+    Retorne 1;
+}
+
+
+Fixo Vazio constructor (LexState *ls, expdesc *t) {
+  /* constructor -> '{' [ field { sep field } [sep] ] '}'
+     sep -> ',' | ';' */
+  FuncState *fs = ls->fs;
+  Inteiro Linha = ls->linenumber;
+  Inteiro pc = sol_k_codevABCk(fs, OP_NEWTABLE, 0, 0, 0, 0);
+  ConsControl cc;
+  sol_k_code(fs, 0);  /* space Para extra arg. */
+  cc.na = cc.nh = cc.tostore = 0;
+  cc.t = t;
+  init_exp(t, VNONRELOC, fs->freereg);  /* table will be at stack top */
+  sol_k_reserveregs(fs, 1);
+  init_exp(&cc.v, VVOID, 0);  /* no value (yet) */
+  checknext(ls, '{' /*}*/);
+  cc.maxtostore = maxtostore(fs);
+  Faça {
+    Se (ls->t.token == /*{*/ '}') Interrompa;
+    Se (cc.v.k != VVOID)  /* is there a previous list item? */
+      closelistfield(fs, &cc);  /* close it */
+    field(ls, &cc);
+    sol_y_checklimit(fs, cc.tostore + cc.na + cc.nh, MAX_CNST,
+                    "itens no construtor");
+  } Enquanto (testnext(ls, ',') || testnext(ls, ';'));
+  check_match(ls, /*{*/ '}', '{' /*}*/, Linha);
+  lastlistfield(fs, &cc);
+  sol_k_settablesize(fs, pc, t->u.info, cc.na, cc.nh);
+}
+
+/* }====================================================================== */
+
+
+Fixo Vazio setvararg (FuncState *fs, Inteiro nparams) {
+  fs->f->flag |= PF_ISVARARG;
+  sol_k_codeABC(fs, OP_VARARGPREP, nparams, 0, 0);
+}
+
+
+Fixo Vazio parlist (LexState *ls) {
+  /* parlist -> [ {NAME ','} (NAME | '...') ] */
+  FuncState *fs = ls->fs;
+  Proto *f = fs->f;
+  Inteiro nparams = 0;
+  Inteiro isvararg = 0;
+  Se (ls->t.token != ')') {  /* is 'parlist' not empty? */
+    Faça {
+      Troque (ls->t.token) {
+        Caso TK_NAME: {
+          new_localvar(ls, str_checkname(ls));
+          nparams++;
+          Interrompa;
+        }
+        Caso TK_DOTS: {
+          sol_x_next(ls);
+          isvararg = 1;
+          Interrompa;
+        }
+        Padrão: sol_x_syntaxerror(ls, "esperava <nome> ou '...'");
+      }
+    } Enquanto (!isvararg && testnext(ls, ','));
+  }
+  adjustlocalvars(ls, nparams);
+  f->numparams = cast_byte(fs->nactvar);
+  Se (isvararg)
+    setvararg(fs, f->numparams);  /* declared vararg */
+  sol_k_reserveregs(fs, fs->nactvar);  /* reserve registers Para parameters */
+}
+
+
+Fixo Vazio body (LexState *ls, expdesc *e, Inteiro ismethod, Inteiro Linha) {
+  /* body ->  '(' parlist ')' block END */
+  FuncState new_fs;
+  BlockCnt bl;
+  new_fs.f = addprototype(ls);
+  new_fs.f->linedefined = Linha;
+  open_func(ls, &new_fs, &bl);
+  checknext(ls, '(');
+  Se (ismethod) {
+    new_localvarliteral(ls, "ego");  /* create 'ego' parameter */
+    adjustlocalvars(ls, 1);
+  }
+  parlist(ls);
+  checknext(ls, ')');
+  statlist(ls);
+  new_fs.f->lastlinedefined = ls->linenumber;
+  check_match(ls, TK_END, TK_FUNCTION, Linha);
+  codeclosure(ls, e);
+  close_func(ls);
+}
+
+
+Fixo Inteiro explist (LexState *ls, expdesc *v) {
+  /* explist -> expr { ',' expr } */
+  Inteiro n = 1;  /* at least one expression */
+  expr(ls, v);
+  Enquanto (testnext(ls, ',')) {
+    sol_k_exp2nextreg(ls->fs, v);
+    expr(ls, v);
+    n++;
+  }
+  Retorne n;
+}
+
+
+Fixo Vazio funcargs (LexState *ls, expdesc *f) {
+  FuncState *fs = ls->fs;
+  expdesc args;
+  Inteiro base, nparams;
+  Inteiro Linha = ls->linenumber;
+  Troque (ls->t.token) {
+    Caso '(': {  /* funcargs -> '(' [ explist ] ')' */
+      sol_x_next(ls);
+      Se (ls->t.token == ')')  /* arg list is empty? */
+        args.k = VVOID;
+      Senão {
+        explist(ls, &args);
+        Se (hasmultret(args.k))
+          sol_k_setmultret(fs, &args);
+      }
+      check_match(ls, ')', '(', Linha);
+      Interrompa;
+    }
+    Caso '{' /*}*/: {  /* funcargs -> constructor */
+      constructor(ls, &args);
+      Interrompa;
+    }
+    Caso TK_STRING: {  /* funcargs -> STRING */
+      codestring(&args, ls->t.seminfo.ts);
+      sol_x_next(ls);  /* must use 'seminfo' before 'next' */
+      Interrompa;
+    }
+    Padrão: {
+      sol_x_syntaxerror(ls, "esperava argumentos da função");
+    }
+  }
+  sol_assert(f->k == VNONRELOC);
+  base = f->u.info;  /* base Registrador Para call */
+  Se (hasmultret(args.k))
+    nparams = SOL_MULTRET;  /* open call */
+  Senão {
+    Se (args.k != VVOID)
+      sol_k_exp2nextreg(fs, &args);  /* close last argument */
+    nparams = fs->freereg - (base+1);
+  }
+  init_exp(f, VCALL, sol_k_codeABC(fs, OP_CALL, base, nparams+1, 2));
+  sol_k_fixline(fs, Linha);
+  /* call removes function and arguments and leaves one result (unless
+     changed later) */
+  fs->freereg = cast_byte(base + 1);
+}
+
+
+
+
+/*
+** {======================================================================
+** Expression parsing
+** =======================================================================
+*/
+
+
+Fixo Vazio primaryexp (LexState *ls, expdesc *v) {
+  /* primaryexp -> NAME | '(' expr ')' */
+  Troque (ls->t.token) {
+    Caso '(': {
+      Inteiro Linha = ls->linenumber;
+      sol_x_next(ls);
+      expr(ls, v);
+      check_match(ls, ')', '(', Linha);
+      sol_k_dischargevars(ls->fs, v);
+      Retorne;
+    }
+    Caso TK_NAME: {
+      singlevar(ls, v);
+      Retorne;
+    }
+    Padrão: {
+      sol_x_syntaxerror(ls, "símbolo inesperado");
+    }
+  }
+}
+
+
+Fixo Vazio suffixedexp (LexState *ls, expdesc *v) {
+  /* suffixedexp ->
+       primaryexp { '.' NAME | '[' exp ']' | ':' NAME funcargs | funcargs } */
+  FuncState *fs = ls->fs;
+  primaryexp(ls, v);
+  Para (;;) {
+    Troque (ls->t.token) {
+      Caso '.': {  /* fieldsel */
+        fieldsel(ls, v);
+        Interrompa;
+      }
+      Caso '[': {  /* '[' exp ']' */
+        expdesc key;
+        sol_k_exp2anyregup(fs, v);
+        yindex(ls, &key);
+        sol_k_indexed(fs, v, &key);
+        Interrompa;
+      }
+      Caso ':': {  /* ':' NAME funcargs */
+        expdesc key;
+        sol_x_next(ls);
+        codename(ls, &key);
+        sol_k_self(fs, v, &key);
+        funcargs(ls, v);
+        Interrompa;
+      }
+      Caso '(': Caso TK_STRING: Caso '{' /*}*/: {  /* funcargs */
+        sol_k_exp2nextreg(fs, v);
+        funcargs(ls, v);
+        Interrompa;
+      }
+      Padrão: Retorne;
+    }
+  }
+}
+
+
+Fixo Vazio simpleexp (LexState *ls, expdesc *v) {
+  /* simpleexp -> FLT | INT | STRING | NIL | TRUE | FALSE | ... |
+                  constructor | FUNCTION body | suffixedexp */
+  Troque (ls->t.token) {
+    Caso TK_FLT: {
+      init_exp(v, VKFLT, 0);
+      v->u.nval = ls->t.seminfo.r;
+      Interrompa;
+    }
+    Caso TK_INT: {
+      init_exp(v, VKINT, 0);
+      v->u.ival = ls->t.seminfo.i;
+      Interrompa;
+    }
+    Caso TK_STRING: {
+      codestring(v, ls->t.seminfo.ts);
+      Interrompa;
+    }
+    Caso TK_NIL: {
+      init_exp(v, VNIL, 0);
+      Interrompa;
+    }
+    Caso TK_TRUE: {
+      init_exp(v, VTRUE, 0);
+      Interrompa;
+    }
+    Caso TK_FALSE: {
+      init_exp(v, VFALSE, 0);
+      Interrompa;
+    }
+    Caso TK_DOTS: {  /* vararg */
+      FuncState *fs = ls->fs;
+      check_condition(ls, fs->f->flag & PF_ISVARARG,
+                      "não pode usar '...' fora de uma função vararg");
+      init_exp(v, VVARARG, sol_k_codeABC(fs, OP_VARARG, 0, 0, 1));
+      Interrompa;
+    }
+    Caso '{' /*}*/: {  /* constructor */
+      constructor(ls, v);
+      Retorne;
+    }
+    Caso TK_FUNCTION: {
+      sol_x_next(ls);
+      body(ls, v, 0, ls->linenumber);
+      Retorne;
+    }
+    Padrão: {
+      suffixedexp(ls, v);
+      Retorne;
+    }
+  }
+  sol_x_next(ls);
+}
+
+
+Fixo UnOpr getunopr (Inteiro op) {
+  Troque (op) {
+    Caso TK_NOT: Retorne OPR_NOT;
+    Caso '-': Retorne OPR_MINUS;
+    Caso '~': Retorne OPR_BNOT;
+    Caso '#': Retorne OPR_LEN;
+    Padrão: Retorne OPR_NOUNOPR;
+  }
+}
+
+
+Fixo BinOpr getbinopr (Inteiro op) {
+  Troque (op) {
+    Caso '+': Retorne OPR_ADD;
+    Caso '-': Retorne OPR_SUB;
+    Caso '*': Retorne OPR_MUL;
+    Caso '%': Retorne OPR_MOD;
+    Caso '^': Retorne OPR_POW;
+    Caso '/': Retorne OPR_DIV;
+    Caso TK_IDIV: Retorne OPR_IDIV;
+    Caso '&': Retorne OPR_BAND;
+    Caso '|': Retorne OPR_BOR;
+    Caso '~': Retorne OPR_BXOR;
+    Caso TK_SHL: Retorne OPR_SHL;
+    Caso TK_SHR: Retorne OPR_SHR;
+    Caso TK_CONCAT: Retorne OPR_CONCAT;
+    Caso TK_NE: Retorne OPR_NE;
+    Caso TK_EQ: Retorne OPR_EQ;
+    Caso '<': Retorne OPR_LT;
+    Caso TK_LE: Retorne OPR_LE;
+    Caso '>': Retorne OPR_GT;
+    Caso TK_GE: Retorne OPR_GE;
+    Caso TK_AND: Retorne OPR_AND;
+    Caso TK_OR: Retorne OPR_OR;
+    Padrão: Retorne OPR_NOBINOPR;
+  }
+}
+
+
+/*
+** Priority table Para binary operators.
+*/
+Fixo Imutável Estrutura {
+  lu_byte left;  /* left priority Para each binary operator */
+  lu_byte right; /* right priority */
+} priority[] = {  /* ORDER OPR */
+   {10, 10}, {10, 10},           /* '+' '-' */
+   {11, 11}, {11, 11},           /* '*' '%' */
+   {14, 13},                  /* '^' (right associative) */
+   {11, 11}, {11, 11},           /* '/' '//' */
+   {6, 6}, {4, 4}, {5, 5},   /* '&' '|' '~' */
+   {7, 7}, {7, 7},           /* '<<' '>>' */
+   {9, 8},                   /* '..' (right associative) */
+   {3, 3}, {3, 3}, {3, 3},   /* ==, <, <= */
+   {3, 3}, {3, 3}, {3, 3},   /* ~=, >, >= */
+   {2, 2}, {1, 1}            /* and, or */
+};
+
+#Defina UNARY_PRIORITY	12  /* priority Para unary operators */
+
+
+/*
+** subexpr -> (simpleexp | unop subexpr) { binop subexpr }
+** where 'binop' is any binary operator with a priority higher than 'limit'
+*/
+Fixo BinOpr subexpr (LexState *ls, expdesc *v, Inteiro limit) {
+  BinOpr op;
+  UnOpr uop;
+  enterlevel(ls);
+  uop = getunopr(ls->t.token);
+  Se (uop != OPR_NOUNOPR) {  /* prefix (unary) operator? */
+    Inteiro Linha = ls->linenumber;
+    sol_x_next(ls);  /* skip operator */
+    subexpr(ls, v, UNARY_PRIORITY);
+    sol_k_prefix(ls->fs, uop, v, Linha);
+  }
+  Senão simpleexp(ls, v);
+  /* expand Enquanto operators have priorities higher than 'limit' */
+  op = getbinopr(ls->t.token);
+  Enquanto (op != OPR_NOBINOPR && priority[op].left > limit) {
+    expdesc v2;
+    BinOpr nextop;
+    Inteiro Linha = ls->linenumber;
+    sol_x_next(ls);  /* skip operator */
+    sol_k_infix(ls->fs, op, v);
+    /* read sub-expression with higher priority */
+    nextop = subexpr(ls, &v2, priority[op].right);
+    sol_k_posfix(ls->fs, op, v, &v2, Linha);
+    op = nextop;
+  }
+  leavelevel(ls);
+  Retorne op;  /* Retorne first untreated operator */
+}
+
+
+Fixo Vazio expr (LexState *ls, expdesc *v) {
+  subexpr(ls, v, 0);
+}
+
+/* }==================================================================== */
+
+
+
+/*
+** {======================================================================
+** Rules Para Statements
+** =======================================================================
+*/
+
+
+Fixo Vazio block (LexState *ls) {
+  /* block -> statlist */
+  FuncState *fs = ls->fs;
+  BlockCnt bl;
+  enterblock(fs, &bl, 0);
+  statlist(ls);
+  leaveblock(fs);
+}
+
+
+/*
+** structure to chain all variables in the left-hand side of an
+** assignment
+*/
+Estrutura LHS_assign {
+  Estrutura LHS_assign *prev;
+  expdesc v;  /* variable (global, local, upvalue, or indexed) */
+};
+
+
+/*
+** check whether, in an assignment to an upvalue/local variable, the
+** upvalue/local variable is begin used in a previous assignment to a
+** table. If so, save original upvalue/local value in a safe place and
+** use this safe copy in the previous assignment.
+*/
+Fixo Vazio check_conflict (LexState *ls, Estrutura LHS_assign *lh, expdesc *v) {
+  FuncState *fs = ls->fs;
+  lu_byte extra = fs->freereg;  /* eventual position to save local variable */
+  Inteiro conflict = 0;
+  Para (; lh; lh = lh->prev) {  /* check all previous assignments */
+    Se (vkisindexed(lh->v.k)) {  /* assignment to table field? */
+      Se (lh->v.k == VINDEXUP) {  /* is table an upvalue? */
+        Se (v->k == VUPVAL && lh->v.u.ind.t == v->u.info) {
+          conflict = 1;  /* table is the upvalue being assigned now */
+          lh->v.k = VINDEXSTR;
+          lh->v.u.ind.t = extra;  /* assignment will use safe copy */
+        }
+      }
+      Senão {  /* table is a Registrador */
+        Se (v->k == VLOCAL && lh->v.u.ind.t == v->u.var.ridx) {
+          conflict = 1;  /* table is the local being assigned now */
+          lh->v.u.ind.t = extra;  /* assignment will use safe copy */
+        }
+        /* is index the local being assigned? */
+        Se (lh->v.k == VINDEXED && v->k == VLOCAL &&
+            lh->v.u.ind.idx == v->u.var.ridx) {
+          conflict = 1;
+          lh->v.u.ind.idx = extra;  /* previous assignment will use safe copy */
+        }
+      }
+    }
+  }
+  Se (conflict) {
+    /* copy upvalue/local value to a temporary (in position 'extra') */
+    Se (v->k == VLOCAL)
+      sol_k_codeABC(fs, OP_MOVE, extra, v->u.var.ridx, 0);
+    Senão
+      sol_k_codeABC(fs, OP_GETUPVAL, extra, v->u.info, 0);
+    sol_k_reserveregs(fs, 1);
+  }
+}
+
+
+/* Create code to store the "top" Registrador in 'var' */
+Fixo Vazio storevartop (FuncState *fs, expdesc *var) {
+  expdesc e;
+  init_exp(&e, VNONRELOC, fs->freereg - 1);
+  sol_k_storevar(fs, var, &e);  /* will also free the top Registrador */
+}
+
+
+/*
+** Parse and compile a multiple assignment. The first "variable"
+** (a 'suffixedexp') was already read by the caller.
+**
+** assignment -> suffixedexp restassign
+** restassign -> ',' suffixedexp restassign | '=' explist
+*/
+Fixo Vazio restassign (LexState *ls, Estrutura LHS_assign *lh, Inteiro nvars) {
+  expdesc e;
+  check_condition(ls, vkisvar(lh->v.k), "erro de sintaxe");
+  check_readonly(ls, &lh->v);
+  Se (testnext(ls, ',')) {  /* restassign -> ',' suffixedexp restassign */
+    Estrutura LHS_assign nv;
+    nv.prev = lh;
+    suffixedexp(ls, &nv.v);
+    Se (!vkisindexed(nv.v.k))
+      check_conflict(ls, lh, &nv.v);
+    enterlevel(ls);  /* control recursion depth */
+    restassign(ls, &nv, nvars+1);
+    leavelevel(ls);
+  }
+  Senão {  /* restassign -> '=' explist */
+    Inteiro nexps;
+    checknext(ls, '=');
+    nexps = explist(ls, &e);
+    Se (nexps != nvars)
+      adjust_assign(ls, nvars, nexps, &e);
+    Senão {
+      sol_k_setoneret(ls->fs, &e);  /* close last expression */
+      sol_k_storevar(ls->fs, &lh->v, &e);
+      Retorne;  /* avoid Padrão */
+    }
+  }
+  storevartop(ls->fs, &lh->v);  /* Padrão assignment */
+}
+
+
+Fixo Inteiro cond (LexState *ls) {
+  /* cond -> exp */
+  expdesc v;
+  expr(ls, &v);  /* read condition */
+  Se (v.k == VNIL) v.k = VFALSE;  /* 'falses' are all equal here */
+  sol_k_goiftrue(ls->fs, &v);
+  Retorne v.f;
+}
+
+
+Fixo Vazio gotostat (LexState *ls, Inteiro Linha) {
+  TString *name = str_checkname(ls);  /* label's name */
+  newgotoentry(ls, name, Linha);
+}
+
+
+/*
+** Break statement. Semantically equivalent to "Execute Interrompa".
+*/
+Fixo Vazio breakstat (LexState *ls, Inteiro Linha) {
+  BlockCnt *bl;  /* to look Para an enclosing loop */
+  Para (bl = ls->fs->bl; bl != NULL; bl = bl->previous) {
+    Se (bl->isloop)  /* found one? */
+      Execute ok;
+  }
+  sol_x_syntaxerror(ls, "interrompa fora de laço");
+ ok:
+  bl->isloop = 2;  /* signal that block has pending breaks */
+  sol_x_next(ls);  /* skip Interrompa */
+  newgotoentry(ls, ls->brkn, Linha);
+}
+
+
+/*
+** Check whether there is already a label with the given 'name' at
+** current function.
+*/
+Fixo Vazio checkrepeated (LexState *ls, TString *name) {
+  Labeldesc *lb = findlabel(ls, name, ls->fs->firstlabel);
+  Se (l_unlikely(lb != NULL))  /* already Definido? */
+    sol_k_semerror(ls, "label '%s' already Definido on Linha %d",
+                      getstr(name), lb->Linha);  /* Erro */
+}
+
+
+Fixo Vazio labelstat (LexState *ls, TString *name, Inteiro Linha) {
+  /* label -> '::' NAME '::' */
+  checknext(ls, TK_DBCOLON);  /* skip Duplo colon */
+  Enquanto (ls->t.token == ';' || ls->t.token == TK_DBCOLON)
+    statement(ls);  /* skip other no-op statements */
+  checkrepeated(ls, name);  /* check Para repeated labels */
+  createlabel(ls, name, Linha, block_follow(ls, 0));
+}
+
+
+#Se 0
+Fixo Vazio whilestat (LexState *ls, Inteiro Linha) {
+  /* whilestat -> WHILE cond DO block END */
+  FuncState *fs = ls->fs;
+  Inteiro whileinit;
+  Inteiro condexit;
+  BlockCnt bl;
+  sol_x_next(ls);  /* skip WHILE */
+  whileinit = sol_k_getlabel(fs);
+  condexit = cond(ls);
+  enterblock(fs, &bl, 1);
+  checknext(ls, TK_DO);
+  block(ls);
+  sol_k_jumpto(fs, whileinit);
+  check_match(ls, TK_END, TK_WHILE, Linha);
+  leaveblock(fs);
+  sol_k_patchtohere(fs, condexit);  /* false conditions finish the loop */
+}
+#FimSe
+
+
+#Se 0
+Fixo Vazio repeatstat (LexState *ls, Inteiro Linha) {
+  /* repeatstat -> REPEAT block UNTIL cond */
+  Inteiro condexit;
+  FuncState *fs = ls->fs;
+  Inteiro repeat_init = sol_k_getlabel(fs);
+  BlockCnt bl1, bl2;
+  enterblock(fs, &bl1, 1);  /* loop block */
+  enterblock(fs, &bl2, 0);  /* scope block */
+  sol_x_next(ls);  /* skip REPEAT */
+  statlist(ls);
+  check_match(ls, TK_UNTIL, TK_REPEAT, Linha);
+  condexit = cond(ls);  /* read condition (inside scope block) */
+  leaveblock(fs);  /* finish scope */
+  Se (bl2.upval) {  /* upvalues? */
+    Inteiro exit = sol_k_jump(fs);  /* normal exit must jump over fix */
+    sol_k_patchtohere(fs, condexit);  /* repetition must close upvalues */
+    sol_k_codeABC(fs, OP_CLOSE, reglevel(fs, bl2.nactvar), 0, 0);
+    condexit = sol_k_jump(fs);  /* repeat after closing upvalues */
+    sol_k_patchtohere(fs, exit);  /* normal exit comes to here */
+  }
+  sol_k_patchlist(fs, condexit, repeat_init);  /* close the loop */
+  leaveblock(fs);  /* finish loop */
+}
+#FimSe
+
+
+/*
+** Read an expression and generate code to put its results in next
+** stack slot.
+**
+*/
+Fixo Vazio exp1 (LexState *ls) {
+  expdesc e;
+  expr(ls, &e);
+  sol_k_exp2nextreg(ls->fs, &e);
+  sol_assert(e.k == VNONRELOC);
+}
+
+
+/*
+** Fix Para instruction at position 'pc' to jump to 'dest'.
+** (Jump addresses are relative in Sol). 'back' true means
+** a back jump.
+*/
+Fixo Vazio fixforjump (FuncState *fs, Inteiro pc, Inteiro dest, Inteiro back) {
+  Instruction *jmp = &fs->f->code[pc];
+  Inteiro offset = dest - (pc + 1);
+  Se (back)
+    offset = -offset;
+  Se (l_unlikely(offset > MAXARG_Bx))
+    sol_x_syntaxerror(fs->ls, "estrutura de controle muito longa");
+  SETARG_Bx(*jmp, offset);
+}
+
+
+/*
+** Generate code Para a 'Para' loop.
+*/
+Fixo Vazio forbody (LexState *ls, Inteiro base, Inteiro Linha, Inteiro nvars, Inteiro isgen) {
+  /* forbody -> DO block */
+  Fixo Imutável OpCode forprep[2] = {OP_FORPREP, OP_TFORPREP};
+  Fixo Imutável OpCode forloop[2] = {OP_FORLOOP, OP_TFORLOOP};
+  BlockCnt bl;
+  FuncState *fs = ls->fs;
+  Inteiro prep, endfor;
+  checknext(ls, TK_DO);
+  prep = sol_k_codeABx(fs, forprep[isgen], base, 0);
+  fs->freereg--;  /* both 'forprep' remove one Registrador from the stack */
+  enterblock(fs, &bl, 0);  /* scope Para declared variables */
+  adjustlocalvars(ls, nvars);
+  sol_k_reserveregs(fs, nvars);
+  block(ls);
+  leaveblock(fs);  /* end of scope Para declared variables */
+  fixforjump(fs, prep, sol_k_getlabel(fs), 0);
+  Se (isgen) {  /* generic Para? */
+    sol_k_codeABC(fs, OP_TFORCALL, base, 0, nvars);
+    sol_k_fixline(fs, Linha);
+  }
+  endfor = sol_k_codeABx(fs, forloop[isgen], base, 0);
+  fixforjump(fs, endfor, prep + 1, 1);
+  sol_k_fixline(fs, Linha);
+}
+
+
+Fixo Vazio fornum (LexState *ls, TString *varname, Inteiro Linha) {
+  /* fornum -> NAME = exp,exp[,exp] forbody */
+  FuncState *fs = ls->fs;
+  Inteiro base = fs->freereg;
+  new_localvarliteral(ls, "(Para state)");
+  new_localvarliteral(ls, "(Para state)");
+  new_varkind(ls, varname, RDKCONST);  /* control variable */
+  checknext(ls, '=');
+  exp1(ls);  /* initial value */
+  checknext(ls, ',');
+  exp1(ls);  /* limit */
+  Se (testnext(ls, ','))
+    exp1(ls);  /* optional step */
+  Senão {  /* Padrão step = 1 */
+    sol_k_int(fs, fs->freereg, 1);
+    sol_k_reserveregs(fs, 1);
+  }
+  adjustlocalvars(ls, 2);  /* start scope Para internal variables */
+  forbody(ls, base, Linha, 1, 0);
+}
+
+
+Fixo Vazio forlist (LexState *ls, TString *indexname) {
+  /* forlist -> NAME {,NAME} IN explist forbody */
+  FuncState *fs = ls->fs;
+  expdesc e;
+  Inteiro nvars = 4;  /* function, state, closing, control */
+  Inteiro Linha;
+  Inteiro base = fs->freereg;
+  /* create internal variables */
+  new_localvarliteral(ls, "(Para state)");  /* iterator function */
+  new_localvarliteral(ls, "(Para state)");  /* state */
+  new_localvarliteral(ls, "(Para state)");  /* closing var. (after swap) */
+  new_varkind(ls, indexname, RDKCONST);  /* control variable */
+  /* other declared variables */
+  Enquanto (testnext(ls, ',')) {
+    new_localvar(ls, str_checkname(ls));
+    nvars++;
+  }
+  checknext(ls, TK_IN);
+  Linha = ls->linenumber;
+  adjust_assign(ls, 4, explist(ls, &e), &e);
+  adjustlocalvars(ls, 3);  /* start scope Para internal variables */
+  marktobeclosed(fs);  /* last internal var. must be closed */
+  sol_k_checkstack(fs, 2);  /* extra space to call iterator */
+  forbody(ls, base, Linha, nvars - 3, 1);
+}
+
+
+Fixo Vazio forstat (LexState *ls, Inteiro Linha) {
+  /* forstat -> FOR (fornum | forlist) END */
+  FuncState *fs = ls->fs;
+  TString *varname;
+  BlockCnt bl;
+  lu_byte old_if;
+  
+  Se (fs->for_depth > 0) /* "para" nesting error */
+    sol_x_syntaxerror(ls, "'para' não pode ser aninhado dentro de outro 'para'");
+    
+  old_if = fs->if_depth;
+  fs->for_depth++;
+  fs->if_depth = 0;  /* reset 'se' depth */
+  
+  enterblock(fs, &bl, 1);  /* scope Para loop and control variables */
+  sol_x_next(ls);  /* skip 'Para' */
+  varname = str_checkname(ls);  /* first variable name */
+  Troque (ls->t.token) {
+    Caso '=': fornum(ls, varname, Linha); Interrompa;
+    Caso ',': Caso TK_IN: forlist(ls, varname); Interrompa;
+    Padrão: sol_x_syntaxerror(ls, "'=' or 'in' expected");
+  }
+  check_match(ls, TK_END, TK_FOR, Linha);
+  leaveblock(fs);  /* loop scope ('Interrompa' jumps to this point) */
+  
+  fs->for_depth--;
+  fs->if_depth = old_if;  /* restore 'se' depth */
+}
+
+
+Fixo Vazio test_then_block (LexState *ls) {
+  /* test_then_block -> IF cond THEN block */
+  FuncState *fs = ls->fs;
+  Inteiro condtrue;
+  sol_x_next(ls);  /* skip IF */
+  condtrue = cond(ls);  /* read condition */
+  checknext(ls, TK_THEN);
+  block(ls);  /* 'then' part */
+  /* REMOVED ELSE/ELSEIF logic */
+  sol_k_patchtohere(fs, condtrue);
+}
+
+
+Fixo Vazio ifstat (LexState *ls, Inteiro Linha) {
+  /* ifstat -> IF cond THEN block END */
+  FuncState *fs = ls->fs;
+  lu_byte old_for = fs->for_depth;
+  
+  fs->for_depth = 0;  /* allow 'para' inside 'se' */
+  
+  test_then_block(ls);  /* IF cond THEN block */
+  
+  check_match(ls, TK_END, TK_IF, Linha);
+  
+  fs->for_depth = old_for;  /* restore 'para' depth */
+}
+
+
+Fixo Vazio localfunc (LexState *ls) {
+  expdesc b;
+  FuncState *fs = ls->fs;
+  Inteiro fvar = fs->nactvar;  /* function's variable index */
+  new_localvar(ls, str_checkname(ls));  /* new local variable */
+  adjustlocalvars(ls, 1);  /* enter its scope */
+  body(ls, &b, 0, ls->linenumber);  /* function created in next Registrador */
+  /* debug information will only see the variable after this point! */
+  localdebuginfo(fs, fvar)->startpc = fs->pc;
+}
+
+
+Fixo lu_byte getvarattribute (LexState *ls, lu_byte df) {
+  /* attrib -> ['<' NAME '>'] */
+  Se (testnext(ls, '<')) {
+    TString *ts = str_checkname(ls);
+    Imutável Caractere *attr = getstr(ts);
+    checknext(ls, '>');
+    Se (strcmp(attr, "Imutável") == 0)
+      Retorne RDKCONST;  /* read-only variable */
+    Senão Se (strcmp(attr, "close") == 0)
+      Retorne RDKTOCLOSE;  /* to-be-closed variable */
+    Senão
+      sol_k_semerror(ls, "unknown attribute '%s'", attr);
+  }
+  Retorne df;  /* Retorne Padrão value */
+}
+
+
+Fixo Vazio checktoclose (FuncState *fs, Inteiro level) {
+  Se (level != -1) {  /* is there a to-be-closed variable? */
+    marktobeclosed(fs);
+    sol_k_codeABC(fs, OP_TBC, reglevel(fs, level), 0, 0);
+  }
+}
+
+
+Fixo Vazio localstat (LexState *ls) {
+  /* stat -> LOCAL NAME attrib { ',' NAME attrib } ['=' explist] */
+  FuncState *fs = ls->fs;
+  Inteiro toclose = -1;  /* index of to-be-closed variable (Se any) */
+  Vardesc *var;  /* last variable */
+  Inteiro vidx;  /* index of last variable */
+  Inteiro nvars = 0;
+  Inteiro nexps;
+  expdesc e;
+  /* get prefixed attribute (Se any); Padrão is regular local variable */
+  lu_byte defkind = getvarattribute(ls, VDKREG);
+  Faça {  /* Para each variable */
+    TString *vname = str_checkname(ls);  /* get its name */
+    lu_byte kind = getvarattribute(ls, defkind);  /* postfixed attribute */
+    vidx = new_varkind(ls, vname, kind);  /* predeclare it */
+    Se (kind == RDKTOCLOSE) {  /* to-be-closed? */
+      Se (toclose != -1)  /* one already present? */
+        sol_k_semerror(ls, "multiple to-be-closed variables in local list");
+      toclose = fs->nactvar + nvars;
+    }
+    nvars++;
+  } Enquanto (testnext(ls, ','));
+  Se (testnext(ls, '='))  /* initialization? */
+    nexps = explist(ls, &e);
+  Senão {
+    e.k = VVOID;
+    nexps = 0;
+  }
+  var = getlocalvardesc(fs, vidx);  /* retrieve last variable */
+  Se (nvars == nexps &&  /* no adjustments? */
+      var->vd.kind == RDKCONST &&  /* last variable is Imutável? */
+      sol_k_exp2const(fs, &e, &var->k)) {  /* compile-time constant? */
+    var->vd.kind = RDKCTC;  /* variable is a compile-time constant */
+    adjustlocalvars(ls, nvars - 1);  /* exclude last variable */
+    fs->nactvar++;  /* but count it */
+  }
+  Senão {
+    adjust_assign(ls, nvars, nexps, &e);
+    adjustlocalvars(ls, nvars);
+  }
+  checktoclose(fs, toclose);
+}
+
+
+Fixo lu_byte getglobalattribute (LexState *ls, lu_byte df) {
+  lu_byte kind = getvarattribute(ls, df);
+  Troque (kind) {
+    Caso RDKTOCLOSE:
+      sol_k_semerror(ls, "global variables cannot be to-be-closed");
+      Retorne kind;  /* to avoid warnings */
+    Caso RDKCONST:
+      Retorne GDKCONST;  /* adjust kind Para global variable */
+    Padrão:
+      Retorne kind;
+  }
+}
+
+
+Fixo Vazio globalnames (LexState *ls, lu_byte defkind) {
+  FuncState *fs = ls->fs;
+  Inteiro nvars = 0;
+  Inteiro lastidx;  /* index of last registered variable */
+  Faça {  /* Para each name */
+    TString *vname = str_checkname(ls);
+    lu_byte kind = getglobalattribute(ls, defkind);
+    lastidx = new_varkind(ls, vname, kind);
+    nvars++;
+  } Enquanto (testnext(ls, ','));
+  Se (testnext(ls, '=')) {  /* initialization? */
+    expdesc e;
+    Inteiro i;
+    Inteiro nexps = explist(ls, &e);  /* read list of expressions */
+    adjust_assign(ls, nvars, nexps, &e);
+    Para (i = 0; i < nvars; i++) {  /* Para each variable */
+      expdesc var;
+      TString *varname = getlocalvardesc(fs, lastidx - i)->vd.name;
+      buildglobal(ls, varname, &var);  /* create global variable in 'var' */
+      storevartop(fs, &var);
+    }
+  }
+  fs->nactvar = cast_short(fs->nactvar + nvars);  /* activate declaration */
+}
+
+
+Fixo Vazio globalstat (LexState *ls) {
+  /* globalstat -> (GLOBAL) attrib '*'
+     globalstat -> (GLOBAL) attrib NAME attrib {',' NAME attrib} */
+  FuncState *fs = ls->fs;
+  /* get prefixed attribute (Se any); Padrão is regular global variable */
+  lu_byte defkind = getglobalattribute(ls, GDKREG);
+  Se (!testnext(ls, '*'))
+    globalnames(ls, defkind);
+  Senão {
+    /* use NULL as name to represent '*' entries */
+    new_varkind(ls, NULL, defkind);
+    fs->nactvar++;  /* activate declaration */
+  }
+}
+
+
+Fixo Vazio globalfunc (LexState *ls, Inteiro Linha) {
+  /* globalfunc -> (GLOBAL FUNCTION) NAME body */
+  expdesc var, b;
+  FuncState *fs = ls->fs;
+  TString *fname = str_checkname(ls);
+  new_varkind(ls, fname, GDKREG);  /* declare global variable */
+  fs->nactvar++;  /* enter its scope */
+  buildglobal(ls, fname, &var);
+  body(ls, &b, 0, ls->linenumber);  /* compile and Retorne closure in 'b' */
+  sol_k_storevar(fs, &var, &b);
+  sol_k_fixline(fs, Linha);  /* definition "happens" in the first Linha */
+}
+
+
+Fixo Vazio globalstatfunc (LexState *ls, Inteiro Linha) {
+  /* stat -> GLOBAL globalfunc | GLOBAL globalstat */
+  sol_x_next(ls);  /* skip 'global' */
+  Se (testnext(ls, TK_FUNCTION))
+    globalfunc(ls, Linha);
+  Senão
+    globalstat(ls);
+}
+
+
+Fixo Inteiro funcname (LexState *ls, expdesc *v) {
+  /* funcname -> NAME {fieldsel} [':' NAME] */
+  Inteiro ismethod = 0;
+  singlevar(ls, v);
+  Enquanto (ls->t.token == '.')
+    fieldsel(ls, v);
+  Se (ls->t.token == ':') {
+    ismethod = 1;
+    fieldsel(ls, v);
+  }
+  Retorne ismethod;
+}
+
+
+Fixo Vazio funcstat (LexState *ls, Inteiro Linha) {
+  /* funcstat -> FUNCTION funcname body */
+  Inteiro ismethod;
+  expdesc v, b;
+  sol_x_next(ls);  /* skip FUNCTION */
+  ismethod = funcname(ls, &v);
+  check_readonly(ls, &v);
+  body(ls, &b, ismethod, Linha);
+  sol_k_storevar(ls->fs, &v, &b);
+  sol_k_fixline(ls->fs, Linha);  /* definition "happens" in the first Linha */
+}
+
+
+Fixo Vazio exprstat (LexState *ls) {
+  /* stat -> func | assignment */
+  FuncState *fs = ls->fs;
+  Estrutura LHS_assign v;
+  suffixedexp(ls, &v.v);
+  Se (ls->t.token == '=' || ls->t.token == ',') { /* stat -> assignment ? */
+    v.prev = NULL;
+    restassign(ls, &v, 1);
+  }
+  Senão {  /* stat -> func */
+    Instruction *inst;
+    check_condition(ls, v.v.k == VCALL, "erro de sintaxe");
+    inst = &getinstruction(fs, &v.v);
+    SETARG_C(*inst, 1);  /* call statement uses no results */
+  }
+}
+
+
+Fixo Vazio retstat (LexState *ls) {
+  /* stat -> RETURN [explist] [';'] */
+  FuncState *fs = ls->fs;
+  expdesc e;
+  Inteiro nret;  /* number of values being returned */
+  Inteiro first = sol_y_nvarstack(fs);  /* first slot to be returned */
+  Se (block_follow(ls, 1) || ls->t.token == ';')
+    nret = 0;  /* Retorne no values */
+  Senão {
+    nret = explist(ls, &e);  /* optional Retorne values */
+    Se (hasmultret(e.k)) {
+      sol_k_setmultret(fs, &e);
+      Se (e.k == VCALL && nret == 1 && !fs->bl->insidetbc) {  /* tail call? */
+        SET_OPCODE(getinstruction(fs,&e), OP_TAILCALL);
+        sol_assert(GETARG_A(getinstruction(fs,&e)) == sol_y_nvarstack(fs));
+      }
+      nret = SOL_MULTRET;  /* Retorne all values */
+    }
+    Senão {
+      Se (nret == 1)  /* only one single value? */
+        first = sol_k_exp2anyreg(fs, &e);  /* can use original slot */
+      Senão {  /* values must go to the top of the stack */
+        sol_k_exp2nextreg(fs, &e);
+        sol_assert(nret == fs->freereg - first);
+      }
+    }
+  }
+  sol_k_ret(fs, first, nret);
+  testnext(ls, ';');  /* skip optional semicolon */
+}
+
+
+Fixo Vazio statement (LexState *ls) {
+  Inteiro Linha = ls->linenumber;  /* may be needed Para Erro messages */
+  enterlevel(ls);
+  Troque (ls->t.token) {
+    Caso ';': {  /* stat -> ';' (empty statement) */
+      sol_x_next(ls);  /* skip ';' */
+      Interrompa;
+    }
+    Caso TK_IF: {  /* stat -> ifstat */
+      ifstat(ls, Linha);
+      Interrompa;
+    }
+    /*
+    Caso TK_WHILE: {
+      whilestat(ls, Linha);
+      Interrompa;
+    }
+    */
+    /* Caso TK_DO removed */
+    Caso TK_FOR: {  /* stat -> forstat */
+      forstat(ls, Linha);
+      Interrompa;
+    }
+    /*
+    Caso TK_REPEAT: {
+      repeatstat(ls, Linha);
+      Interrompa;
+    }
+    */
+    Caso TK_FUNCTION: {  /* stat -> funcstat */
+      funcstat(ls, Linha);
+      Interrompa;
+    }
+    Caso TK_LOCAL: {  /* stat -> localstat */
+      sol_x_next(ls);  /* skip LOCAL */
+      Se (testnext(ls, TK_FUNCTION))  /* local function? */
+        localfunc(ls);
+      Senão
+        localstat(ls);
+      Interrompa;
+    }
+    Caso TK_GLOBAL: {  /* stat -> globalstatfunc */
+      globalstatfunc(ls, Linha);
+      Interrompa;
+    }
+    Caso TK_DBCOLON: {  /* stat -> label */
+      sol_x_next(ls);  /* skip Duplo colon */
+      labelstat(ls, str_checkname(ls), Linha);
+      Interrompa;
+    }
+    Caso TK_RETURN: {  /* stat -> retstat */
+      sol_x_next(ls);  /* skip RETURN */
+      retstat(ls);
+      Interrompa;
+    }
+    Caso TK_BREAK: {  /* stat -> breakstat */
+      breakstat(ls, Linha);
+      Interrompa;
+    }
+    Caso TK_GOTO: {  /* stat -> 'Execute' NAME */
+      sol_x_next(ls);  /* skip 'Execute' */
+      gotostat(ls, Linha);
+      Interrompa;
+    }
+#Se Definido(SOL_COMPAT_GLOBAL)
+    Caso TK_NAME: {
+      /* compatibility code to parse global keyword when "global"
+         is not reserved */
+      Se (ls->t.seminfo.ts == ls->glbn) {  /* current = "global"? */
+        Inteiro lk = sol_x_lookahead(ls);
+        Se (lk == '<' || lk == TK_NAME || lk == '*' || lk == TK_FUNCTION) {
+          /* 'global <attrib>' or 'global name' or 'global *' or
+             'global function' */
+          globalstatfunc(ls, Linha);
+          Interrompa;
+        }
+      }  /* Senão... */
+    }
+#FimSe
+    /* FALLTHROUGH */
+    Padrão: {  /* stat -> func | assignment */
+      exprstat(ls);
+      Interrompa;
+    }
+  }
+  sol_assert(ls->fs->f->maxstacksize >= ls->fs->freereg &&
+             ls->fs->freereg >= sol_y_nvarstack(ls->fs));
+  ls->fs->freereg = sol_y_nvarstack(ls->fs);  /* free registers */
+  leavelevel(ls);
+}
+
+/* }====================================================================== */
+
+/* }====================================================================== */
+
+
+/*
+** compiles the main function, which is a regular vararg function with an
+** upvalue named SOL_ENV
+*/
+Fixo Vazio mainfunc (LexState *ls, FuncState *fs) {
+  BlockCnt bl;
+  Upvaldesc *env;
+  open_func(ls, fs, &bl);
+  setvararg(fs, 0);  /* main function is always declared vararg */
+  env = allocupvalue(fs);  /* ...set environment upvalue */
+  env->instack = 1;
+  env->idx = 0;
+  env->kind = VDKREG;
+  env->name = ls->envn;
+  sol_c_objbarrier(ls->L, fs->f, env->name);
+  sol_x_next(ls);  /* read first token */
+  statlist(ls);  /* parse main body */
+  check(ls, TK_EOS);
+  close_func(ls);
+}
+
+
+LClosure *sol_y_parser (sol_State *L, ZIO *z, Mbuffer *buff,
+                       Dyndata *dyd, Imutável Caractere *name, Inteiro firstchar) {
+  LexState lexstate;
+  FuncState funcstate;
+  LClosure *cl = sol_f_newLclosure(L, 1);  /* create main closure */
+  setclLvalue2s(L, L->top.p, cl);  /* anchor it (to avoid being collected) */
+  sol_d_inctop(L);
+  lexstate.h = sol_h_new(L);  /* create table Para scanner */
+  sethvalue2s(L, L->top.p, lexstate.h);  /* anchor it */
+  sol_d_inctop(L);
+  funcstate.f = cl->p = sol_f_newproto(L);
+  sol_c_objbarrier(L, cl, cl->p);
+  funcstate.f->source = sol_s_new(L, name);  /* create and anchor TString */
+  sol_c_objbarrier(L, funcstate.f, funcstate.f->source);
+  lexstate.buff = buff;
+  lexstate.dyd = dyd;
+  dyd->actvar.n = dyd->gt.n = dyd->label.n = 0;
+  sol_x_setinput(L, &lexstate, z, funcstate.f->source, firstchar);
+  mainfunc(&lexstate, &funcstate);
+  sol_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
+  /* all scopes should be correctly finished */
+  sol_assert(dyd->actvar.n == 0 && dyd->gt.n == 0 && dyd->label.n == 0);
+  L->top.p--;  /* remove scanner's table */
+  Retorne cl;  /* closure is on the stack, too */
+}
+

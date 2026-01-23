@@ -1,0 +1,98 @@
+{
+  id = 1,
+  resultado = {
+    capabilities = {
+      textDocumentSync = 1,
+      completionProvider = {
+        triggerCharacters = { ".", ":" }
+      }
+    },
+    serverInfo = {
+      name = "sol-lsp",
+      version = "1.0"
+    }
+  }
+}
+{
+  id = 2,
+  resultado = {
+    {
+      label = "primeiro_numero",
+      kind = 6,
+      detail = "linha 0",
+      sortText = "1_primeiro_numero"
+    },
+    {
+      label = "segundo_numero",
+      kind = 6,
+      detail = "linha 0",
+      sortText = "1_segundo_numero"
+    },
+    {
+      label = "soma",
+      kind = 3,
+      detail = "linha 0",
+      sortText = "1_soma"
+    },
+    {
+      label = "se",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_se"
+    },
+    {
+      label = "senao",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_senao"
+    },
+    {
+      label = "enquanto",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_enquanto"
+    },
+    {
+      label = "para",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_para"
+    },
+    {
+      label = "função",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_função"
+    },
+    {
+      label = "fim",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_fim"
+    },
+    {
+      label = "retorne",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_retorne"
+    },
+    {
+      label = "local",
+      kind = 14,
+      detail = "keyword",
+      sortText = "2_local"
+    },
+    {
+      label = "texto",
+      kind = 9,
+      detail = "stdlib",
+      sortText = "3_texto"
+    },
+    {
+      label = "pacote",
+      kind = 9,
+      detail = "stdlib",
+      sortText = "3_pacote"
+    }
+  }
+}

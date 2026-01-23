@@ -1,0 +1,64 @@
+/*
+** $Id: debug.h $
+** Auxiliary functions from Debug Interface module
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido debug_h
+#Defina debug_h
+
+
+#Inclua "state.int"
+
+
+#Defina pcRel(pc, p)	(cast_int((pc) - (p)->code) - 1)
+
+
+/* Active Sol function (given call info) */
+#Defina ci_func(ci)		(clLvalue(s2v((ci)->func.p)))
+
+
+#Defina resethookcount(L)	(L->hookcount = L->basehookcount)
+
+/*
+** mark Para entries in 'lineinfo' array that has absolute information in
+** 'abslineinfo' array
+*/
+#Defina ABSLINEINFO	(-0x80)
+
+
+/*
+** MAXimum number of successive Instructions WiTHout ABSolute Linha
+** information. (A power of two allows fast divisions.)
+*/
+#Se !Definido(MAXIWTHABS)
+#Defina MAXIWTHABS	128
+#FimSe
+
+
+SOL_FUNC Inteiro sol_g_getfuncline (Imutável Proto *f, Inteiro pc);
+SOL_FUNC Imutável Caractere *sol_g_findlocal (sol_State *L, CallInfo *ci, Inteiro n,
+                                                    StkId *pos);
+SOL_FUNC l_noret sol_g_typeerror (sol_State *L, Imutável TValue *o,
+                                                Imutável Caractere *opname);
+SOL_FUNC l_noret sol_g_callerror (sol_State *L, Imutável TValue *o);
+SOL_FUNC l_noret sol_g_forerror (sol_State *L, Imutável TValue *o,
+                                               Imutável Caractere *what);
+SOL_FUNC l_noret sol_g_concaterror (sol_State *L, Imutável TValue *p1,
+                                                  Imutável TValue *p2);
+SOL_FUNC l_noret sol_g_opinterror (sol_State *L, Imutável TValue *p1,
+                                                 Imutável TValue *p2,
+                                                 Imutável Caractere *msg);
+SOL_FUNC l_noret sol_g_tointerror (sol_State *L, Imutável TValue *p1,
+                                                 Imutável TValue *p2);
+SOL_FUNC l_noret sol_g_ordererror (sol_State *L, Imutável TValue *p1,
+                                                 Imutável TValue *p2);
+SOL_FUNC l_noret sol_g_runerror (sol_State *L, Imutável Caractere *fmt, ...);
+SOL_FUNC Imutável Caractere *sol_g_addinfo (sol_State *L, Imutável Caractere *msg,
+                                                  TString *src, Inteiro Linha);
+SOL_FUNC l_noret sol_g_errormsg (sol_State *L);
+SOL_FUNC Inteiro sol_g_traceexec (sol_State *L, Imutável Instruction *pc);
+SOL_FUNC Inteiro sol_g_tracecall (sol_State *L);
+
+
+#FimSe

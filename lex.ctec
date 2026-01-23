@@ -1,0 +1,585 @@
+/*
+** $Id: llex.c $
+** Lexical Analyzer com suporte UTF-8
+** See Copyright Notice in sol.h
+*/
+
+#Defina lex_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+#Inclua <locale.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "ctype.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "gc.int"
+#Inclua "lex.int"
+#Inclua "object.int"
+#Inclua "parser.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "zio.int"
+
+
+#Defina next(ls)	(ls->current = zgetc(ls->z))
+
+/* minimum size Para string buffer */
+#Se !Definido(SOL_MINBUFFER)
+#Defina SOL_MINBUFFER   32
+#FimSe
+
+#Defina currIsNewline(ls)	(ls->current == '\n' || ls->current == '\r')
+
+
+/* ORDER RESERVED */
+Fixo Imutável Caractere *Imutável sol_x_tokens [] = {
+    "e", "interrompa", "faça", "__REMOVED_ELSE__", "__REMOVED_ELSEIF__",
+    "fim", "falso", "para", "função", "global", "execute", "se",
+    "em", "local", "nulo", "não", "ou", "__REMOVED_REPEAT__",
+    "retorne", "então", "verdadeiro", "__REMOVED_UNTIL__", "__REMOVED_WHILE__",
+    "//", "..", "...", "==", ">=", "<=", "~=",
+    "<<", ">>", "::", "<eof>",
+    "<number>", "<integer>", "<name>", "<string>"
+};
+
+
+#Defina save_and_next(ls) (save(ls, ls->current), next(ls))
+
+
+Fixo l_noret lexerror (LexState *ls, Imutável Caractere *msg, Inteiro token);
+
+
+Fixo Vazio save (LexState *ls, Inteiro c) {
+  Mbuffer *b = ls->buff;
+  Se (sol_z_bufflen(b) + 1 > sol_z_sizebuffer(b)) {
+    size_t newsize = sol_z_sizebuffer(b);
+    Se (newsize >= (MAX_SIZE/3 * 2))
+      lexerror(ls, "elemento léxico muito longo", 0);
+    newsize += (newsize >> 1);
+    sol_z_resizebuffer(ls->L, b, newsize);
+  }
+  b->buffer[sol_z_bufflen(b)++] = cast_char(c);
+}
+
+
+Vazio sol_x_init (sol_State *L) {
+  Inteiro i;
+  TString *e = sol_s_newliteral(L, SOL_ENV);
+  sol_c_fix(L, obj2gco(e));
+  Para (i=0; i<NUM_RESERVED; i++) {
+    TString *ts = sol_s_new(L, sol_x_tokens[i]);
+    sol_c_fix(L, obj2gco(ts));
+    ts->extra = cast_byte(i+1);
+  }
+}
+
+
+Imutável Caractere *sol_x_token2str (LexState *ls, Inteiro token) {
+  Se (token < FIRST_RESERVED) {
+    Se (lisprint(token))
+      Retorne sol_o_pushfstring(ls->L, "'%c'", token);
+    Senão
+      Retorne sol_o_pushfstring(ls->L, "'<\\%d>'", token);
+  }
+  Senão {
+    Imutável Caractere *s = sol_x_tokens[token - FIRST_RESERVED];
+    Se (token < TK_EOS)
+      Retorne sol_o_pushfstring(ls->L, "'%s'", s);
+    Senão
+      Retorne s;
+  }
+}
+
+
+Fixo Imutável Caractere *txtToken (LexState *ls, Inteiro token) {
+  Troque (token) {
+    Caso TK_NAME: Caso TK_STRING:
+    Caso TK_FLT: Caso TK_INT:
+      save(ls, '\0');
+      Retorne sol_o_pushfstring(ls->L, "'%s'", sol_z_buffer(ls->buff));
+    Padrão:
+      Retorne sol_x_token2str(ls, token);
+  }
+}
+
+
+Fixo l_noret lexerror (LexState *ls, Imutável Caractere *msg, Inteiro token) {
+  msg = sol_g_addinfo(ls->L, msg, ls->source, ls->linenumber);
+  Se (token)
+    sol_o_pushfstring(ls->L, "%s near %s", msg, txtToken(ls, token));
+  sol_d_throw(ls->L, SOL_ERRSYNTAX);
+}
+
+
+l_noret sol_x_syntaxerror (LexState *ls, Imutável Caractere *msg) {
+  lexerror(ls, msg, ls->t.token);
+}
+
+
+/*
+** Calcula o comprimento de um caractere UTF-8 baseado no primeiro byte
+*/
+Fixo Inteiro utf8len (Inteiro c) {
+  Natural Caractere uc = (Natural Caractere)c;
+  Se (uc < 0x80) Retorne 1;
+  Se (uc < 0xC2) Retorne -1;  /* byte de continuação inválido */
+  Se (uc < 0xE0) Retorne 2;
+  Se (uc < 0xF0) Retorne 3;
+  Se (uc < 0xF5) Retorne 4;
+  Retorne -1;  /* inválido */
+}
+
+
+/*
+** Anchors a string in scanner's table
+*/
+Fixo TString *anchorstr (LexState *ls, TString *ts) {
+  sol_State *L = ls->L;
+  TValue oldts;
+  Inteiro tag = sol_h_getstr(ls->h, ts, &oldts);
+  Se (!tagisempty(tag))
+    Retorne tsvalue(&oldts);
+  Senão {
+    TValue *stv = s2v(L->top.p++);
+    setsvalue(L, stv, ts);
+    sol_h_set(L, ls->h, stv, stv);
+    sol_c_checkGC(L);
+    L->top.p--;
+    Retorne ts;
+  }
+}
+
+
+/*
+** Creates a new string and anchors it in scanner's table
+*/
+TString *sol_x_newstring (LexState *ls, Imutável Caractere *str, size_t l) {
+  Retorne anchorstr(ls, sol_s_newlstr(ls->L, str, l));
+}
+
+
+/*
+** increment Linha number and skips newline sequence
+*/
+Fixo Vazio inclinenumber (LexState *ls) {
+  Inteiro old = ls->current;
+  sol_assert(currIsNewline(ls));
+  next(ls);
+  Se (currIsNewline(ls) && ls->current != old)
+    next(ls);
+  Se (++ls->linenumber >= INT_MAX)
+    lexerror(ls, "código fonte tem muitas linhas", 0);
+}
+
+
+Vazio sol_x_setinput (sol_State *L, LexState *ls, ZIO *z, TString *source,
+                    Inteiro firstchar) {
+  ls->t.token = 0;
+  ls->L = L;
+  ls->current = firstchar;
+  ls->lookahead.token = TK_EOS;
+  ls->z = z;
+  ls->fs = NULL;
+  ls->linenumber = 1;
+  ls->lastline = 1;
+  ls->source = source;
+  ls->envn = sol_s_newliteral(L, SOL_ENV);
+  ls->brkn = sol_s_newliteral(L, "interrompa");
+#Se Definido(SOL_COMPAT_GLOBAL)
+  ls->glbn = sol_s_newliteral(L, "global");
+  ls->glbn->extra = 0;
+#FimSe
+  sol_z_resizebuffer(ls->L, ls->buff, SOL_MINBUFFER);
+}
+
+
+/*
+** =======================================================
+** LEXICAL ANALYZER
+** =======================================================
+*/
+
+
+Fixo Inteiro check_next1 (LexState *ls, Inteiro c) {
+  Se (ls->current == c) {
+    next(ls);
+    Retorne 1;
+  }
+  Senão Retorne 0;
+}
+
+
+/*
+** Check whether current Caractere is in set 'set' (with two chars)
+*/
+Fixo Inteiro check_next2 (LexState *ls, Imutável Caractere *set) {
+  sol_assert(set[2] == '\0');
+  Se (ls->current == set[0] || ls->current == set[1]) {
+    save_and_next(ls);
+    Retorne 1;
+  }
+  Senão Retorne 0;
+}
+
+
+/* SOL_NUMBER */
+Fixo Inteiro read_numeral (LexState *ls, SemInfo *seminfo) {
+  TValue obj;
+  Imutável Caractere *expo = "Ee";
+  Inteiro first = ls->current;
+  sol_assert(lisdigit(ls->current));
+  save_and_next(ls);
+  Se (first == '0' && check_next2(ls, "xX"))
+    expo = "Pp";
+  Para (;;) {
+    Se (check_next2(ls, expo))
+      check_next2(ls, "-+");
+    Senão Se (lisxdigit(ls->current) || ls->current == '.')
+      save_and_next(ls);
+    Senão Interrompa;
+  }
+  Se (lislalpha(ls->current))
+    save_and_next(ls);
+  save(ls, '\0');
+  Se (sol_o_str2num(sol_z_buffer(ls->buff), &obj) == 0)
+    lexerror(ls, "número mal formado", TK_FLT);
+  Se (ttisinteger(&obj)) {
+    seminfo->i = ivalue(&obj);
+    Retorne TK_INT;
+  }
+  Senão {
+    sol_assert(ttisfloat(&obj));
+    seminfo->r = fltvalue(&obj);
+    Retorne TK_FLT;
+  }
+}
+
+
+Fixo size_t skip_sep (LexState *ls) {
+  size_t count = 0;
+  Inteiro s = ls->current;
+  sol_assert(s == '[' || s == ']');
+  save_and_next(ls);
+  Enquanto (ls->current == '=') {
+    save_and_next(ls);
+    count++;
+  }
+  Retorne (ls->current == s) ? count + 2
+         : (count == 0) ? 1
+         : 0;
+}
+
+
+Fixo Vazio read_long_string (LexState *ls, SemInfo *seminfo, size_t sep) {
+  Inteiro Linha = ls->linenumber;
+  save_and_next(ls);
+  Se (currIsNewline(ls))
+    inclinenumber(ls);
+  Para (;;) {
+    Troque (ls->current) {
+      Caso EOZ: {
+        Imutável Caractere *what = (seminfo ? "texto" : "comment");
+        Imutável Caractere *msg = sol_o_pushfstring(ls->L,
+                     "%s longo não terminado (iniciando na linha %d)", what, Linha);
+        lexerror(ls, msg, TK_EOS);
+        Interrompa;
+      }
+      Caso ']': {
+        Se (skip_sep(ls) == sep) {
+          save_and_next(ls);
+          Execute endloop;
+        }
+        Interrompa;
+      }
+      Caso '\n': Caso '\r': {
+        save(ls, '\n');
+        inclinenumber(ls);
+        Se (!seminfo) sol_z_resetbuffer(ls->buff);
+        Interrompa;
+      }
+      Padrão: {
+        Se (seminfo) save_and_next(ls);
+        Senão next(ls);
+      }
+    }
+  } endloop:
+  Se (seminfo)
+    seminfo->ts = sol_x_newstring(ls, sol_z_buffer(ls->buff) + sep,
+                                     sol_z_bufflen(ls->buff) - 2 * sep);
+}
+
+
+Fixo Vazio esccheck (LexState *ls, Inteiro c, Imutável Caractere *msg) {
+  Se (!c) {
+    Se (ls->current != EOZ)
+      save_and_next(ls);
+    lexerror(ls, msg, TK_STRING);
+  }
+}
+
+
+Fixo Inteiro gethexa (LexState *ls) {
+  save_and_next(ls);
+  esccheck (ls, lisxdigit(ls->current), "esperava dígito hexadecimal");
+  Retorne sol_o_hexavalue(ls->current);
+}
+
+
+Fixo Inteiro readhexaesc (LexState *ls) {
+  Inteiro r = gethexa(ls);
+  r = (r << 4) + gethexa(ls);
+  sol_z_buffremove(ls->buff, 2);
+  Retorne r;
+}
+
+
+Fixo l_uint32 readutf8esc (LexState *ls) {
+  l_uint32 r;
+  Inteiro i = 4;
+  save_and_next(ls);
+  esccheck(ls, ls->current == '{', "falta '{'");
+  r = cast_uint(gethexa(ls));
+  Enquanto (cast_void(save_and_next(ls)), lisxdigit(ls->current)) {
+    i++;
+    esccheck(ls, r <= (0x7FFFFFFFu >> 4), "valor UTF-8 muito grande");
+    r = (r << 4) + sol_o_hexavalue(ls->current);
+  }
+  esccheck(ls, ls->current == '}', "falta '}'");
+  next(ls);
+  sol_z_buffremove(ls->buff, i);
+  Retorne r;
+}
+
+
+Fixo Vazio utf8esc (LexState *ls) {
+  Caractere buff[UTF8BUFFSZ];
+  Inteiro n = sol_o_utf8esc(buff, readutf8esc(ls));
+  Para (; n > 0; n--)
+    save(ls, buff[UTF8BUFFSZ - n]);
+}
+
+
+Fixo Inteiro readdecesc (LexState *ls) {
+  Inteiro i;
+  Inteiro r = 0;
+  Para (i = 0; i < 3 && lisdigit(ls->current); i++) {
+    r = 10*r + ls->current - '0';
+    save_and_next(ls);
+  }
+  esccheck(ls, r <= UCHAR_MAX, "escape decimal muito grande");
+  sol_z_buffremove(ls->buff, i);
+  Retorne r;
+}
+
+
+Fixo Vazio read_string (LexState *ls, Inteiro del, SemInfo *seminfo) {
+  save_and_next(ls);
+  Enquanto (ls->current != del) {
+    Troque (ls->current) {
+      Caso EOZ:
+        lexerror(ls, "texto não terminado", TK_EOS);
+        Interrompa;
+      Caso '\n':
+      Caso '\r':
+        lexerror(ls, "texto não terminado", TK_STRING);
+        Interrompa;
+      Caso '\\': {
+        Inteiro c;
+        save_and_next(ls);
+        Troque (ls->current) {
+          Caso 'a': c = '\a'; Execute read_save;
+          Caso 'b': c = '\b'; Execute read_save;
+          Caso 'f': c = '\f'; Execute read_save;
+          Caso 'n': c = '\n'; Execute read_save;
+          Caso 'r': c = '\r'; Execute read_save;
+          Caso 't': c = '\t'; Execute read_save;
+          Caso 'v': c = '\v'; Execute read_save;
+          Caso 'x': c = readhexaesc(ls); Execute read_save;
+          Caso 'u': utf8esc(ls);  Execute no_save;
+          Caso '\n': Caso '\r':
+            inclinenumber(ls); c = '\n'; Execute only_save;
+          Caso '\\': Caso '\"': Caso '\'':
+            c = ls->current; Execute read_save;
+          Caso EOZ: Execute no_save;
+          Caso 'z': {
+            sol_z_buffremove(ls->buff, 1);
+            next(ls);
+            Enquanto (lisspace(ls->current)) {
+              Se (currIsNewline(ls)) inclinenumber(ls);
+              Senão next(ls);
+            }
+            Execute no_save;
+          }
+          Padrão: {
+            esccheck(ls, lisdigit(ls->current), "sequência de escape inválida");
+            c = readdecesc(ls);
+            Execute only_save;
+          }
+        }
+       read_save:
+         next(ls);
+       only_save:
+         sol_z_buffremove(ls->buff, 1);
+         save(ls, c);
+       no_save: Interrompa;
+      }
+      Padrão:
+        save_and_next(ls);
+    }
+  }
+  save_and_next(ls);
+  seminfo->ts = sol_x_newstring(ls, sol_z_buffer(ls->buff) + 1,
+                                   sol_z_bufflen(ls->buff) - 2);
+}
+
+
+/*
+** Lê um identificador com suporte a UTF-8
+*/
+Fixo TString *read_identifier (LexState *ls) {
+  Faça {
+    save_and_next(ls);
+  } Enquanto (lislalnum(ls->current));
+  Retorne sol_s_newlstr(ls->L, sol_z_buffer(ls->buff), sol_z_bufflen(ls->buff));
+}
+
+
+Fixo Inteiro llex (LexState *ls, SemInfo *seminfo) {
+  sol_z_resetbuffer(ls->buff);
+  Para (;;) {
+    Troque (ls->current) {
+      Caso '\n': Caso '\r': {
+        inclinenumber(ls);
+        Interrompa;
+      }
+      Caso ' ': Caso '\f': Caso '\t': Caso '\v': {
+        next(ls);
+        Interrompa;
+      }
+      Caso '-': {
+        next(ls);
+        Se (ls->current != '-') Retorne '-';
+        next(ls);
+        Se (ls->current == '[') {
+          size_t sep = skip_sep(ls);
+          sol_z_resetbuffer(ls->buff);
+          Se (sep >= 2) {
+            read_long_string(ls, NULL, sep);
+            sol_z_resetbuffer(ls->buff);
+            Interrompa;
+          }
+        }
+        Enquanto (!currIsNewline(ls) && ls->current != EOZ)
+          next(ls);
+        Interrompa;
+      }
+      Caso '[': {
+        size_t sep = skip_sep(ls);
+        Se (sep >= 2) {
+          read_long_string(ls, seminfo, sep);
+          Retorne TK_STRING;
+        }
+        Senão Se (sep == 0)
+          lexerror(ls, "delimitador de texto longo inválido", TK_STRING);
+        Retorne '[';
+      }
+      Caso '=': {
+        next(ls);
+        Se (check_next1(ls, '=')) Retorne TK_EQ;
+        Senão Retorne '=';
+      }
+      Caso '<': {
+        next(ls);
+        Se (check_next1(ls, '=')) Retorne TK_LE;
+        Senão Se (check_next1(ls, '<')) Retorne TK_SHL;
+        Senão Retorne '<';
+      }
+      Caso '>': {
+        next(ls);
+        Se (check_next1(ls, '=')) Retorne TK_GE;
+        Senão Se (check_next1(ls, '>')) Retorne TK_SHR;
+        Senão Retorne '>';
+      }
+      Caso '/': {
+        next(ls);
+        Se (check_next1(ls, '/')) Retorne TK_IDIV;
+        Senão Retorne '/';
+      }
+      Caso '~': {
+        next(ls);
+        Se (check_next1(ls, '=')) Retorne TK_NE;
+        Senão Retorne '~';
+      }
+      Caso ':': {
+        next(ls);
+        Se (check_next1(ls, ':')) Retorne TK_DBCOLON;
+        Senão Retorne ':';
+      }
+      Caso '"': Caso '\'': {
+        read_string(ls, ls->current, seminfo);
+        Retorne TK_STRING;
+      }
+      Caso '.': {
+        save_and_next(ls);
+        Se (check_next1(ls, '.')) {
+          Se (check_next1(ls, '.'))
+            Retorne TK_DOTS;
+          Senão Retorne TK_CONCAT;
+        }
+        Senão Se (!lisdigit(ls->current)) Retorne '.';
+        Senão Retorne read_numeral(ls, seminfo);
+      }
+      Caso '0': Caso '1': Caso '2': Caso '3': Caso '4':
+      Caso '5': Caso '6': Caso '7': Caso '8': Caso '9': {
+        Retorne read_numeral(ls, seminfo);
+      }
+      Caso EOZ: {
+        Retorne TK_EOS;
+      }
+      Padrão: {
+        /* Identificador ou palavra reservada com suporte UTF-8 */
+        Se (lislalpha(ls->current)) {
+          TString *ts = read_identifier(ls);
+          
+          /* Verifica se é palavra reservada */
+          Se (isreserved(ts))
+            Retorne ts->extra - 1 + FIRST_RESERVED;
+          Senão {
+            seminfo->ts = anchorstr(ls, ts);
+            Retorne TK_NAME;
+          }
+        }
+        Senão {
+          /* Single-character tokens */
+          Inteiro c = ls->current;
+          next(ls);
+          Retorne c;
+        }
+      }
+    }
+  }
+}
+
+
+Vazio sol_x_next (LexState *ls) {
+  ls->lastline = ls->linenumber;
+  Se (ls->lookahead.token != TK_EOS) {
+    ls->t = ls->lookahead;
+    ls->lookahead.token = TK_EOS;
+  }
+  Senão
+    ls->t.token = llex(ls, &ls->t.seminfo);
+}
+
+
+Inteiro sol_x_lookahead (LexState *ls) {
+  sol_assert(ls->lookahead.token == TK_EOS);
+  ls->lookahead.token = llex(ls, &ls->lookahead.seminfo);
+  Retorne ls->lookahead.token;
+}

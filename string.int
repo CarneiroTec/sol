@@ -1,0 +1,74 @@
+/*
+** $Id: string.h $
+** String table (keep all strings handled by Sol)
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido string_h
+#Defina string_h
+
+#Inclua "gc.int"
+#Inclua "object.int"
+#Inclua "state.int"
+
+
+/*
+** Memory-allocation Erro message must be preallocated (it cannot
+** be created after memory is exhausted)
+*/
+#Defina MEMERRMSG       "memória insuficiente"
+
+
+/*
+** Maximum length Para Curto strings, that is, strings that are
+** internalized. (Cannot be smaller than reserved words or tags Para
+** metamethods, as these strings must be internalized;
+** #("função") = 8, #("__newindex") = 10.)
+*/
+#Se !Definido(SOL_MAXSHORTLEN)
+#Defina SOL_MAXSHORTLEN	40
+#FimSe
+
+
+/*
+** Size of a Curto TString: Size of the header plus space Para the string
+** itself (including final '\0').
+*/
+#Defina sizestrshr(l)  \
+	(offsetof(TString, contents) + ((l) + 1) * Meça(Caractere))
+
+
+#Defina sol_s_newliteral(L, s)	(sol_s_newlstr(L, "" s, \
+                                 (Meça(s)/Meça(Caractere))-1))
+
+
+/*
+** test whether a string is a reserved word
+*/
+#Defina isreserved(s)	(strisshr(s) && (s)->extra > 0)
+
+
+/*
+** equality Para Curto strings, which are always internalized
+*/
+#Defina eqshrstr(a,b)	check_exp((a)->tt == SOL_VSHRSTR, (a) == (b))
+
+
+SOL_FUNC Natural sol_s_hash (Imutável Caractere *str, size_t l, Natural seed);
+SOL_FUNC Natural sol_s_hashlongstr (TString *ts);
+SOL_FUNC Inteiro sol_s_eqstr (TString *a, TString *b);
+SOL_FUNC Vazio sol_s_resize (sol_State *L, Inteiro newsize);
+SOL_FUNC Vazio sol_s_clearcache (global_State *g);
+SOL_FUNC Vazio sol_s_init (sol_State *L);
+SOL_FUNC Vazio sol_s_remove (sol_State *L, TString *ts);
+SOL_FUNC Udata *sol_s_newudata (sol_State *L, size_t s,
+                                              Natural Curto nuvalue);
+SOL_FUNC TString *sol_s_newlstr (sol_State *L, Imutável Caractere *str, size_t l);
+SOL_FUNC TString *sol_s_new (sol_State *L, Imutável Caractere *str);
+SOL_FUNC TString *sol_s_createlngstrobj (sol_State *L, size_t l);
+SOL_FUNC TString *sol_s_newextlstr (sol_State *L,
+		Imutável Caractere *s, size_t len, sol_Alloc falloc, Vazio *ud);
+SOL_FUNC size_t sol_s_sizelngstr (size_t len, Inteiro kind);
+SOL_FUNC TString *sol_s_normstr (sol_State *L, TString *ts);
+
+#FimSe

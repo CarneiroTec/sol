@@ -1,0 +1,35 @@
+﻿/*
+** Debug: Verificar escopo de parâmetros
+*/
+
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "lsp.int"
+
+Inteiro Início(Vazio) {
+    sol_State *L = solL_newstate();
+    sol_openlibs(L);
+    LSPState *lsp = lsp_init(L);
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///t.sol",
+        "função f(x)\n"
+        "  retorne x\n"
+        "fim\n");
+    
+    lsp_analyze_document(lsp, doc);
+    
+    printf("Variaveis: %d\n", doc->variableCount);
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        LSPVariable *v = &doc->variables[i];
+        printf("  %s: linha=%d, escopo=[%d,%d]\n", 
+            v->name, v->line, v->scopeStartLine, v->scopeEndLine);
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne 0;
+}

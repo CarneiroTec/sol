@@ -1,0 +1,150 @@
+/*
+** $Id: biblioteca_assincronia.c $
+** Biblioteca Assíncrona para Sol
+*/
+
+#Defina biblioteca_assincronia_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <time.h>
+#Inclua <windows.h>
+
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+
+
+/* Chave para a tabela de tarefas no registro */
+#Defina TASKS_KEY "SOL_TAREFAS_ASSINCRONAS"
+
+/*
+** Função helper para dormir (cross-platform simples para Windows)
+*/
+Fixo Vazio sistema_os_durma(Inteiro ms) {
+    Sleep(ms);
+}
+
+/*
+** assincrono.durma(ms)
+** Cede a execução passando o tempo de espera.
+*/
+Fixo Inteiro assincronia_durma (sol_State *L) {
+    sol_Integer ms = sol_checkinteger(L, 1);
+    sol_pushinteger(L, ms);
+    Retorne sol_yield(L, 1); /* Cede retornando o tempo */
+}
+
+/*
+** assincrono.tarefa(funcao)
+** Cria uma corrotina e a adiciona na lista de tarefas.
+*/
+Fixo Inteiro assincronia_tarefa (sol_State *L) {
+    sol_checktype(L, 1, SOL_TFUNCTION);
+    
+    /* Cria corrotina */
+    sol_State *co = sol_newthread(L);
+    sol_pushvalue(L, 1); /* push funcao */
+    sol_xmove(L, co, 1); /* move funcao para corrotina */
+    
+    /* Pega tabela de tarefas */
+    sol_getfield(L, SOL_REGISTRYINDEX, TASKS_KEY);
+    Se (sol_isnil(L, -1)) {
+        sol_pop(L, 1);
+        sol_newtable(L); /* cria tabela se nao existe */
+        sol_pushvalue(L, -1);
+        sol_setfield(L, SOL_REGISTRYINDEX, TASKS_KEY);
+    }
+    
+    /* Adiciona corrotina na tabela */
+    sol_pushvalue(L, -2); /* push thread novamente para o topo. Stack: [func, thread, table, thread] */
+    Inteiro ref = sol_ref(L, -2); /* ref na table (index -2). Pop thread. Stack: [func, thread, table] */
+    sol_pop(L, 1); /* pop tabela */
+    
+    sol_pushinteger(L, ref); /* retorna referencia da tarefa */
+    Retorne 1;
+}
+
+/*
+** assincrono.inicie_loop()
+** Executa o loop de eventos.
+*/
+/*
+** assincrono.inicie_loop()
+** Executa o loop de eventos.
+*/
+/*
+** assincrono.inicie_loop()
+** Executa o loop de eventos.
+*/
+Fixo Inteiro assincronia_loop (sol_State *L) {
+    sol_getfield(L, SOL_REGISTRYINDEX, TASKS_KEY);
+    Se (sol_isnil(L, -1)) Retorne 0; /* sem tarefas */
+    Inteiro tasks_t = sol_gettop(L);
+    
+    Enquanto (1) {
+        Inteiro has_tasks = 0;
+        
+        sol_pushnil(L); /* key for next */
+        Enquanto (sol_next(L, tasks_t) != 0) {
+            /* stack: key at -2, value(thread) at -1 */
+            sol_State *co = sol_tothread(L, -1);
+            Inteiro keep = 0;
+            
+            Se (co) {
+                Inteiro status = sol_status(co);
+                
+                Se (status == SOL_YIELD || (status == SOL_OK && sol_gettop(co) > 0)) {
+                    Inteiro nres;
+                    status = sol_resume(co, L, 0, &nres);
+                    
+                    Se (status == SOL_YIELD) {
+                        keep = 1;
+                         Se (sol_isnumber(co, -1)) sol_pop(co, 1);
+                    } 
+                    Senão Se (status == SOL_OK) {
+                        keep = 0;
+                    }
+                    Senão {
+                        sol_getglobal(L, "exiba");
+                        sol_xmove(co, L, 1);
+                        sol_call(L, 1, 0);
+                        keep = 0;
+                    }
+                } Senão {
+                    keep = 0;
+                }
+            }
+            
+            Se (keep) {
+                has_tasks = 1;
+            } Senão {
+                /* Remove directly: tasks[key] = false */
+                sol_pushvalue(L, -2); /* push copy of key */
+                sol_pushboolean(L, 0); /* push false */
+                sol_settable(L, tasks_t); /* tasks[key_copy] = false */
+            }
+            
+            sol_pop(L, 1); /* pop value */
+        }
+        
+        Se (!has_tasks) Interrompa;
+        sistema_os_durma(10);
+    }
+    
+    Retorne 0;
+}
+
+Fixo Imutável sol_Reg assincronia_funcs[] = {
+  {"durma", assincronia_durma},
+  {"tarefa", assincronia_tarefa},
+  {"inicie_loop", assincronia_loop},
+  /* {"espere", async_wait},  To be implemented */
+  {NULL, NULL}
+};
+
+SOLMOD_API Inteiro solopen_assincronia (sol_State *L) {
+  sol_newlib(L, assincronia_funcs);
+  Retorne 1;
+}
+

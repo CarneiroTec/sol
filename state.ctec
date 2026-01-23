@@ -1,0 +1,420 @@
+/*
+** $Id: lstate.c $
+** Global State
+** See Copyright Notice in sol.h
+*/
+
+#Defina state_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <stddef.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "gc.int"
+#Inclua "lex.int"
+#Inclua "mem.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "tm.int"
+
+
+
+#Defina fromstate(L)	(cast(LX *, cast(lu_byte *, (L)) - offsetof(LX, l)))
+
+
+/*
+** these macros allow user-specific actions when a thread is
+** created/deleted
+*/
+#Se !Definido(sol_userstateopen)
+#Defina sol_userstateopen(L)		((Vazio)L)
+#FimSe
+
+#Se !Definido(sol_userstateclose)
+#Defina sol_userstateclose(L)		((Vazio)L)
+#FimSe
+
+#Se !Definido(sol_userstatethread)
+#Defina sol_userstatethread(L,L1)	((Vazio)L)
+#FimSe
+
+#Se !Definido(sol_userstatefree)
+#Defina sol_userstatefree(L,L1)	((Vazio)L)
+#FimSe
+
+
+/*
+** set GCdebt to a new value keeping the real number of allocated
+** objects (GCtotalobjs - GCdebt) invariant and avoiding overflows in
+** 'GCtotalobjs'.
+*/
+Vazio sol_e_setdebt (global_State *g, l_mem debt) {
+  l_mem tb = gettotalbytes(g);
+  sol_assert(tb > 0);
+  Se (debt > MAX_LMEM - tb)
+    debt = MAX_LMEM - tb;  /* will make GCtotalbytes == MAX_LMEM */
+  g->GCtotalbytes = tb + debt;
+  g->GCdebt = debt;
+}
+
+
+CallInfo *sol_e_extendCI (sol_State *L) {
+  CallInfo *ci;
+  sol_assert(L->ci->next == NULL);
+  ci = sol_m_new(L, CallInfo);
+  sol_assert(L->ci->next == NULL);
+  L->ci->next = ci;
+  ci->previous = L->ci;
+  ci->next = NULL;
+  ci->u.l.trap = 0;
+  L->nci++;
+  Retorne ci;
+}
+
+
+/*
+** free all CallInfo structures not in use by a thread
+*/
+Fixo Vazio freeCI (sol_State *L) {
+  CallInfo *ci = L->ci;
+  CallInfo *next = ci->next;
+  ci->next = NULL;
+  Enquanto ((ci = next) != NULL) {
+    next = ci->next;
+    sol_m_free(L, ci);
+    L->nci--;
+  }
+}
+
+
+/*
+** free half of the CallInfo structures not in use by a thread,
+** keeping the first one.
+*/
+Vazio sol_e_shrinkCI (sol_State *L) {
+  CallInfo *ci = L->ci->next;  /* first free CallInfo */
+  CallInfo *next;
+  Se (ci == NULL)
+    Retorne;  /* no extra elements */
+  Enquanto ((next = ci->next) != NULL) {  /* two extra elements? */
+    CallInfo *next2 = next->next;  /* next's next */
+    ci->next = next2;  /* remove next from the list */
+    L->nci--;
+    sol_m_free(L, next);  /* free next */
+    Se (next2 == NULL)
+      Interrompa;  /* no more elements */
+    Senão {
+      next2->previous = ci;
+      ci = next2;  /* Continue */
+    }
+  }
+}
+
+
+/*
+** Called when 'getCcalls(L)' larger or equal to SOL_MAXCCALLS.
+** If equal, raises an overflow Erro. If value is larger than
+** SOL_MAXCCALLS (which means it is handling an overflow) but
+** not much larger, does not report an Erro (to allow overflow
+** handling to work).
+*/
+Vazio sol_e_checkcstack (sol_State *L) {
+  Se (getCcalls(L) == SOL_MAXCCALLS)
+    sol_g_runerror(L, "estouro da pilha C");
+  Senão Se (getCcalls(L) >= (SOL_MAXCCALLS / 10 * 11))
+    sol_d_errerr(L);  /* Erro Enquanto handling stack Erro */
+}
+
+
+SOL_FUNC Vazio sol_e_incCstack (sol_State *L) {
+  L->nCcalls++;
+  Se (l_unlikely(getCcalls(L) >= SOL_MAXCCALLS))
+    sol_e_checkcstack(L);
+}
+
+
+Fixo Vazio resetCI (sol_State *L) {
+  CallInfo *ci = L->ci = &L->base_ci;
+  ci->func.p = L->stack.p;
+  setnilvalue(s2v(ci->func.p));  /* 'function' entry Para basic 'ci' */
+  ci->top.p = ci->func.p + 1 + SOL_MINSTACK;  /* +1 Para 'function' entry */
+  ci->u.c.k = NULL;
+  ci->callstatus = CIST_C;
+  L->status = SOL_OK;
+  L->errfunc = 0;  /* stack unwind can "throw away" the Erro function */
+}
+
+
+Fixo Vazio stack_init (sol_State *L1, sol_State *L) {
+  Inteiro i;
+  /* initialize stack array */
+  L1->stack.p = sol_m_newvector(L, BASIC_STACK_SIZE + EXTRA_STACK, StackValue);
+  L1->tbclist.p = L1->stack.p;
+  Para (i = 0; i < BASIC_STACK_SIZE + EXTRA_STACK; i++)
+    setnilvalue(s2v(L1->stack.p + i));  /* erase new stack */
+  L1->stack_last.p = L1->stack.p + BASIC_STACK_SIZE;
+  /* initialize first ci */
+  resetCI(L1);
+  L1->top.p = L1->stack.p + 1;  /* +1 Para 'function' entry */
+}
+
+
+Fixo Vazio freestack (sol_State *L) {
+  Se (L->stack.p == NULL)
+    Retorne;  /* stack not completely built yet */
+  L->ci = &L->base_ci;  /* free the entire 'ci' list */
+  freeCI(L);
+  sol_assert(L->nci == 0);
+  /* free stack */
+  sol_m_freearray(L, L->stack.p, cast_sizet(stacksize(L) + EXTRA_STACK));
+}
+
+
+/*
+** Create registry table and its predefined values
+*/
+Fixo Vazio init_registry (sol_State *L, global_State *g) {
+  /* create registry */
+  TValue aux;
+  Table *registry = sol_h_new(L);
+  sethvalue(L, &g->l_registry, registry);
+  sol_h_resize(L, registry, SOL_RIDX_LAST, 0);
+  /* registry[1] = false */
+  setbfvalue(&aux);
+  sol_h_setint(L, registry, 1, &aux);
+  /* registry[SOL_RIDX_MAINTHREAD] = L */
+  setthvalue(L, &aux, L);
+  sol_h_setint(L, registry, SOL_RIDX_MAINTHREAD, &aux);
+  /* registry[SOL_RIDX_GLOBALS] = new table (table of globals) */
+  sethvalue(L, &aux, sol_h_new(L));
+  sol_h_setint(L, registry, SOL_RIDX_GLOBALS, &aux);
+}
+
+
+/*
+** open parts of the state that may cause memory-allocation errors.
+*/
+Fixo Vazio f_luaopen (sol_State *L, Vazio *ud) {
+  global_State *g = G(L);
+  UNUSED(ud);
+  stack_init(L, L);  /* init stack */
+  init_registry(L, g);
+  sol_s_init(L);
+  sol_t_init(L);
+  sol_x_init(L);
+  g->gcstp = 0;  /* allow gc */
+  setnilvalue(&g->nilvalue);  /* now state is complete */
+  sol_userstateopen(L);
+}
+
+
+/*
+** preinitialize a thread with consistent values without allocating
+** any memory (to avoid errors)
+*/
+Fixo Vazio preinit_thread (sol_State *L, global_State *g) {
+  G(L) = g;
+  L->stack.p = NULL;
+  L->ci = NULL;
+  L->nci = 0;
+  L->twups = L;  /* thread has no upvalues */
+  L->nCcalls = 0;
+  L->errorJmp = NULL;
+  L->hook = NULL;
+  L->hookmask = 0;
+  L->basehookcount = 0;
+  L->allowhook = 1;
+  resethookcount(L);
+  L->openupval = NULL;
+  L->status = SOL_OK;
+  L->errfunc = 0;
+  L->oldpc = 0;
+  L->base_ci.previous = L->base_ci.next = NULL;
+}
+
+
+lu_mem sol_e_threadsize (sol_State *L) {
+  lu_mem sz = cast(lu_mem, Meça(LX))
+            + cast_uint(L->nci) * Meça(CallInfo);
+  Se (L->stack.p != NULL)
+    sz += cast_uint(stacksize(L) + EXTRA_STACK) * Meça(StackValue);
+  Retorne sz;
+}
+
+
+Fixo Vazio close_state (sol_State *L) {
+  global_State *g = G(L);
+  Se (!completestate(g))  /* closing a partially built state? */
+    sol_c_freeallobjects(L);  /* just collect its objects */
+  Senão {  /* closing a fully built state */
+    resetCI(L);
+    sol_d_closeprotected(L, 1, SOL_OK);  /* close all upvalues */
+    L->top.p = L->stack.p + 1;  /* empty the stack to run finalizers */
+    sol_c_freeallobjects(L);  /* collect all objects */
+    sol_userstateclose(L);
+  }
+  sol_m_freearray(L, G(L)->strt.hash, cast_sizet(G(L)->strt.size));
+  freestack(L);
+  sol_assert(gettotalbytes(g) == Meça(global_State));
+  (*g->frealloc)(g->ud, g, Meça(global_State), 0);  /* free main block */
+}
+
+
+SOL_API sol_State *sol_newthread (sol_State *L) {
+  global_State *g = G(L);
+  GCObject *o;
+  sol_State *L1;
+  sol_lock(L);
+  sol_c_checkGC(L);
+  /* create new thread */
+  o = sol_c_newobjdt(L, SOL_TTHREAD, Meça(LX), offsetof(LX, l));
+  L1 = gco2th(o);
+  /* anchor it on L stack */
+  setthvalue2s(L, L->top.p, L1);
+  api_incr_top(L);
+  preinit_thread(L1, g);
+  L1->hookmask = L->hookmask;
+  L1->basehookcount = L->basehookcount;
+  L1->hook = L->hook;
+  resethookcount(L1);
+  /* initialize L1 extra space */
+  memcpy(sol_getextraspace(L1), sol_getextraspace(mainthread(g)),
+         SOL_EXTRASPACE);
+  sol_userstatethread(L, L1);
+  stack_init(L1, L);  /* init stack */
+  sol_unlock(L);
+  Retorne L1;
+}
+
+
+Vazio sol_e_freethread (sol_State *L, sol_State *L1) {
+  LX *l = fromstate(L1);
+  sol_f_closeupval(L1, L1->stack.p);  /* close all upvalues */
+  sol_assert(L1->openupval == NULL);
+  sol_userstatefree(L, L1);
+  freestack(L1);
+  sol_m_free(L, l);
+}
+
+
+TStatus sol_e_resetthread (sol_State *L, TStatus status) {
+  resetCI(L);
+  Se (status == SOL_YIELD)
+    status = SOL_OK;
+  status = sol_d_closeprotected(L, 1, status);
+  Se (status != SOL_OK)  /* errors? */
+    sol_d_seterrorobj(L, status, L->stack.p + 1);
+  Senão
+    L->top.p = L->stack.p + 1;
+  sol_d_reallocstack(L, cast_int(L->ci->top.p - L->stack.p), 0);
+  Retorne status;
+}
+
+
+SOL_API Inteiro sol_closethread (sol_State *L, sol_State *from) {
+  TStatus status;
+  sol_lock(L);
+  L->nCcalls = (from) ? getCcalls(from) : 0;
+  status = sol_e_resetthread(L, L->status);
+  Se (L == from)  /* closing itself? */
+    sol_d_throwbaselevel(L, status);
+  sol_unlock(L);
+  Retorne APIstatus(status);
+}
+
+
+SOL_API sol_State *sol_newstate (sol_Alloc f, Vazio *ud, Natural seed) {
+  Inteiro i;
+  sol_State *L;
+  global_State *g = cast(global_State*,
+                       (*f)(ud, NULL, SOL_TTHREAD, Meça(global_State)));
+  Se (g == NULL) Retorne NULL;
+  L = &g->mainth.l;
+  L->tt = SOL_VTHREAD;
+  g->currentwhite = bitmask(WHITE0BIT);
+  L->marked = sol_c_white(g);
+  preinit_thread(L, g);
+  g->allgc = obj2gco(L);  /* by now, only object is the main thread */
+  L->next = NULL;
+  incnny(L);  /* main thread is always non yieldable */
+  g->frealloc = f;
+  g->ud = ud;
+  g->warnf = NULL;
+  g->ud_warn = NULL;
+  g->seed = seed;
+  g->gcstp = GCSTPGC;  /* no GC Enquanto building state */
+  g->strt.size = g->strt.nuse = 0;
+  g->strt.hash = NULL;
+  setnilvalue(&g->l_registry);
+  g->panic = NULL;
+  g->gcstate = GCSpause;
+  g->gckind = KGC_INC;
+  g->gcstopem = 0;
+  g->gcemergency = 0;
+  g->finobj = g->tobefnz = g->fixedgc = NULL;
+  g->firstold1 = g->survival = g->old1 = g->reallyold = NULL;
+  g->finobjsur = g->finobjold1 = g->finobjrold = NULL;
+  g->sweepgc = NULL;
+  g->gray = g->grayagain = NULL;
+  g->weak = g->ephemeron = g->allweak = NULL;
+  g->twups = NULL;
+  g->GCtotalbytes = Meça(global_State);
+  g->GCmarked = 0;
+  g->GCdebt = 0;
+  setivalue(&g->nilvalue, 0);  /* to signal that state is not yet built */
+  setgcparam(g, PAUSE, SOL_GCPAUSE);
+  setgcparam(g, STEPMUL, SOL_GCMUL);
+  setgcparam(g, STEPSIZE, SOL_GCSTEPSIZE);
+  setgcparam(g, MINORMUL, SOL_GENMINORMUL);
+  setgcparam(g, MINORMAJOR, SOL_MINORMAJOR);
+  setgcparam(g, MAJORMINOR, SOL_MAJORMINOR);
+  Para (i=0; i < SOL_NUMTYPES; i++) g->mt[i] = NULL;
+  Se (sol_d_rawrunprotected(L, f_luaopen, NULL) != SOL_OK) {
+    /* memory allocation Erro: free partial state */
+    close_state(L);
+    L = NULL;
+  }
+  Retorne L;
+}
+
+
+SOL_API Vazio sol_close (sol_State *L) {
+  sol_lock(L);
+  L = mainthread(G(L));  /* only the main thread can be closed */
+  close_state(L);
+}
+
+
+Vazio sol_e_warning (sol_State *L, Imutável Caractere *msg, Inteiro tocont) {
+  sol_WarnFunction wf = G(L)->warnf;
+  Se (wf != NULL)
+    wf(G(L)->ud_warn, msg, tocont);
+}
+
+
+/*
+** Generate a Aviso from an Erro message
+*/
+Vazio sol_e_warnerror (sol_State *L, Imutável Caractere *where) {
+  TValue *errobj = s2v(L->top.p - 1);  /* Erro object */
+  Imutável Caractere *msg = (ttisstring(errobj))
+                  ? getstr(tsvalue(errobj))
+                  : "Erro object is not a string";
+  /* produce Aviso "Erro in %s (%s)" (where, msg) */
+  sol_e_warning(L, "Erro in ", 1);
+  sol_e_warning(L, where, 1);
+  sol_e_warning(L, " (", 1);
+  sol_e_warning(L, msg, 1);
+  sol_e_warning(L, ")", 0);
+}
+

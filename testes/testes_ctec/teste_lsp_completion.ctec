@@ -1,0 +1,164 @@
+/*
+** teste_lsp_completion.ctec - Teste INTEGRADO do handler de completion
+**
+** Simula o ciclo completo: Request -> Handler -> JSON Response
+** Isso cobre o gap onde a lógica interna funciona, mas a resposta final falha.
+*/
+
+#Defina teste_completion_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+#Inclua "lsp.int"
+
+#Defina TESTE_OK 1
+#Defina TESTE_FALHA 0
+
+/* Output capture */
+Fixo Vazio registra_erro(Imutável Caractere *msg) {
+    fprintf(stderr, "ERRO: %s\n", msg);
+}
+
+/* Mock nds library and output capture */
+/* Lua code to setup mock:
+   _G.LAST_RESPONSE = nil
+   nds = { 
+     salve = function(t) _G.LAST_RESPONSE = t end,
+     carregue = function(s) return {} end -- not used by handler directly
+   }
+*/
+Fixo Vazio setup_mocks(sol_State *L) {
+    Se (sol_dostring(L, 
+        "nds = {}\n"
+        "nds.serialize = função(t, pretty)\n"
+        "    _G.LAST_RESPONSE = t\n"
+        "    retorne \"\"\n"
+        "fim\n"
+        "nds.carregue = função(s) retorne {} fim\n"
+        "_G.LAST_RESPONSE = nulo\n"
+    ) != SOL_OK) {
+        registra_erro("Falha ao setup mocks");
+        Imutável Caractere *err = sol_tostring(L, -1);
+        fprintf(stderr, "Lua Error: %s\n", err ? err : "(null)");
+        sol_pop(L, 1);
+    }
+}
+
+/* Helper to check if item exists in response */
+Fixo Inteiro response_contem_label(sol_State *L, Imutável Caractere *label) {
+    sol_getglobal(L, "LAST_RESPONSE");
+    Se (!sol_istable(L, -1)) {
+        registra_erro("LAST_RESPONSE não é tabela");
+        sol_pop(L, 1);
+        Retorne 0;
+    }
+
+    /* check result.items or result (if array) */
+    sol_getfield(L, -1, "resultado"); /* result */
+    Se (sol_isnil(L, -1)) {
+        registra_erro("Campo 'resultado' é nulo");
+        sol_pop(L, 2);
+        Retorne 0;
+    }
+
+    /* result should be array of items */
+    Inteiro count = sol_objlen(L, -1);
+    Inteiro achou = 0;
+
+    Para (Inteiro i = 1; i <= count; i++) {
+        sol_rawgeti(L, -1, i);
+        sol_getfield(L, -1, "label");
+        Imutável Caractere *l = sol_tostring(L, -1);
+        Se (l && strcmp(l, label) == 0) {
+            achou = 1;
+        }
+        sol_pop(L, 2); /* pop label, item */
+        Se (achou) Interrompa;
+    }
+
+    sol_pop(L, 2); /* pop result, LAST_RESPONSE */
+    Retorne achou;
+}
+
+Inteiro teste_global_soma() {
+    fprintf(stderr, "=== TESTE: Completion Global 'soma' ===\n");
+    sol_State *L = solL_newstate();
+    sol_openlibs(L); /* Importante para carregar base libs se necessário */
+    setup_mocks(L);
+    
+    LSPState *lsp = lsp_init(L);
+    
+    /* Configura documento */
+    Imutável Caractere *uri = "file:///completion.sol";
+    Imutável Caractere *codigo = 
+        "função soma(a, b)\n"
+        "  retorne a + b\n"
+        "fim\n"
+        "\n"; /* Linha 4 vazia para cursor */
+
+    LSPDocument *doc = lsp_add_document(lsp, uri, codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Prepara Stack para lsp_handle_completion(lsp, L, id) 
+       Expectativa: Params table at top-1 (se ignorarmos id).
+       Espere... lsp_handle_completion(lsp, L, id) pega params de onde?
+       Verificando lsplib.ctec:
+       1340: sol_getfield(L, -3, "parametros");
+       ...
+       1368: lsp_handle_completion(lsp, L, id);
+       
+       A função handler em lsplib (que não vi o corpo) provavelmente acessa a tabela
+       de parâmetros que está no topo ou perto dele.
+       Mas baseando no meu grep da chamada, ela recebe L.
+       
+       Vou assumir que ela pega os parâmetros do topo da pilha:
+       { textDocument = { uri = ... }, position = ... }
+    */
+
+    /* Push Params */
+    sol_newtable(L);
+    
+    /* textDocument */
+    sol_newtable(L);
+    sol_pushstring(L, uri);
+    sol_setfield(L, -2, "uri");
+    sol_setfield(L, -2, "textDocument");
+    
+    /* position: linha 4 (indice 3), char 0 */
+    sol_newtable(L);
+    sol_pushinteger(L, 3);
+    sol_setfield(L, -2, "line");
+    sol_pushinteger(L, 0);
+    sol_setfield(L, -2, "character");
+    sol_setfield(L, -2, "position");
+
+    /* Chama handler */
+    lsp_handle_completion(lsp, L, 1);
+    
+    /* Verifica resultado */
+    Inteiro ok = response_contem_label(L, "soma");
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    
+    Se (ok) {
+        fprintf(stderr, "SUCESSO: 'soma' encontrado no completion.\n");
+        Retorne TESTE_OK;
+    } Senão {
+        fprintf(stderr, "FALHA: 'soma' NÃO encontrado.\n");
+        Retorne TESTE_FALHA;
+    }
+}
+
+Inteiro Início() {
+    Inteiro falhas = 0;
+    Se (teste_global_soma() != TESTE_OK) falhas++;
+    
+    Retorne falhas > 0 ? 1 : 0;
+}

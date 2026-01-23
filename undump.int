@@ -1,0 +1,40 @@
+/*
+** $Id: undump.h $
+** load precompiled Sol chunks
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido undump_h
+#Defina undump_h
+
+#Inclua <limits.h>
+
+#Inclua "limits.int"
+#Inclua "object.int"
+#Inclua "zio.int"
+
+
+/* data to catch conversion errors */
+#Defina LUAC_DATA	"\x19\x93\r\n\x1a\n"
+
+#Defina LUAC_INT	-0x5678
+#Defina LUAC_INST	0x12345678
+#Defina LUAC_NUM	cast_num(-370.5)
+
+/*
+** Encode major-minor version in one byte, one nibble Para each
+*/
+#Defina LUAC_VERSION	(SOL_VERSION_MAJOR_N*16+SOL_VERSION_MINOR_N)
+
+#Defina LUAC_FORMAT	0	/* this is the official format */
+
+
+/* load one chunk; from lundump.c */
+SOL_FUNC LClosure* sol_u_undump (sol_State* L, ZIO* Z, Imutável Caractere* name,
+                                               Inteiro fixed);
+
+/* dump one chunk; from ldump.c */
+SOL_FUNC Inteiro sol_u_dump (sol_State* L, Imutável Proto* f, sol_Writer w,
+                         Vazio* data, Inteiro strip);
+
+#FimSe

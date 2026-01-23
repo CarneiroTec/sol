@@ -1,0 +1,108 @@
+/*
+** $Id: ctype.h $
+** 'ctype' functions Para Sol
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido ctype_h
+#Defina ctype_h
+
+#Inclua "sol.int"
+
+
+/*
+** WARNING: the functions Definido here Faça not necessarily correspond
+** to the similar functions in the standard C ctype.h. They are
+** optimized Para the specific needs of Sol.
+*/
+
+#Se !Definido(SOL_USE_CTYPE)
+
+#Se 'A' == 65 && '0' == 48
+/* ASCII Caso: can use its own tables; faster and fixed */
+#Defina SOL_USE_CTYPE	0
+#Senão
+/* must use standard C ctype */
+#Defina SOL_USE_CTYPE	1
+#FimSe
+
+#FimSe
+
+
+#Se !SOL_USE_CTYPE	/* { */
+
+#Inclua <limits.h>
+
+#Inclua "limits.int"
+
+
+#Defina ALPHABIT	0
+#Defina DIGITBIT	1
+#Defina PRINTBIT	2
+#Defina SPACEBIT	3
+#Defina XDIGITBIT	4
+
+
+#Defina MASK(B)		(1 << (B))
+
+
+/*
+** add 1 to Caractere to allow index -1 (EOZ)
+*/
+#Defina testprop(c,p)	(sol_ctype_[(c)+1] & (p))
+
+/*
+** 'lalpha' (Sol alphabetic) and 'lalnum' (Sol alphanumeric) both Inclua '_'
+** UTF-8 support: check high bit FIRST to avoid invalid table access
+*/
+#Defina lislalpha(c)	(((c) & 0x80) || testprop(c, MASK(ALPHABIT)))
+#Defina lislalnum(c)	(((c) & 0x80) || testprop(c, (MASK(ALPHABIT) | MASK(DIGITBIT))))
+#Defina lisdigit(c)	testprop(c, MASK(DIGITBIT))
+#Defina lisspace(c)	testprop(c, MASK(SPACEBIT))
+#Defina lisprint(c)	testprop(c, MASK(PRINTBIT))
+#Defina lisxdigit(c)	testprop(c, MASK(XDIGITBIT))
+
+/* UTF-8 continuation byte check */
+#Defina lisutf8cont(c)	(((c) & 0xC0) == 0x80)
+
+
+/*
+** In ASCII, this 'ltolower' is correct Para alphabetic characters and
+** Para '.'. That is enough Para Sol needs. ('check_exp' ensures that
+** the character either is an upper-Caso letter or is unchanged by
+** the transformation, which holds Para lower-Caso letters and '.'.)
+*/
+#Defina ltolower(c)  \
+  check_exp(('A' <= (c) && (c) <= 'Z') || (c) == ((c) | ('A' ^ 'a')),  \
+            (c) | ('A' ^ 'a'))
+
+
+/* one entry Para each character and Para -1 (EOZ) */
+SOL_DDEC(Imutável lu_byte sol_ctype_[UCHAR_MAX + 2];)
+
+
+#Senão			/* }{ */
+
+/*
+** use standard C ctypes
+*/
+
+#Inclua <ctype.h>
+
+
+#Defina lislalpha(c)	(((c) & 0x80) || isalpha(c) || (c) == '_')
+#Defina lislalnum(c)	(((c) & 0x80) || isalnum(c) || (c) == '_')
+#Defina lisdigit(c)	(isdigit(c))
+#Defina lisspace(c)	(isspace(c))
+#Defina lisprint(c)	(isprint(c))
+#Defina lisxdigit(c)	(isxdigit(c))
+
+/* UTF-8 continuation byte check */
+#Defina lisutf8cont(c)	(((c) & 0xC0) == 0x80)
+
+#Defina ltolower(c)	(tolower(c))
+
+#FimSe			/* } */
+
+#FimSe
+

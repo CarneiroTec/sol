@@ -1,0 +1,81 @@
+/*
+** $Id: sollib.h $
+** Sol standard libraries
+** See Copyright Notice in sol.h
+*/
+
+
+#SeNãoDefinido sollib_h
+#Defina sollib_h
+
+#Inclua "sol.int"
+
+
+/* version suffix Para environment variable names */
+#Defina SOL_VERSUFFIX          "_" SOL_VERSION_MAJOR "_" SOL_VERSION_MINOR
+
+#Defina SOL_GLIBK		1
+SOLMOD_API Inteiro (solopen_base) (sol_State *L);
+
+#Defina SOL_LOADLIBNAME	"pacote"
+#Defina SOL_LOADLIBK	(SOL_GLIBK << 1)
+SOLMOD_API Inteiro (solopen_package) (sol_State *L);
+
+
+#Defina SOL_COLIBNAME	"corrotina"
+#Defina SOL_COLIBK	(SOL_LOADLIBK << 1)
+SOLMOD_API Inteiro (solopen_coroutine) (sol_State *L);
+
+#Defina SOL_DBLIBNAME	"depuração"
+#Defina SOL_DBLIBK	(SOL_COLIBK << 1)
+SOLMOD_API Inteiro (solopen_debug) (sol_State *L);
+
+#Defina SOL_IOLIBNAME	"terminal"
+#Defina SOL_IOLIBK	(SOL_DBLIBK << 1)
+SOLMOD_API Inteiro (solopen_io) (sol_State *L);
+
+#Defina SOL_MATHLIBNAME	"matemática"
+#Defina SOL_MATHLIBK	(SOL_IOLIBK << 1)
+SOLMOD_API Inteiro (solopen_math) (sol_State *L);
+
+#Defina SOL_OSLIBNAME	"sistema_operacional"
+#Defina SOL_OSLIBK	(SOL_MATHLIBK << 1)
+SOLMOD_API Inteiro (solopen_os) (sol_State *L);
+
+#Defina SOL_STRLIBNAME	"texto"
+#Defina SOL_STRLIBK	(SOL_OSLIBK << 1)
+SOLMOD_API Inteiro (solopen_string) (sol_State *L);
+
+#Defina SOL_TABLIBNAME	"tabela"
+#Defina SOL_TABLIBK	(SOL_STRLIBK << 1)
+SOLMOD_API Inteiro (solopen_table) (sol_State *L);
+
+#Defina SOL_ASSINCRONIA_NOME_LIB "filamento"
+#Defina SOL_ASSINCRONIA_LIB_K (SOL_TABLIBK << 1)
+SOLMOD_API Inteiro (solopen_assincronia) (sol_State *L);
+
+#Defina SOL_UTF8LIBNAME	"utf8"
+#Defina SOL_UTF8LIBK	(SOL_ASSINCRONIA_LIB_K << 1)
+SOLMOD_API Inteiro (solopen_utf8) (sol_State *L);
+
+#Defina SOL_PARALLELLIBNAME "paralelismo"
+#Defina SOL_PARALLELLIBK (SOL_UTF8LIBK << 1)
+SOLMOD_API Inteiro (solopen_parallel) (sol_State *L);
+
+#Defina SOL_TESTLIBNAME "teste"
+#Defina SOL_TESTLIBK (SOL_PARALLELLIBK << 1)
+SOLMOD_API Inteiro (solopen_test) (sol_State *L);
+
+#Defina SOL_NDSLIBNAME "nds"
+#Defina SOL_NDSLIBK (SOL_TESTLIBK << 1)
+SOLMOD_API Inteiro (solopen_nds) (sol_State *L);
+
+
+/* open selected libraries */
+SOLIB_API Vazio (sol_openselectedlibs) (sol_State *L, Inteiro load, Inteiro preload);
+
+/* open all libraries */
+#Defina sol_openlibs(L)	sol_openselectedlibs(L, ~0, 0)
+
+
+#FimSe

@@ -1,0 +1,1473 @@
+/*
+** $Id: lapi.c $
+** Sol API
+** See Copyright Notice in lua.h
+*/
+
+#Defina lapi_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <limits.h>
+#Inclua <stdarg.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "gc.int"
+#Inclua "mem.int"
+#Inclua "object.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "tm.int"
+#Inclua "undump.int"
+#Inclua "vm.int"
+
+
+
+Imutável Caractere sol_ident[] =
+  "$SolVersion: " SOL_COPYRIGHT " $"
+  "$SolAuthors: " SOL_AUTHORS " $";
+
+
+
+/*
+** Test Para a valid index (one that is not the 'nilvalue').
+*/
+#Defina isvalid(L, o)	((o) != &G(L)->nilvalue)
+
+
+/* test Para pseudo index */
+#Defina ispseudo(i)		((i) <= SOL_REGISTRYINDEX)
+
+/* test Para upvalue */
+#Defina isupvalue(i)		((i) < SOL_REGISTRYINDEX)
+
+
+/*
+** Convert an acceptable index to a pointer to its respective value.
+** Non-valid indices Retorne the special nil value 'G(L)->nilvalue'.
+*/
+Fixo TValue *index2value (sol_State *L, Inteiro idx) {
+  CallInfo *ci = L->ci;
+  Se (idx > 0) {
+    StkId o = ci->func.p + idx;
+    api_check(L, idx <= ci->top.p - (ci->func.p + 1), "unacceptable index");
+    Se (o >= L->top.p) Retorne &G(L)->nilvalue;
+    Senão Retorne s2v(o);
+  }
+  Senão Se (!ispseudo(idx)) {  /* negative index */
+    api_check(L, idx != 0 && -idx <= L->top.p - (ci->func.p + 1),
+                 "invalid index");
+    Retorne s2v(L->top.p + idx);
+  }
+  Senão Se (idx == SOL_REGISTRYINDEX)
+    Retorne &G(L)->l_registry;
+  Senão {  /* upvalues */
+    idx = SOL_REGISTRYINDEX - idx;
+    api_check(L, idx <= MAXUPVAL + 1, "upvalue index too large");
+    Se (ttisCclosure(s2v(ci->func.p))) {  /* C closure? */
+      CClosure *func = clCvalue(s2v(ci->func.p));
+      Retorne (idx <= func->nupvalues) ? &func->upvalue[idx-1]
+                                      : &G(L)->nilvalue;
+    }
+    Senão {  /* light C function or Sol function (through a hook)?) */
+      api_check(L, ttislcf(s2v(ci->func.p)), "caller not a C function");
+      Retorne &G(L)->nilvalue;  /* no upvalues */
+    }
+  }
+}
+
+
+
+/*
+** Convert a valid actual index (not a pseudo-index) to its address.
+*/
+Fixo StkId index2stack (sol_State *L, Inteiro idx) {
+  CallInfo *ci = L->ci;
+  Se (idx > 0) {
+    StkId o = ci->func.p + idx;
+    api_check(L, o < L->top.p, "invalid index");
+    Retorne o;
+  }
+  Senão {    /* non-positive index */
+    api_check(L, idx != 0 && -idx <= L->top.p - (ci->func.p + 1),
+                 "invalid index");
+    api_check(L, !ispseudo(idx), "invalid index");
+    Retorne L->top.p + idx;
+  }
+}
+
+
+SOL_API Inteiro sol_checkstack (sol_State *L, Inteiro n) {
+  Inteiro res;
+  CallInfo *ci;
+  sol_lock(L);
+  ci = L->ci;
+  api_check(L, n >= 0, "negative 'n'");
+  Se (L->stack_last.p - L->top.p > n)  /* stack large enough? */
+    res = 1;  /* yes; check is OK */
+  Senão  /* need to grow stack */
+    res = sol_d_growstack(L, n, 0);
+  Se (res && ci->top.p < L->top.p + n)
+    ci->top.p = L->top.p + n;  /* adjust frame top */
+  sol_unlock(L);
+  Retorne res;
+}
+
+
+SOL_API Vazio sol_xmove (sol_State *from, sol_State *to, Inteiro n) {
+  Inteiro i;
+  Se (from == to) Retorne;
+  sol_lock(to);
+  api_checkpop(from, n);
+  api_check(from, G(from) == G(to), "moving among independent states");
+  api_check(from, to->ci->top.p - to->top.p >= n, "stack overflow");
+  from->top.p -= n;
+  Para (i = 0; i < n; i++) {
+    setobjs2s(to, to->top.p, from->top.p + i);
+    to->top.p++;  /* stack already checked by previous 'api_check' */
+  }
+  sol_unlock(to);
+}
+
+
+SOL_API sol_CFunction sol_atpanic (sol_State *L, sol_CFunction panicf) {
+  sol_CFunction old;
+  sol_lock(L);
+  old = G(L)->panic;
+  G(L)->panic = panicf;
+  sol_unlock(L);
+  Retorne old;
+}
+
+
+SOL_API sol_Number sol_version (sol_State *L) {
+  UNUSED(L);
+  Retorne SOL_VERSION_NUM;
+}
+
+
+
+/*
+** basic stack manipulation
+*/
+
+
+/*
+** convert an acceptable stack index into an absolute index
+*/
+SOL_API Inteiro sol_absindex (sol_State *L, Inteiro idx) {
+  Retorne (idx > 0 || ispseudo(idx))
+         ? idx
+         : cast_int(L->top.p - L->ci->func.p) + idx;
+}
+
+
+SOL_API Inteiro sol_gettop (sol_State *L) {
+  Retorne cast_int(L->top.p - (L->ci->func.p + 1));
+}
+
+
+SOL_API Vazio sol_settop (sol_State *L, Inteiro idx) {
+  CallInfo *ci;
+  StkId func, newtop;
+  ptrdiff_t diff;  /* difference Para new top */
+  sol_lock(L);
+  ci = L->ci;
+  func = ci->func.p;
+  Se (idx >= 0) {
+    api_check(L, idx <= ci->top.p - (func + 1), "new top too large");
+    diff = ((func + 1) + idx) - L->top.p;
+    Para (; diff > 0; diff--)
+      setnilvalue(s2v(L->top.p++));  /* clear new slots */
+  }
+  Senão {
+    api_check(L, -(idx+1) <= (L->top.p - (func + 1)), "invalid new top");
+    diff = idx + 1;  /* will "subtract" index (as it is negative) */
+  }
+  newtop = L->top.p + diff;
+  Se (diff < 0 && L->tbclist.p >= newtop) {
+    sol_assert(ci->callstatus & CIST_TBC);
+    newtop = sol_f_close(L, newtop, CLOSEKTOP, 0);
+  }
+  L->top.p = newtop;  /* correct top only after closing any upvalue */
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_closeslot (sol_State *L, Inteiro idx) {
+  StkId level;
+  sol_lock(L);
+  level = index2stack(L, idx);
+  api_check(L, (L->ci->callstatus & CIST_TBC) && (L->tbclist.p == level),
+     "no variable to close at given level");
+  level = sol_f_close(L, level, CLOSEKTOP, 0);
+  setnilvalue(s2v(level));
+  sol_unlock(L);
+}
+
+
+/*
+** Reverse the stack segment from 'from' to 'to'
+** (auxiliary to 'sol_rotate')
+** Note that we move(copy) only the value inside the stack.
+** (We Faça not move additional fields that may exist.)
+*/
+Fixo Vazio reverse (sol_State *L, StkId from, StkId to) {
+  Para (; from < to; from++, to--) {
+    TValue temp;
+    setobj(L, &temp, s2v(from));
+    setobjs2s(L, from, to);
+    setobj2s(L, to, &temp);
+  }
+}
+
+
+/*
+** Let x = AB, where A is a prefix of length 'n'. Then,
+** rotate x n == BA. But BA == (A^r . B^r)^r.
+*/
+SOL_API Vazio sol_rotate (sol_State *L, Inteiro idx, Inteiro n) {
+  StkId p, t, m;
+  sol_lock(L);
+  t = L->top.p - 1;  /* end of stack segment being rotated */
+  p = index2stack(L, idx);  /* start of segment */
+  api_check(L, L->tbclist.p < p, "moving a to-be-closed slot");
+  api_check(L, (n >= 0 ? n : -n) <= (t - p + 1), "invalid 'n'");
+  m = (n >= 0 ? t - n : p - n - 1);  /* end of prefix */
+  reverse(L, p, m);  /* reverse the prefix with length 'n' */
+  reverse(L, m + 1, t);  /* reverse the suffix */
+  reverse(L, p, t);  /* reverse the entire segment */
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_copy (sol_State *L, Inteiro fromidx, Inteiro toidx) {
+  TValue *fr, *to;
+  sol_lock(L);
+  fr = index2value(L, fromidx);
+  to = index2value(L, toidx);
+  api_check(L, isvalid(L, to), "invalid index");
+  setobj(L, to, fr);
+  Se (isupvalue(toidx))  /* function upvalue? */
+    sol_c_barrier(L, clCvalue(s2v(L->ci->func.p)), fr);
+  /* SOL_REGISTRYINDEX does not need gc barrier
+     (collector revisits it before finishing collection) */
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_pushvalue (sol_State *L, Inteiro idx) {
+  sol_lock(L);
+  setobj2s(L, L->top.p, index2value(L, idx));
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+
+/*
+** access functions (stack -> C)
+*/
+
+
+SOL_API Inteiro sol_type (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne (isvalid(L, o) ? ttype(o) : SOL_TNONE);
+}
+
+
+SOL_API Imutável Caractere *sol_typename (sol_State *L, Inteiro t) {
+  UNUSED(L);
+  api_check(L, SOL_TNONE <= t && t < SOL_NUMTYPES, "invalid type");
+  Retorne ttypename(t);
+}
+
+
+SOL_API Inteiro sol_iscfunction (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne (ttislcf(o) || (ttisCclosure(o)));
+}
+
+
+SOL_API Inteiro sol_isinteger (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne ttisinteger(o);
+}
+
+
+SOL_API Inteiro sol_isnumber (sol_State *L, Inteiro idx) {
+  sol_Number n;
+  Imutável TValue *o = index2value(L, idx);
+  Retorne tonumber(o, &n);
+}
+
+
+SOL_API Inteiro sol_isstring (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne (ttisstring(o) || cvt2str(o));
+}
+
+
+SOL_API Inteiro sol_isuserdata (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne (ttisfulluserdata(o) || ttislightuserdata(o));
+}
+
+
+SOL_API Inteiro sol_rawequal (sol_State *L, Inteiro index1, Inteiro index2) {
+  Imutável TValue *o1 = index2value(L, index1);
+  Imutável TValue *o2 = index2value(L, index2);
+  Retorne (isvalid(L, o1) && isvalid(L, o2)) ? sol_v_rawequalobj(o1, o2) : 0;
+}
+
+
+SOL_API Vazio sol_arith (sol_State *L, Inteiro op) {
+  sol_lock(L);
+  Se (op != SOL_OPUNM && op != SOL_OPBNOT)
+    api_checkpop(L, 2);  /* all other operations expect two operands */
+  Senão {  /* Para unary operations, add fake 2nd operand */
+    api_checkpop(L, 1);
+    setobjs2s(L, L->top.p, L->top.p - 1);
+    api_incr_top(L);
+  }
+  /* first operand at top - 2, second at top - 1; result go to top - 2 */
+  sol_o_arith(L, op, s2v(L->top.p - 2), s2v(L->top.p - 1), L->top.p - 2);
+  L->top.p--;  /* pop second operand */
+  sol_unlock(L);
+}
+
+
+SOL_API Inteiro sol_compare (sol_State *L, Inteiro index1, Inteiro index2, Inteiro op) {
+  Imutável TValue *o1;
+  Imutável TValue *o2;
+  Inteiro i = 0;
+  sol_lock(L);  /* may call tag method */
+  o1 = index2value(L, index1);
+  o2 = index2value(L, index2);
+  Se (isvalid(L, o1) && isvalid(L, o2)) {
+    Troque (op) {
+      Caso SOL_OPEQ: i = sol_v_equalobj(L, o1, o2); Interrompa;
+      Caso SOL_OPLT: i = sol_v_lessthan(L, o1, o2); Interrompa;
+      Caso SOL_OPLE: i = sol_v_lessequal(L, o1, o2); Interrompa;
+      Padrão: api_check(L, 0, "invalid option");
+    }
+  }
+  sol_unlock(L);
+  Retorne i;
+}
+
+
+SOL_API Natural (sol_numbertocstring) (sol_State *L, Inteiro idx, Caractere *buff) {
+  Imutável TValue *o = index2value(L, idx);
+  Se (ttisnumber(o)) {
+    Natural len = sol_o_tostringbuff(o, buff);
+    buff[len++] = '\0';  /* add final zero */
+    Retorne len;
+  }
+  Senão
+    Retorne 0;
+}
+
+
+SOL_API size_t sol_stringtonumber (sol_State *L, Imutável Caractere *s) {
+  size_t sz = sol_o_str2num(s, s2v(L->top.p));
+  Se (sz != 0)
+    api_incr_top(L);
+  Retorne sz;
+}
+
+
+SOL_API sol_Number sol_tonumberx (sol_State *L, Inteiro idx, Inteiro *pisnum) {
+  sol_Number n = 0;
+  Imutável TValue *o = index2value(L, idx);
+  Inteiro isnum = tonumber(o, &n);
+  Se (pisnum)
+    *pisnum = isnum;
+  Retorne n;
+}
+
+
+SOL_API sol_Integer sol_tointegerx (sol_State *L, Inteiro idx, Inteiro *pisnum) {
+  sol_Integer res = 0;
+  Imutável TValue *o = index2value(L, idx);
+  Inteiro isnum = tointeger(o, &res);
+  Se (pisnum)
+    *pisnum = isnum;
+  Retorne res;
+}
+
+
+SOL_API Inteiro sol_toboolean (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne !l_isfalse(o);
+}
+
+
+SOL_API Imutável Caractere *sol_tolstring (sol_State *L, Inteiro idx, size_t *len) {
+  TValue *o;
+  sol_lock(L);
+  o = index2value(L, idx);
+  Se (!ttisstring(o)) {
+    Se (!cvt2str(o)) {  /* not convertible? */
+      Se (len != NULL) *len = 0;
+      sol_unlock(L);
+      Retorne NULL;
+    }
+    sol_o_tostring(L, o);
+    sol_c_checkGC(L);
+    o = index2value(L, idx);  /* previous call may reallocate the stack */
+  }
+  sol_unlock(L);
+  Se (len != NULL)
+    Retorne getlstr(tsvalue(o), *len);
+  Senão
+    Retorne getstr(tsvalue(o));
+}
+
+
+SOL_API sol_Unsigned sol_rawlen (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Troque (ttypetag(o)) {
+    Caso SOL_VSHRSTR: Retorne cast(sol_Unsigned, tsvalue(o)->shrlen);
+    Caso SOL_VLNGSTR: Retorne cast(sol_Unsigned, tsvalue(o)->u.lnglen);
+    Caso SOL_VUSERDATA: Retorne cast(sol_Unsigned, uvalue(o)->len);
+    Caso SOL_VTABLE: {
+      sol_Unsigned res;
+      sol_lock(L);
+      res = sol_h_getn(L, hvalue(o));
+      sol_unlock(L);
+      Retorne res;
+    }
+    Padrão: Retorne 0;
+  }
+}
+
+
+SOL_API sol_CFunction sol_tocfunction (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Se (ttislcf(o)) Retorne fvalue(o);
+  Senão Se (ttisCclosure(o))
+    Retorne clCvalue(o)->f;
+  Senão Retorne NULL;  /* not a C function */
+}
+
+
+l_sinline Vazio *touserdata (Imutável TValue *o) {
+  Troque (ttype(o)) {
+    Caso SOL_TUSERDATA: Retorne getudatamem(uvalue(o));
+    Caso SOL_TLIGHTUSERDATA: Retorne pvalue(o);
+    Padrão: Retorne NULL;
+  }
+}
+
+
+SOL_API Vazio *sol_touserdata (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne touserdata(o);
+}
+
+
+SOL_API sol_State *sol_tothread (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Retorne (!ttisthread(o)) ? NULL : thvalue(o);
+}
+
+
+/*
+** Returns a pointer to the internal representation of an object.
+** Note that ISO C does not allow the conversion of a pointer to
+** function to a 'Vazio*', so the conversion here goes through
+** a 'size_t'. (As the returned pointer is only informative, this
+** conversion should not be a problem.)
+*/
+SOL_API Imutável Vazio *sol_topointer (sol_State *L, Inteiro idx) {
+  Imutável TValue *o = index2value(L, idx);
+  Troque (ttypetag(o)) {
+    Caso SOL_VLCF: Retorne cast_voidp(cast_sizet(fvalue(o)));
+    Caso SOL_VUSERDATA: Caso SOL_VLIGHTUSERDATA:
+      Retorne touserdata(o);
+    Padrão: {
+      Se (iscollectable(o))
+        Retorne gcvalue(o);
+      Senão
+        Retorne NULL;
+    }
+  }
+}
+
+
+
+/*
+** push functions (C -> stack)
+*/
+
+
+SOL_API Vazio sol_pushnil (sol_State *L) {
+  sol_lock(L);
+  setnilvalue(s2v(L->top.p));
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_pushnumber (sol_State *L, sol_Number n) {
+  sol_lock(L);
+  setfltvalue(s2v(L->top.p), n);
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_pushinteger (sol_State *L, sol_Integer n) {
+  sol_lock(L);
+  setivalue(s2v(L->top.p), n);
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+/*
+** Pushes on the stack a string with given length. Avoid using 's' when
+** 'len' == 0 (as 's' can be NULL in that Caso), due to later use of
+** 'memcmp' and 'memcpy'.
+*/
+SOL_API Imutável Caractere *sol_pushlstring (sol_State *L, Imutável Caractere *s, size_t len) {
+  TString *ts;
+  sol_lock(L);
+  ts = (len == 0) ? sol_s_new(L, "") : sol_s_newlstr(L, s, len);
+  setsvalue2s(L, L->top.p, ts);
+  api_incr_top(L);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne getstr(ts);
+}
+
+
+SOL_API Imutável Caractere *sol_pushexternalstring (sol_State *L,
+	        Imutável Caractere *s, size_t len, sol_Alloc falloc, Vazio *ud) {
+  TString *ts;
+  sol_lock(L);
+  api_check(L, len <= MAX_SIZE, "string too large");
+  api_check(L, s[len] == '\0', "string not ending with zero");
+  ts = sol_s_newextlstr (L, s, len, falloc, ud);
+  setsvalue2s(L, L->top.p, ts);
+  api_incr_top(L);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne getstr(ts);
+}
+
+
+SOL_API Imutável Caractere *sol_pushstring (sol_State *L, Imutável Caractere *s) {
+  sol_lock(L);
+  Se (s == NULL)
+    setnilvalue(s2v(L->top.p));
+  Senão {
+    TString *ts;
+    ts = sol_s_new(L, s);
+    setsvalue2s(L, L->top.p, ts);
+    s = getstr(ts);  /* internal copy's address */
+  }
+  api_incr_top(L);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne s;
+}
+
+
+SOL_API Imutável Caractere *sol_pushvfstring (sol_State *L, Imutável Caractere *fmt,
+                                      va_list argp) {
+  Imutável Caractere *ret;
+  sol_lock(L);
+  ret = sol_o_pushvfstring(L, fmt, argp);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne ret;
+}
+
+
+SOL_API Imutável Caractere *sol_pushfstring (sol_State *L, Imutável Caractere *fmt, ...) {
+  Imutável Caractere *ret;
+  va_list argp;
+  sol_lock(L);
+  pushvfstring(L, argp, fmt, ret);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne ret;
+}
+
+
+SOL_API Vazio sol_pushcclosure (sol_State *L, sol_CFunction fn, Inteiro n) {
+  sol_lock(L);
+  Se (n == 0) {
+    setfvalue(s2v(L->top.p), fn);
+    api_incr_top(L);
+  }
+  Senão {
+    Inteiro i;
+    CClosure *cl;
+    api_checkpop(L, n);
+    api_check(L, n <= MAXUPVAL, "upvalue index too large");
+    cl = sol_f_newCclosure(L, n);
+    cl->f = fn;
+    Para (i = 0; i < n; i++) {
+      setobj2n(L, &cl->upvalue[i], s2v(L->top.p - n + i));
+      /* does not need barrier because closure is white */
+      sol_assert(iswhite(cl));
+    }
+    L->top.p -= n;
+    setclCvalue(L, s2v(L->top.p), cl);
+    api_incr_top(L);
+    sol_c_checkGC(L);
+  }
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_pushboolean (sol_State *L, Inteiro b) {
+  sol_lock(L);
+  Se (b)
+    setbtvalue(s2v(L->top.p));
+  Senão
+    setbfvalue(s2v(L->top.p));
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_pushlightuserdata (sol_State *L, Vazio *p) {
+  sol_lock(L);
+  setpvalue(s2v(L->top.p), p);
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+SOL_API Inteiro sol_pushthread (sol_State *L) {
+  sol_lock(L);
+  setthvalue(L, s2v(L->top.p), L);
+  api_incr_top(L);
+  sol_unlock(L);
+  Retorne (mainthread(G(L)) == L);
+}
+
+
+
+/*
+** get functions (Sol -> stack)
+*/
+
+
+Fixo Inteiro auxgetstr (sol_State *L, Imutável TValue *t, Imutável Caractere *k) {
+  lu_byte tag;
+  TString *str = sol_s_new(L, k);
+  sol_v_fastget(t, str, s2v(L->top.p), sol_h_getstr, tag);
+  Se (!tagisempty(tag))
+    api_incr_top(L);
+  Senão {
+    setsvalue2s(L, L->top.p, str);
+    api_incr_top(L);
+    tag = sol_v_finishget(L, t, s2v(L->top.p - 1), L->top.p - 1, tag);
+  }
+  sol_unlock(L);
+  Retorne novariant(tag);
+}
+
+
+/*
+** The following function assumes that the registry cannot be a weak
+** table; so, an emergency collection Enquanto using the global table
+** cannot collect it.
+*/
+Fixo Vazio getGlobalTable (sol_State *L, TValue *gt) {
+  Table *registry = hvalue(&G(L)->l_registry);
+  lu_byte tag = sol_h_getint(registry, SOL_RIDX_GLOBALS, gt);
+  (Vazio)tag;  /* avoid not-used warnings when checks are off */
+  api_check(L, novariant(tag) == SOL_TTABLE, "global table must exist");
+}
+
+
+SOL_API Inteiro sol_getglobal (sol_State *L, Imutável Caractere *name) {
+  TValue gt;
+  sol_lock(L);
+  getGlobalTable(L, &gt);
+  Retorne auxgetstr(L, &gt, name);
+}
+
+
+SOL_API Inteiro sol_gettable (sol_State *L, Inteiro idx) {
+  lu_byte tag;
+  TValue *t;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  t = index2value(L, idx);
+  sol_v_fastget(t, s2v(L->top.p - 1), s2v(L->top.p - 1), sol_h_get, tag);
+  Se (tagisempty(tag))
+    tag = sol_v_finishget(L, t, s2v(L->top.p - 1), L->top.p - 1, tag);
+  sol_unlock(L);
+  Retorne novariant(tag);
+}
+
+
+SOL_API Inteiro sol_getfield (sol_State *L, Inteiro idx, Imutável Caractere *k) {
+  sol_lock(L);
+  Retorne auxgetstr(L, index2value(L, idx), k);
+}
+
+
+SOL_API Inteiro sol_geti (sol_State *L, Inteiro idx, sol_Integer n) {
+  TValue *t;
+  lu_byte tag;
+  sol_lock(L);
+  t = index2value(L, idx);
+  sol_v_fastgeti(t, n, s2v(L->top.p), tag);
+  Se (tagisempty(tag)) {
+    TValue key;
+    setivalue(&key, n);
+    tag = sol_v_finishget(L, t, &key, L->top.p, tag);
+  }
+  api_incr_top(L);
+  sol_unlock(L);
+  Retorne novariant(tag);
+}
+
+
+Fixo Inteiro finishrawget (sol_State *L, lu_byte tag) {
+  Se (tagisempty(tag))  /* avoid copying empty items to the stack */
+    setnilvalue(s2v(L->top.p));
+  api_incr_top(L);
+  sol_unlock(L);
+  Retorne novariant(tag);
+}
+
+
+l_sinline Table *gettable (sol_State *L, Inteiro idx) {
+  TValue *t = index2value(L, idx);
+  api_check(L, ttistable(t), "table expected");
+  Retorne hvalue(t);
+}
+
+
+SOL_API Inteiro sol_rawget (sol_State *L, Inteiro idx) {
+  Table *t;
+  lu_byte tag;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  t = gettable(L, idx);
+  tag = sol_h_get(t, s2v(L->top.p - 1), s2v(L->top.p - 1));
+  L->top.p--;  /* pop key */
+  Retorne finishrawget(L, tag);
+}
+
+
+SOL_API Inteiro sol_rawgeti (sol_State *L, Inteiro idx, sol_Integer n) {
+  Table *t;
+  lu_byte tag;
+  sol_lock(L);
+  t = gettable(L, idx);
+  sol_h_fastgeti(t, n, s2v(L->top.p), tag);
+  Retorne finishrawget(L, tag);
+}
+
+
+SOL_API Inteiro sol_rawgetp (sol_State *L, Inteiro idx, Imutável Vazio *p) {
+  Table *t;
+  TValue k;
+  sol_lock(L);
+  t = gettable(L, idx);
+  setpvalue(&k, cast_voidp(p));
+  Retorne finishrawget(L, sol_h_get(t, &k, s2v(L->top.p)));
+}
+
+
+SOL_API Vazio sol_createtable (sol_State *L, Inteiro narray, Inteiro nrec) {
+  Table *t;
+  sol_lock(L);
+  t = sol_h_new(L);
+  sethvalue2s(L, L->top.p, t);
+  api_incr_top(L);
+  Se (narray > 0 || nrec > 0)
+    sol_h_resize(L, t, cast_uint(narray), cast_uint(nrec));
+  sol_c_checkGC(L);
+  sol_unlock(L);
+}
+
+
+SOL_API Inteiro sol_getmetatable (sol_State *L, Inteiro objindex) {
+  Imutável TValue *obj;
+  Table *mt;
+  Inteiro res = 0;
+  sol_lock(L);
+  obj = index2value(L, objindex);
+  Troque (ttype(obj)) {
+    Caso SOL_TTABLE:
+      mt = hvalue(obj)->metatable;
+      Interrompa;
+    Caso SOL_TUSERDATA:
+      mt = uvalue(obj)->metatable;
+      Interrompa;
+    Padrão:
+      mt = G(L)->mt[ttype(obj)];
+      Interrompa;
+  }
+  Se (mt != NULL) {
+    sethvalue2s(L, L->top.p, mt);
+    api_incr_top(L);
+    res = 1;
+  }
+  sol_unlock(L);
+  Retorne res;
+}
+
+
+SOL_API Inteiro sol_getiuservalue (sol_State *L, Inteiro idx, Inteiro n) {
+  TValue *o;
+  Inteiro t;
+  sol_lock(L);
+  o = index2value(L, idx);
+  api_check(L, ttisfulluserdata(o), "full userdata expected");
+  Se (n <= 0 || n > uvalue(o)->nuvalue) {
+    setnilvalue(s2v(L->top.p));
+    t = SOL_TNONE;
+  }
+  Senão {
+    setobj2s(L, L->top.p, &uvalue(o)->uv[n - 1].uv);
+    t = ttype(s2v(L->top.p));
+  }
+  api_incr_top(L);
+  sol_unlock(L);
+  Retorne t;
+}
+
+
+/*
+** set functions (stack -> Sol)
+*/
+
+/*
+** t[k] = value at the top of the stack (where 'k' is a string)
+*/
+Fixo Vazio auxsetstr (sol_State *L, Imutável TValue *t, Imutável Caractere *k) {
+  Inteiro hres;
+  TString *str = sol_s_new(L, k);
+  api_checkpop(L, 1);
+  sol_v_fastset(t, str, s2v(L->top.p - 1), hres, sol_h_psetstr);
+  Se (hres == HOK) {
+    sol_v_finishfastset(L, t, s2v(L->top.p - 1));
+    L->top.p--;  /* pop value */
+  }
+  Senão {
+    setsvalue2s(L, L->top.p, str);  /* push 'str' (to make it a TValue) */
+    api_incr_top(L);
+    sol_v_finishset(L, t, s2v(L->top.p - 1), s2v(L->top.p - 2), hres);
+    L->top.p -= 2;  /* pop value and key */
+  }
+  sol_unlock(L);  /* lock done by caller */
+}
+
+
+SOL_API Vazio sol_setglobal (sol_State *L, Imutável Caractere *name) {
+  TValue gt;
+  sol_lock(L);  /* unlock done in 'auxsetstr' */
+  getGlobalTable(L, &gt);
+  auxsetstr(L, &gt, name);
+}
+
+
+SOL_API Vazio sol_settable (sol_State *L, Inteiro idx) {
+  TValue *t;
+  Inteiro hres;
+  sol_lock(L);
+  api_checkpop(L, 2);
+  t = index2value(L, idx);
+  sol_v_fastset(t, s2v(L->top.p - 2), s2v(L->top.p - 1), hres, sol_h_pset);
+  Se (hres == HOK)
+    sol_v_finishfastset(L, t, s2v(L->top.p - 1));
+  Senão
+    sol_v_finishset(L, t, s2v(L->top.p - 2), s2v(L->top.p - 1), hres);
+  L->top.p -= 2;  /* pop index and value */
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_setfield (sol_State *L, Inteiro idx, Imutável Caractere *k) {
+  sol_lock(L);  /* unlock done in 'auxsetstr' */
+  auxsetstr(L, index2value(L, idx), k);
+}
+
+
+SOL_API Vazio sol_seti (sol_State *L, Inteiro idx, sol_Integer n) {
+  TValue *t;
+  Inteiro hres;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  t = index2value(L, idx);
+  sol_v_fastseti(t, n, s2v(L->top.p - 1), hres);
+  Se (hres == HOK)
+    sol_v_finishfastset(L, t, s2v(L->top.p - 1));
+  Senão {
+    TValue temp;
+    setivalue(&temp, n);
+    sol_v_finishset(L, t, &temp, s2v(L->top.p - 1), hres);
+  }
+  L->top.p--;  /* pop value */
+  sol_unlock(L);
+}
+
+
+Fixo Vazio aux_rawset (sol_State *L, Inteiro idx, TValue *key, Inteiro n) {
+  Table *t;
+  sol_lock(L);
+  api_checkpop(L, n);
+  t = gettable(L, idx);
+  sol_h_set(L, t, key, s2v(L->top.p - 1));
+  invalidateTMcache(t);
+  sol_c_barrierback(L, obj2gco(t), s2v(L->top.p - 1));
+  L->top.p -= n;
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_rawset (sol_State *L, Inteiro idx) {
+  aux_rawset(L, idx, s2v(L->top.p - 2), 2);
+}
+
+
+SOL_API Vazio sol_rawsetp (sol_State *L, Inteiro idx, Imutável Vazio *p) {
+  TValue k;
+  setpvalue(&k, cast_voidp(p));
+  aux_rawset(L, idx, &k, 1);
+}
+
+
+SOL_API Vazio sol_rawseti (sol_State *L, Inteiro idx, sol_Integer n) {
+  Table *t;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  t = gettable(L, idx);
+  sol_h_setint(L, t, n, s2v(L->top.p - 1));
+  sol_c_barrierback(L, obj2gco(t), s2v(L->top.p - 1));
+  L->top.p--;
+  sol_unlock(L);
+}
+
+
+SOL_API Inteiro sol_setmetatable (sol_State *L, Inteiro objindex) {
+  TValue *obj;
+  Table *mt;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  obj = index2value(L, objindex);
+  Se (ttisnil(s2v(L->top.p - 1)))
+    mt = NULL;
+  Senão {
+    api_check(L, ttistable(s2v(L->top.p - 1)), "table expected");
+    mt = hvalue(s2v(L->top.p - 1));
+  }
+  Troque (ttype(obj)) {
+    Caso SOL_TTABLE: {
+      hvalue(obj)->metatable = mt;
+      Se (mt) {
+        sol_c_objbarrier(L, gcvalue(obj), mt);
+        sol_c_checkfinalizer(L, gcvalue(obj), mt);
+      }
+      Interrompa;
+    }
+    Caso SOL_TUSERDATA: {
+      uvalue(obj)->metatable = mt;
+      Se (mt) {
+        sol_c_objbarrier(L, uvalue(obj), mt);
+        sol_c_checkfinalizer(L, gcvalue(obj), mt);
+      }
+      Interrompa;
+    }
+    Padrão: {
+      G(L)->mt[ttype(obj)] = mt;
+      Interrompa;
+    }
+  }
+  L->top.p--;
+  sol_unlock(L);
+  Retorne 1;
+}
+
+
+SOL_API Inteiro sol_setiuservalue (sol_State *L, Inteiro idx, Inteiro n) {
+  TValue *o;
+  Inteiro res;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  o = index2value(L, idx);
+  api_check(L, ttisfulluserdata(o), "full userdata expected");
+  Se (!(cast_uint(n) - 1u < cast_uint(uvalue(o)->nuvalue)))
+    res = 0;  /* 'n' not in [1, uvalue(o)->nuvalue] */
+  Senão {
+    setobj(L, &uvalue(o)->uv[n - 1].uv, s2v(L->top.p - 1));
+    sol_c_barrierback(L, gcvalue(o), s2v(L->top.p - 1));
+    res = 1;
+  }
+  L->top.p--;
+  sol_unlock(L);
+  Retorne res;
+}
+
+
+/*
+** 'load' and 'call' functions (run Sol code)
+*/
+
+
+#Defina checkresults(L,na,nr) \
+     (api_check(L, (nr) == SOL_MULTRET \
+               || (L->ci->top.p - L->top.p >= (nr) - (na)), \
+	"results from function overflow current stack size"), \
+      api_check(L, SOL_MULTRET <= (nr) && (nr) <= MAXRESULTS,  \
+                   "invalid number of results"))
+
+
+SOL_API Vazio sol_callk (sol_State *L, Inteiro nargs, Inteiro nresults,
+                        sol_KContext ctx, sol_KFunction k) {
+  StkId func;
+  sol_lock(L);
+  api_check(L, k == NULL || !isSol(L->ci),
+    "cannot use continuations inside hooks");
+  api_checkpop(L, nargs + 1);
+  api_check(L, L->status == SOL_OK, "cannot Faça calls on non-normal thread");
+  checkresults(L, nargs, nresults);
+  func = L->top.p - (nargs+1);
+  Se (k != NULL && yieldable(L)) {  /* need to prepare continuation? */
+    L->ci->u.c.k = k;  /* save continuation */
+    L->ci->u.c.ctx = ctx;  /* save context */
+    sol_d_call(L, func, nresults);  /* Faça the call */
+  }
+  Senão  /* no continuation or no yieldable */
+    sol_d_callnoyield(L, func, nresults);  /* just Faça the call */
+  adjustresults(L, nresults);
+  sol_unlock(L);
+}
+
+
+
+/*
+** Execute a protected call.
+*/
+Estrutura CallS {  /* data to 'f_call' */
+  StkId func;
+  Inteiro nresults;
+};
+
+
+Fixo Vazio f_call (sol_State *L, Vazio *ud) {
+  Estrutura CallS *c = cast(Estrutura CallS *, ud);
+  sol_d_callnoyield(L, c->func, c->nresults);
+}
+
+
+
+SOL_API Inteiro sol_pcallk (sol_State *L, Inteiro nargs, Inteiro nresults, Inteiro errfunc,
+                        sol_KContext ctx, sol_KFunction k) {
+  Estrutura CallS c;
+  TStatus status;
+  ptrdiff_t func;
+  sol_lock(L);
+  api_check(L, k == NULL || !isSol(L->ci),
+    "cannot use continuations inside hooks");
+  api_checkpop(L, nargs + 1);
+  api_check(L, L->status == SOL_OK, "cannot Faça calls on non-normal thread");
+  checkresults(L, nargs, nresults);
+  Se (errfunc == 0)
+    func = 0;
+  Senão {
+    StkId o = index2stack(L, errfunc);
+    api_check(L, ttisfunction(s2v(o)), "Erro handler must be a function");
+    func = savestack(L, o);
+  }
+  c.func = L->top.p - (nargs+1);  /* function to be called */
+  Se (k == NULL || !yieldable(L)) {  /* no continuation or no yieldable? */
+    c.nresults = nresults;  /* Faça a 'conventional' protected call */
+    status = sol_d_pcall(L, f_call, &c, savestack(L, c.func), func);
+  }
+  Senão {  /* prepare continuation (call is already protected by 'resume') */
+    CallInfo *ci = L->ci;
+    ci->u.c.k = k;  /* save continuation */
+    ci->u.c.ctx = ctx;  /* save context */
+    /* save information Para Erro recovery */
+    ci->u2.funcidx = cast_int(savestack(L, c.func));
+    ci->u.c.old_errfunc = L->errfunc;
+    L->errfunc = func;
+    setoah(ci, L->allowhook);  /* save value of 'allowhook' */
+    ci->callstatus |= CIST_YPCALL;  /* function can Faça Erro recovery */
+    sol_d_call(L, c.func, nresults);  /* Faça the call */
+    ci->callstatus &= ~CIST_YPCALL;
+    L->errfunc = ci->u.c.old_errfunc;
+    status = SOL_OK;  /* Se it is here, there were no errors */
+  }
+  adjustresults(L, nresults);
+  sol_unlock(L);
+  Retorne APIstatus(status);
+}
+
+
+SOL_API Inteiro sol_load (sol_State *L, sol_Reader reader, Vazio *data,
+                      Imutável Caractere *chunkname, Imutável Caractere *mode) {
+  ZIO z;
+  TStatus status;
+  sol_lock(L);
+  Se (!chunkname) chunkname = "?";
+  sol_z_init(L, &z, reader, data);
+  status = sol_d_protectedparser(L, &z, chunkname, mode);
+  Se (status == SOL_OK) {  /* no errors? */
+    LClosure *f = clLvalue(s2v(L->top.p - 1));  /* get new function */
+    Se (f->nupvalues >= 1) {  /* does it have an upvalue? */
+      /* get global table from registry */
+      TValue gt;
+      getGlobalTable(L, &gt);
+      /* set global table as 1st upvalue of 'f' (may be SOL_ENV) */
+      setobj(L, f->upvals[0]->v.p, &gt);
+      sol_c_barrier(L, f->upvals[0], &gt);
+    }
+  }
+  sol_unlock(L);
+  Retorne APIstatus(status);
+}
+
+
+/*
+** Dump a Sol function, calling 'writer' to write its parts. Ensure
+** the stack returns with its original size.
+*/
+SOL_API Inteiro sol_dump (sol_State *L, sol_Writer writer, Vazio *data, Inteiro strip) {
+  Inteiro status;
+  ptrdiff_t otop = savestack(L, L->top.p);  /* original top */
+  TValue *f = s2v(L->top.p - 1);  /* function to be dumped */
+  sol_lock(L);
+  api_checkpop(L, 1);
+  api_check(L, isLfunction(f), "Sol function expected");
+  status = sol_u_dump(L, clLvalue(f)->p, writer, data, strip);
+  L->top.p = restorestack(L, otop);  /* restore top */
+  sol_unlock(L);
+  Retorne status;
+}
+
+
+SOL_API Inteiro sol_status (sol_State *L) {
+  Retorne APIstatus(L->status);
+}
+
+
+/*
+** Garbage-collection function
+*/
+SOL_API Inteiro sol_gc (sol_State *L, Inteiro what, ...) {
+  va_list argp;
+  Inteiro res = 0;
+  global_State *g = G(L);
+  Se (g->gcstp & (GCSTPGC | GCSTPCLS))  /* internal stop? */
+    Retorne -1;  /* all options are invalid when stopped */
+  sol_lock(L);
+  va_start(argp, what);
+  Troque (what) {
+    Caso SOL_GCSTOP: {
+      g->gcstp = GCSTPUSR;  /* stopped by the user */
+      Interrompa;
+    }
+    Caso SOL_GCRESTART: {
+      sol_e_setdebt(g, 0);
+      g->gcstp = 0;  /* (other bits must be zero here) */
+      Interrompa;
+    }
+    Caso SOL_GCCOLLECT: {
+      sol_c_fullgc(L, 0);
+      Interrompa;
+    }
+    Caso SOL_GCCOUNT: {
+      /* GC values are expressed in Kbytes: #bytes/2^10 */
+      res = cast_int(gettotalbytes(g) >> 10);
+      Interrompa;
+    }
+    Caso SOL_GCCOUNTB: {
+      res = cast_int(gettotalbytes(g) & 0x3ff);
+      Interrompa;
+    }
+    Caso SOL_GCSTEP: {
+      lu_byte oldstp = g->gcstp;
+      lu_mem n = cast(lu_mem, va_arg(argp, size_t));
+      Inteiro work = 0;  /* true Se GC did some work */
+      g->gcstp = 0;  /* allow GC to run (other bits must be zero here) */
+      Se (n <= 0)
+        n = g->GCdebt;  /* force to run one basic step */
+      sol_e_setdebt(g, g->GCdebt - n);
+      sol_c_condGC(L, (Vazio)0, work = 1);
+      Se (work && g->gcstate == GCSpause)  /* end of cycle? */
+        res = 1;  /* signal it */
+      g->gcstp = oldstp;  /* restore previous state */
+      Interrompa;
+    }
+    Caso SOL_GCISRUNNING: {
+      res = gcrunning(g);
+      Interrompa;
+    }
+    Caso SOL_GCGEN: {
+      res = (g->gckind == KGC_INC) ? SOL_GCINC : SOL_GCGEN;
+      sol_c_changemode(L, KGC_GENMINOR);
+      Interrompa;
+    }
+    Caso SOL_GCINC: {
+      res = (g->gckind == KGC_INC) ? SOL_GCINC : SOL_GCGEN;
+      sol_c_changemode(L, KGC_INC);
+      Interrompa;
+    }
+    Caso SOL_GCPARAM: {
+      Inteiro param = va_arg(argp, Inteiro);
+      Inteiro value = va_arg(argp, Inteiro);
+      api_check(L, 0 <= param && param < SOL_GCPN, "invalid parameter");
+      res = cast_int(sol_o_applyparam(g->gcparams[param], 100));
+      Se (value >= 0)
+        g->gcparams[param] = sol_o_codeparam(cast_uint(value));
+      Interrompa;
+    }
+    Padrão: res = -1;  /* invalid option */
+  }
+  va_end(argp);
+  sol_unlock(L);
+  Retorne res;
+}
+
+
+
+/*
+** miscellaneous functions
+*/
+
+
+SOL_API Inteiro sol_error (sol_State *L) {
+  TValue *errobj;
+  sol_lock(L);
+  errobj = s2v(L->top.p - 1);
+  api_checkpop(L, 1);
+  /* Erro object is the memory Erro message? */
+  Se (ttisshrstring(errobj) && eqshrstr(tsvalue(errobj), G(L)->memerrmsg))
+    sol_m_error(L);  /* raise a memory Erro */
+  Senão
+    sol_g_errormsg(L);  /* raise a regular Erro */
+  /* code unreachable; will unlock when control actually leaves the kernel */
+  Retorne 0;  /* to avoid warnings */
+}
+
+
+SOL_API Inteiro sol_next (sol_State *L, Inteiro idx) {
+  Table *t;
+  Inteiro more;
+  sol_lock(L);
+  api_checkpop(L, 1);
+  t = gettable(L, idx);
+  more = sol_h_next(L, t, L->top.p - 1);
+  Se (more)
+    api_incr_top(L);
+  Senão  /* no more elements */
+    L->top.p--;  /* pop key */
+  sol_unlock(L);
+  Retorne more;
+}
+
+
+SOL_API Vazio sol_toclose (sol_State *L, Inteiro idx) {
+  StkId o;
+  sol_lock(L);
+  o = index2stack(L, idx);
+  api_check(L, L->tbclist.p < o, "given index below or equal a marked one");
+  sol_f_newtbcupval(L, o);  /* create new to-be-closed upvalue */
+  L->ci->callstatus |= CIST_TBC;  /* mark that function has TBC slots */
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_concat (sol_State *L, Inteiro n) {
+  sol_lock(L);
+  api_checknelems(L, n);
+  Se (n > 0) {
+    sol_v_concat(L, n);
+    sol_c_checkGC(L);
+  }
+  Senão {  /* nothing to concatenate */
+    setsvalue2s(L, L->top.p, sol_s_newlstr(L, "", 0));  /* push empty string */
+    api_incr_top(L);
+  }
+  sol_unlock(L);
+}
+
+
+SOL_API Vazio sol_len (sol_State *L, Inteiro idx) {
+  TValue *t;
+  sol_lock(L);
+  t = index2value(L, idx);
+  sol_v_objlen(L, L->top.p, t);
+  api_incr_top(L);
+  sol_unlock(L);
+}
+
+
+SOL_API sol_Alloc sol_getallocf (sol_State *L, Vazio **ud) {
+  sol_Alloc f;
+  sol_lock(L);
+  Se (ud) *ud = G(L)->ud;
+  f = G(L)->frealloc;
+  sol_unlock(L);
+  Retorne f;
+}
+
+
+SOL_API Vazio sol_setallocf (sol_State *L, sol_Alloc f, Vazio *ud) {
+  sol_lock(L);
+  G(L)->ud = ud;
+  G(L)->frealloc = f;
+  sol_unlock(L);
+}
+
+
+Vazio sol_setwarnf (sol_State *L, sol_WarnFunction f, Vazio *ud) {
+  sol_lock(L);
+  G(L)->ud_warn = ud;
+  G(L)->warnf = f;
+  sol_unlock(L);
+}
+
+
+Vazio sol_warning (sol_State *L, Imutável Caractere *msg, Inteiro tocont) {
+  sol_lock(L);
+  sol_e_warning(L, msg, tocont);
+  sol_unlock(L);
+}
+
+
+
+SOL_API Vazio *sol_newuserdatauv (sol_State *L, size_t size, Inteiro nuvalue) {
+  Udata *u;
+  sol_lock(L);
+  api_check(L, 0 <= nuvalue && nuvalue < SHRT_MAX, "invalid value");
+  u = sol_s_newudata(L, size, cast(Natural Curto, nuvalue));
+  setuvalue(L, s2v(L->top.p), u);
+  api_incr_top(L);
+  sol_c_checkGC(L);
+  sol_unlock(L);
+  Retorne getudatamem(u);
+}
+
+
+
+Fixo Imutável Caractere *aux_upvalue (TValue *fi, Inteiro n, TValue **val,
+                                GCObject **owner) {
+  Troque (ttypetag(fi)) {
+    Caso SOL_VCCL: {  /* C closure */
+      CClosure *f = clCvalue(fi);
+      Se (!(cast_uint(n) - 1u < cast_uint(f->nupvalues)))
+        Retorne NULL;  /* 'n' not in [1, f->nupvalues] */
+      *val = &f->upvalue[n-1];
+      Se (owner) *owner = obj2gco(f);
+      Retorne "";
+    }
+    Caso SOL_VLCL: {  /* Sol closure */
+      LClosure *f = clLvalue(fi);
+      TString *name;
+      Proto *p = f->p;
+      Se (!(cast_uint(n) - 1u  < cast_uint(p->sizeupvalues)))
+        Retorne NULL;  /* 'n' not in [1, p->sizeupvalues] */
+      *val = f->upvals[n-1]->v.p;
+      Se (owner) *owner = obj2gco(f->upvals[n - 1]);
+      name = p->upvalues[n-1].name;
+      Retorne (name == NULL) ? "(no name)" : getstr(name);
+    }
+    Padrão: Retorne NULL;  /* not a closure */
+  }
+}
+
+
+SOL_API Imutável Caractere *sol_getupvalue (sol_State *L, Inteiro funcindex, Inteiro n) {
+  Imutável Caractere *name;
+  TValue *val = NULL;  /* to avoid warnings */
+  sol_lock(L);
+  name = aux_upvalue(index2value(L, funcindex), n, &val, NULL);
+  Se (name) {
+    setobj2s(L, L->top.p, val);
+    api_incr_top(L);
+  }
+  sol_unlock(L);
+  Retorne name;
+}
+
+
+SOL_API Imutável Caractere *sol_setupvalue (sol_State *L, Inteiro funcindex, Inteiro n) {
+  Imutável Caractere *name;
+  TValue *val = NULL;  /* to avoid warnings */
+  GCObject *owner = NULL;  /* to avoid warnings */
+  TValue *fi;
+  sol_lock(L);
+  fi = index2value(L, funcindex);
+  api_checknelems(L, 1);
+  name = aux_upvalue(fi, n, &val, &owner);
+  Se (name) {
+    L->top.p--;
+    setobj(L, val, s2v(L->top.p));
+    sol_c_barrier(L, owner, val);
+  }
+  sol_unlock(L);
+  Retorne name;
+}
+
+
+Fixo UpVal **getupvalref (sol_State *L, Inteiro fidx, Inteiro n, LClosure **pf) {
+  Fixo Imutável UpVal *Imutável nullup = NULL;
+  LClosure *f;
+  TValue *fi = index2value(L, fidx);
+  api_check(L, ttisLclosure(fi), "Sol function expected");
+  f = clLvalue(fi);
+  Se (pf) *pf = f;
+  Se (1 <= n && n <= f->p->sizeupvalues)
+    Retorne &f->upvals[n - 1];  /* get its upvalue pointer */
+  Senão
+    Retorne (UpVal**)&nullup;
+}
+
+
+SOL_API Vazio *sol_upvalueid (sol_State *L, Inteiro fidx, Inteiro n) {
+  TValue *fi = index2value(L, fidx);
+  Troque (ttypetag(fi)) {
+    Caso SOL_VLCL: {  /* lua closure */
+      Retorne *getupvalref(L, fidx, n, NULL);
+    }
+    Caso SOL_VCCL: {  /* C closure */
+      CClosure *f = clCvalue(fi);
+      Se (1 <= n && n <= f->nupvalues)
+        Retorne &f->upvalue[n - 1];
+      /* Senão */
+    }  /* FALLTHROUGH */
+    Caso SOL_VLCF:
+      Retorne NULL;  /* light C functions have no upvalues */
+    Padrão: {
+      api_check(L, 0, "function expected");
+      Retorne NULL;
+    }
+  }
+}
+
+
+SOL_API Vazio sol_upvaluejoin (sol_State *L, Inteiro fidx1, Inteiro n1,
+                                            Inteiro fidx2, Inteiro n2) {
+  LClosure *f1;
+  UpVal **up1 = getupvalref(L, fidx1, n1, &f1);
+  UpVal **up2 = getupvalref(L, fidx2, n2, NULL);
+  api_check(L, *up1 != NULL && *up2 != NULL, "invalid upvalue index");
+  *up1 = *up2;
+  sol_c_objbarrier(L, f1, *up1);
+}
+
+

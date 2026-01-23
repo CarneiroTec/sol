@@ -1,0 +1,45 @@
+/*
+** $Id: prefix.h $
+** Definitions Para Sol code that must come before any other header file
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido lprefix_h
+#Defina lprefix_h
+
+
+/*
+** Allows POSIX/XSI stuff
+*/
+#Se !Definido(SOL_USE_C89)	/* { */
+
+#Se !Definido(_XOPEN_SOURCE)
+#Defina _XOPEN_SOURCE           600
+#Exceto _XOPEN_SOURCE == 0
+#Esqueça _XOPEN_SOURCE  /* use -D_XOPEN_SOURCE=0 to undefine it */
+#FimSe
+
+/*
+** Allows manipulation of large files in gcc and some other compilers
+*/
+#Se !Definido(SOL_32BITS) && !Definido(_FILE_OFFSET_BITS)
+#Defina _LARGEFILE_SOURCE       1
+#Defina _FILE_OFFSET_BITS       64
+#FimSe
+
+#FimSe				/* } */
+
+
+/*
+** Windows stuff
+*/
+#Se Definido(_WIN32)	/* { */
+
+#Se !Definido(_CRT_SECURE_NO_WARNINGS)
+#Defina _CRT_SECURE_NO_WARNINGS  /* avoid warnings about ISO C functions */
+#FimSe
+
+#FimSe			/* } */
+
+#FimSe
+

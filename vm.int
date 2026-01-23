@@ -1,0 +1,136 @@
+/*
+** $Id: vm.h $
+** Sol virtual machine
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido vm_h
+#Defina vm_h
+
+
+#Inclua "do.int"
+#Inclua "object.int"
+#Inclua "tm.int"
+
+
+#Se !Definido(SOL_NOCVTN2S)
+#Defina cvt2str(o)	ttisnumber(o)
+#Senão
+#Defina cvt2str(o)	0	/* no conversion from numbers to strings */
+#FimSe
+
+
+#Se !Definido(SOL_NOCVTS2N)
+#Defina cvt2num(o)	ttisstring(o)
+#Senão
+#Defina cvt2num(o)	0	/* no conversion from strings to numbers */
+#FimSe
+
+
+/*
+** You can Defina SOL_FLOORN2I Se you want to convert floats to integers
+** by flooring them (instead of raising an Erro Se they are not
+** integral values)
+*/
+#Se !Definido(SOL_FLOORN2I)
+#Defina SOL_FLOORN2I		F2Ieq
+#FimSe
+
+
+/*
+** Rounding modes Para Real->integer coercion
+ */
+Pseudônimo Enumeração {
+  F2Ieq,     /* no rounding; accepts only integral values */
+  F2Ifloor,  /* takes the floor of the number */
+  F2Iceil    /* takes the ceiling of the number */
+} F2Imod;
+
+
+/* convert an object to a Real (including string coercion) */
+#Defina tonumber(o,n) \
+	(ttisfloat(o) ? (*(n) = fltvalue(o), 1) : sol_v_tonumber_(o,n))
+
+
+/* convert an object to a Real (without string coercion) */
+#Defina tonumberns(o,n) \
+	(ttisfloat(o) ? ((n) = fltvalue(o), 1) : \
+	(ttisinteger(o) ? ((n) = cast_num(ivalue(o)), 1) : 0))
+
+
+/* convert an object to an integer (including string coercion) */
+#Defina tointeger(o,i) \
+  (l_likely(ttisinteger(o)) ? (*(i) = ivalue(o), 1) \
+                          : sol_v_tointeger(o,i,SOL_FLOORN2I))
+
+
+/* convert an object to an integer (without string coercion) */
+#Defina tointegerns(o,i) \
+  (l_likely(ttisinteger(o)) ? (*(i) = ivalue(o), 1) \
+                          : sol_v_tointegerns(o,i,SOL_FLOORN2I))
+
+
+#Defina intop(op,v1,v2) l_castU2S(l_castS2U(v1) op l_castS2U(v2))
+
+#Defina sol_v_rawequalobj(t1,t2)		sol_v_equalobj(NULL,t1,t2)
+
+
+/*
+** fast track Para 'gettable'
+*/
+#Defina sol_v_fastget(t,k,res,f, tag) \
+  (tag = (!ttistable(t) ? SOL_VNOTABLE : f(hvalue(t), k, res)))
+
+
+/*
+** Special Caso of 'sol_v_fastget' Para integers, inlining the fast Caso
+** of 'sol_h_getint'.
+*/
+#Defina sol_v_fastgeti(t,k,res,tag) \
+  Se (!ttistable(t)) tag = SOL_VNOTABLE; \
+  Senão { sol_h_fastgeti(hvalue(t), k, res, tag); }
+
+
+#Defina sol_v_fastset(t,k,val,hres,f) \
+  (hres = (!ttistable(t) ? HNOTATABLE : f(hvalue(t), k, val)))
+
+#Defina sol_v_fastseti(t,k,val,hres) \
+  Se (!ttistable(t)) hres = HNOTATABLE; \
+  Senão { sol_h_fastseti(hvalue(t), k, val, hres); }
+
+
+/*
+** Finish a fast set operation (when fast set succeeds).
+*/
+#Defina sol_v_finishfastset(L,t,v)	sol_c_barrierback(L, gcvalue(t), v)
+
+
+/*
+** Shift right is the same as shift left with a negative 'y'
+*/
+#Defina sol_v_shiftr(x,y)	sol_v_shiftl(x,intop(-, 0, y))
+
+
+
+SOL_FUNC Inteiro sol_v_equalobj (sol_State *L, Imutável TValue *t1, Imutável TValue *t2);
+SOL_FUNC Inteiro sol_v_lessthan (sol_State *L, Imutável TValue *l, Imutável TValue *r);
+SOL_FUNC Inteiro sol_v_lessequal (sol_State *L, Imutável TValue *l, Imutável TValue *r);
+SOL_FUNC Inteiro sol_v_tonumber_ (Imutável TValue *obj, sol_Number *n);
+SOL_FUNC Inteiro sol_v_tointeger (Imutável TValue *obj, sol_Integer *p, F2Imod mode);
+SOL_FUNC Inteiro sol_v_tointegerns (Imutável TValue *obj, sol_Integer *p,
+                                F2Imod mode);
+SOL_FUNC Inteiro sol_v_flttointeger (sol_Number n, sol_Integer *p, F2Imod mode);
+SOL_FUNC lu_byte sol_v_finishget (sol_State *L, Imutável TValue *t, TValue *key,
+                                                StkId val, lu_byte tag);
+SOL_FUNC Vazio sol_v_finishset (sol_State *L, Imutável TValue *t, TValue *key,
+                                             TValue *val, Inteiro aux);
+SOL_FUNC Vazio sol_v_finishOp (sol_State *L);
+SOL_FUNC Vazio sol_v_execute (sol_State *L, CallInfo *ci);
+SOL_FUNC Vazio sol_v_concat (sol_State *L, Inteiro total);
+SOL_FUNC sol_Integer sol_v_idiv (sol_State *L, sol_Integer x, sol_Integer y);
+SOL_FUNC sol_Integer sol_v_mod (sol_State *L, sol_Integer x, sol_Integer y);
+SOL_FUNC sol_Number sol_v_modf (sol_State *L, sol_Number x, sol_Number y);
+SOL_FUNC sol_Integer sol_v_shiftl (sol_Integer x, sol_Integer y);
+SOL_FUNC Vazio sol_v_objlen (sol_State *L, StkId ra, Imutável TValue *rb);
+
+#FimSe

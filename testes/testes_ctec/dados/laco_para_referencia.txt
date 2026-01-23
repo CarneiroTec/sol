@@ -1,0 +1,75 @@
+-- Laço PARA: Referência rápida de todas as formas
+
+-- FORMA NUMÉRICA:
+-- para variável = início, fim [, passo] faça ... fim
+
+-- FORMA GENÉRICA (iteradores):
+-- para var1 [, var2, ...] em iterador(tabela) faça ... fim
+
+-- ============================================
+-- SINTAXES SUPORTADAS:
+-- ============================================
+
+-- 1. Numérico simples (passo 1):
+--    para i = 1, 10 faça
+
+-- 2. Numérico com passo:
+--    para i = 0, 100, 10 faça
+
+-- 3. Regressivo (passo negativo OBRIGATÓRIO):
+--    para i = 10, 1, -1 faça
+
+-- 4. Array/Lista (ordem garantida):
+--    para i, v em obtenha_pares_indexados(tabela) faça
+
+-- 5. Mapa/Objeto (ordem NÃO garantida):
+--    para k, v em obtenha_pares(tabela) faça
+
+-- 6. Ignorar variável:
+--    para _, v em obtenha_pares_indexados(tabela) faça
+
+-- ============================================
+-- ITERADORES DISPONÍVEIS:
+-- ============================================
+
+-- obtenha_pares_indexados(t)
+--   - Retorna: índice, valor
+--   - Ordem: garantida (1, 2, 3...)
+--   - Para no primeiro nulo
+--   - Ignora chaves nomeadas
+--   - Uso: listas ordenadas {1, 2, 3}
+
+-- obtenha_pares(t)
+--   - Retorna: chave, valor
+--   - Ordem: NÃO garantida
+--   - Itera tudo (índices + chaves)
+--   - Uso: dicionários {nome="Ana"}
+
+-- ============================================
+-- CONTROLE DE FLUXO:
+-- ============================================
+
+-- interrompa - sai do loop imediatamente
+
+-- ============================================
+-- ERROS COMUNS:
+-- ============================================
+
+-- ❌ para i = 10, 1 faça          (falta passo negativo)
+-- ✅ para i = 10, 1, -1 faça
+
+-- ❌ para k em obtenha_pares(t)   (falta segunda variável)
+-- ✅ para k, v em obtenha_pares(t)
+
+-- ❌ obtenha_pares_indexados em mapa (ignora chaves)
+-- ✅ obtenha_pares em mapa
+
+-- ❌ obtenha_pares + esperar ordem (ordem não garantida)
+-- ✅ obtenha_pares_indexados para ordem
+
+-- ============================================
+-- RESTRIÇÃO:
+-- ============================================
+
+-- Não é permitido aninhar loops para...para diretamente
+-- Se precisar, isole o loop interno em uma função

@@ -1,0 +1,79 @@
+/* Teste unitario: parametro de funcao nao deve vazar */
+#Defina teste_param_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua <string.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "lsp.int"
+
+Inteiro Início() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Codigo de teste:
+       Linha 0: funcao f(x)
+       Linha 1:   retorne x
+       Linha 2: fim
+       Linha 3: (vazio) */
+    Imutável Caractere *codigo = 
+        "funcao f(x)\n"
+        "  retorne x\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///t.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    printf("=== TESTE: Parametro nao vaza ===\n\n");
+    printf("Variaveis encontradas:\n");
+    
+    Inteiro x_encontrado = 0;
+    Inteiro x_scopeStart = -1;
+    Inteiro x_scopeEnd = -1;
+    
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        printf("  %s: linha=%d, scopeStart=%d, scopeEnd=%d\n",
+            doc->variables[i].name,
+            doc->variables[i].line,
+            doc->variables[i].scopeStartLine,
+            doc->variables[i].scopeEndLine);
+        
+        Se (strcmp(doc->variables[i].name, "x") == 0) {
+            x_encontrado = 1;
+            x_scopeStart = doc->variables[i].scopeStartLine;
+            x_scopeEnd = doc->variables[i].scopeEndLine;
+        }
+    }
+    
+    printf("\n");
+    
+    Se (!x_encontrado) {
+        printf("ERRO: x nao foi encontrado!\n");
+        Retorne 1;
+    }
+    
+    /* Verificar se x esta visivel na linha 1 (dentro da funcao) */
+    Se (1 >= x_scopeStart && 1 <= x_scopeEnd) {
+        printf("OK: x visivel na linha 1 (dentro da funcao)\n");
+    } Senão {
+        printf("FALHA: x deveria estar visivel na linha 1\n");
+        Retorne 1;
+    }
+    
+    /* Verificar se x NAO esta visivel na linha 3 (fora da funcao) */
+    Se (3 >= x_scopeStart && 3 <= x_scopeEnd) {
+        printf("FALHA: x NAO deveria estar visivel na linha 3 (fora da funcao)!\n");
+        printf("  x.scopeEndLine = %d, mas deveria ser 2 ou menos\n", x_scopeEnd);
+        Retorne 1;
+    } Senão {
+        printf("OK: x invisivel na linha 3 (fora da funcao)\n");
+    }
+    
+    printf("\n=== TESTE PASSOU ===\n");
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne 0;
+}

@@ -1,0 +1,25 @@
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "lsp.int"
+
+Inteiro Início() {
+    printf("Inicio...\n"); fflush(stdout);
+    sol_State *L = solL_newstate();
+    printf("L criado\n"); fflush(stdout);
+    LSPState *lsp = lsp_init(L);
+    printf("LSP criado\n"); fflush(stdout);
+    LSPDocument *doc = lsp_add_document(lsp, "file:///t.sol", "global = 1");
+    printf("Doc criado\n"); fflush(stdout);
+    Se (doc) {
+        printf("Analisando...\n"); fflush(stdout);
+        lsp_analyze_document(lsp, doc);
+        printf("Analisado\n"); fflush(stdout);
+    }
+    lsp_shutdown(lsp);
+    printf("Shutdown\n"); fflush(stdout);
+    sol_close(L);
+    printf("OK\n");
+    Retorne 0;
+}

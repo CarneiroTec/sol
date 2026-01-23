@@ -1,0 +1,171 @@
+/*
+** $Id: tests.h $
+** Internal Header Para Debugging of the Sol Implementation
+** See Copyright Notice in sol.h
+*/
+
+#SeNãoDefinido tests_h
+#Defina tests_h
+
+
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+
+/* test Sol with compatibility code */
+#Defina SOL_COMPAT_MATHLIB
+#Esqueça SOL_COMPAT_GLOBAL
+
+
+#Defina SOL_DEBUG
+
+
+/* turn on assertions */
+#Defina SOL_ASSERT
+
+
+/* to avoid warnings, and to make sure value is really unused */
+#Defina UNUSED(x)       (x=0, (Vazio)(x))
+
+
+/* test Para sizes in 'l_sprintf' (make sure whole buffer is available) */
+#Esqueça l_sprintf
+#Se !Definido(SOL_USE_C89)
+#Defina l_sprintf(s,sz,f,i)	(memset(s,0xAB,sz), snprintf(s,sz,f,i))
+#Senão
+#Defina l_sprintf(s,sz,f,i)	(memset(s,0xAB,sz), sprintf(s,f,i))
+#FimSe
+
+
+/* get a chance to test code without jump tables */
+#Defina SOL_USE_JUMPTABLE	0
+
+
+/* use 32-bit integers in random generator */
+#Defina SOL_RAND32
+
+
+/* test stack reallocation without strict address use */
+#Defina SOL_STRICT_ADDRESS	0
+
+
+/* memory-allocator control variables */
+Pseudônimo Estrutura Memcontrol {
+  Inteiro failnext;
+  Natural Longo numblocks;
+  Natural Longo total;
+  Natural Longo maxmem;
+  Natural Longo memlimit;
+  Natural Longo countlimit;
+  Natural Longo objcount[SOL_NUMTYPES];
+} Memcontrol;
+
+SOL_API Memcontrol l_memcontrol;
+
+
+#Defina sol_tracegc(L,f)		sol_tracegctest(L, f)
+Externo Vazio sol_tracegctest (sol_State *L, Inteiro first);
+
+
+/*
+** generic variable Para debug tricks
+*/
+Externo Vazio *l_Trick;
+
+
+/*
+** Function to traverse and check all memory used by Sol
+*/
+Externo Inteiro sol_checkmemory (sol_State *L);
+
+/*
+** Function to print an object GC-friendly
+*/
+Estrutura GCObject;
+Externo Vazio sol_printobj (sol_State *L, Estrutura GCObject *o);
+
+
+/*
+** Function to print a value
+*/
+Estrutura TValue;
+Externo Vazio sol_printvalue (Estrutura TValue *v);
+
+/*
+** Function to print the stack
+*/
+Externo Vazio sol_printstack (sol_State *L);
+Externo Inteiro sol_printallstack (sol_State *L);
+
+
+/* test Para lock/unlock */
+
+Estrutura L_EXTRA { Inteiro lock; Inteiro *plock; };
+#Esqueça SOL_EXTRASPACE
+#Defina SOL_EXTRASPACE	Meça(Estrutura L_EXTRA)
+#Defina getlock(l)	cast(Estrutura L_EXTRA*, sol_getextraspace(l))
+#Defina sol_userstateopen(l)  \
+	(getlock(l)->lock = 0, getlock(l)->plock = &(getlock(l)->lock))
+#Defina sol_userstateclose(l)  \
+  sol_assert(getlock(l)->lock == 1 && getlock(l)->plock == &(getlock(l)->lock))
+#Defina sol_userstatethread(l,l1) \
+  sol_assert(getlock(l1)->plock == getlock(l)->plock)
+#Defina sol_userstatefree(l,l1) \
+  sol_assert(getlock(l)->plock == getlock(l1)->plock)
+#Defina sol_lock(l)     sol_assert((*getlock(l)->plock)++ == 0)
+#Defina sol_unlock(l)   sol_assert(--(*getlock(l)->plock) == 0)
+
+
+
+SOL_API Inteiro solB_opentests (sol_State *L);
+
+SOL_API Vazio *debug_realloc (Vazio *ud, Vazio *block,
+                             size_t osize, size_t nsize);
+
+
+#Defina sol_newstate()  \
+	sol_newstate(debug_realloc, &l_memcontrol, sol_makeseed(NULL))
+#Defina sol_openlibs(L)  \
+  {  sol_openlibs(L); \
+     sol_requiref(L, "T", solB_opentests, 1); \
+     sol_pop(L, 1); }
+
+
+
+
+/* change some sizes to give some bugs a chance */
+
+#Esqueça SOL_BUFFERSIZE
+#Defina SOL_BUFFERSIZE		23
+#Defina MINSTRTABSIZE		2
+#Defina MAXIWTHABS		3
+
+#Defina STRCACHE_N	23
+#Defina STRCACHE_M	5
+
+
+/*
+** This one is not compatible with tests Para opcode optimizations,
+** as it blocks some optimizations
+#Defina MAXINDEXRK	0
+*/
+
+
+/*
+** Reduce maximum stack size to make stack-overflow tests run faster.
+** (But value is still large enough to overflow smaller integers.)
+*/
+#Defina SOL_MAXSTACK   68000
+
+
+/* test mode uses more stack space */
+#Esqueça SOL_MAXCCALLS
+#Defina SOL_MAXCCALLS	180
+
+
+/* force Sol to use its own implementations */
+#Esqueça sol_strx2number
+#Esqueça sol_number2strx
+
+
+#FimSe
+

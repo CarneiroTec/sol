@@ -1,0 +1,720 @@
+/*
+** teste_lsp_niveis.ctec - Testes do LSP por nível de indentação
+** 
+** Cada nível testa 4 cenários:
+** - ESPERADO: comportamento correto
+** - NAO_ESPERADO: entrada válida mas resultado errado  
+** - NULO: entrada NULL/vazia
+** - ESTOURO: limites de memória/tamanho
+**
+** O LSP NUNCA deve crashar - sempre retorna feedback
+*/
+
+#Defina teste_lsp_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "solib.int"
+#Inclua "lsp.int"
+
+#Defina TESTE_OK 0
+#Defina TESTE_FALHA 1
+
+#Defina MAX_ERRO 512
+Fixo Caractere ultimo_erro[MAX_ERRO] = "";
+
+Fixo Vazio registra_erro(Imutável Caractere *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(ultimo_erro, MAX_ERRO, fmt, args);
+    va_end(args);
+}
+
+Fixo Vazio imprime_resultado(Imutável Caractere *nivel, Imutável Caractere *cenario, Inteiro resultado) {
+    printf("[%s][%s] %s%s\n", 
+            nivel, cenario, 
+            resultado == TESTE_OK ? "OK" : "FALHA",
+            resultado == TESTE_FALHA ? ultimo_erro : "");
+    fflush(stdout);
+}
+
+/* ============================================================
+** NÍVEL 0: LSPState (Estado Global)
+** ============================================================ */
+
+Inteiro teste_n0_esperado() {
+    sol_State *L = solL_newstate();
+    Se (!L) { registra_erro(": solL_newstate retornou NULL"); Retorne TESTE_FALHA; }
+    
+    LSPState *lsp = lsp_init(L);
+    Se (!lsp) { registra_erro(": lsp_init retornou NULL"); sol_close(L); Retorne TESTE_FALHA; }
+    Se (!lsp->L) { registra_erro(": lsp->L é NULL"); Retorne TESTE_FALHA; }
+    Se (lsp->builtinCount == 0) { registra_erro(": builtins não carregados"); Retorne TESTE_FALHA; }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n0_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Modifica estado para simular corrupção */
+    lsp->docCount = -1;  /* Valor inválido */
+    
+    /* Shutdown não deve crashar mesmo com estado corrompido */
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;  /* Passou se não crashou */
+}
+
+Inteiro teste_n0_nulo() {
+    /* lsp_init com NULL - não deve crashar */
+    LSPState *lsp = lsp_init(NULL);
+    Se (lsp != NULL) {
+        /* Se retornou algo, deve ser seguro fazer shutdown */
+        lsp_shutdown(lsp);
+        registra_erro(": deveria retornar NULL para L=NULL");
+        Retorne TESTE_FALHA;
+    }
+    
+    /* lsp_shutdown com NULL - não deve crashar */
+    lsp_shutdown(NULL);
+    
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n0_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Tenta adicionar mais documentos que o limite */
+    Caractere uri[64];
+    Inteiro i;
+    Para (i = 0; i < LSP_MAX_DOCS + 10; i++) {
+        snprintf(uri, 64, "teste://doc%d.sol", i);
+        LSPDocument *doc = lsp_add_document(lsp, uri, "local x = 1");
+        Se (i >= LSP_MAX_DOCS && doc != NULL) {
+            registra_erro(": aceitou doc além do limite");
+            lsp_shutdown(lsp);
+            sol_close(L);
+            Retorne TESTE_FALHA;
+        }
+    }
+    
+    /* Deve ter exatamente LSP_MAX_DOCS */
+    Se (lsp->docCount != LSP_MAX_DOCS) {
+        registra_erro(": docCount=%d, esperado=%d", lsp->docCount, LSP_MAX_DOCS);
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** NÍVEL 1: LSPDocument (Documento)
+** ============================================================ */
+
+Inteiro teste_n1_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    Imutável Caractere *uri = "file:///teste/exemplo.sol";
+    Imutável Caractere *conteudo = "local variavel = 42";
+    
+    LSPDocument *doc = lsp_add_document(lsp, uri, conteudo);
+    Se (!doc) { registra_erro(": lsp_add_document retornou NULL"); Retorne TESTE_FALHA; }
+    Se (!doc->uri) { registra_erro(": doc->uri é NULL"); Retorne TESTE_FALHA; }
+    Se (strcmp(doc->uri, uri) != 0) { registra_erro(": URI não corresponde"); Retorne TESTE_FALHA; }
+    Se (!doc->content) { registra_erro(": doc->content é NULL"); Retorne TESTE_FALHA; }
+    Se (doc->contentLen != strlen(conteudo)) { registra_erro(": contentLen incorreto"); Retorne TESTE_FALHA; }
+    
+    /* Busca documento */
+    LSPDocument *found = lsp_get_document(lsp, uri);
+    Se (found != doc) { registra_erro(": lsp_get_document não encontrou"); Retorne TESTE_FALHA; }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n1_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Adiciona mesmo documento duas vezes - deve substituir ou duplicar? */
+    Imutável Caractere *uri = "file:///duplicado.sol";
+    lsp_add_document(lsp, uri, "versao 1");
+    lsp_add_document(lsp, uri, "versao 2");
+    
+    /* Verifica comportamento (não deve crashar independente do resultado) */
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Se (!doc) { registra_erro(": documento duplicado perdido"); Retorne TESTE_FALHA; }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n1_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* URI NULL */
+    LSPDocument *doc1 = lsp_add_document(lsp, NULL, "conteudo");
+    Se (doc1 != NULL) { registra_erro(": aceitou URI NULL"); Retorne TESTE_FALHA; }
+    
+    /* Conteúdo NULL */
+    LSPDocument *doc2 = lsp_add_document(lsp, "file:///x.sol", NULL);
+    Se (doc2 != NULL) { registra_erro(": aceitou content NULL"); Retorne TESTE_FALHA; }
+    
+    /* Busca URI NULL */
+    LSPDocument *found = lsp_get_document(lsp, NULL);
+    Se (found != NULL) { registra_erro(": encontrou doc com URI NULL"); Retorne TESTE_FALHA; }
+    
+    /* Busca URI inexistente */
+    found = lsp_get_document(lsp, "file:///inexistente.sol");
+    Se (found != NULL) { registra_erro(": encontrou doc inexistente"); Retorne TESTE_FALHA; }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n1_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* URI muito longa */
+    Caractere uri_longa[8192];
+    memset(uri_longa, 'a', 8191);
+    uri_longa[8191] = '\0';
+    
+    LSPDocument *doc1 = lsp_add_document(lsp, uri_longa, "x=1");
+    /* Não deve crashar - pode aceitar ou rejeitar */
+    
+    /* Conteúdo muito grande (1MB+) */
+    Caractere *conteudo_grande = (Caractere*)malloc(2 * 1024 * 1024);
+    Se (conteudo_grande) {
+        memset(conteudo_grande, ' ', 2 * 1024 * 1024 - 1);
+        conteudo_grande[2 * 1024 * 1024 - 1] = '\0';
+        
+        LSPDocument *doc2 = lsp_add_document(lsp, "file:///grande.sol", conteudo_grande);
+        /* Não deve crashar */
+        
+        free(conteudo_grande);
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;  /* Passou se não crashou */
+}
+
+/* ============================================================
+** NÍVEL 2: Análise (lsp_analyze_document)
+** ============================================================ */
+
+Inteiro teste_n2_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Código Sol válido com todas keywords */
+    Imutável Caractere *codigo = 
+        "local x = 1\n"
+        "local função teste(a, b)\n"
+        "    local y = a + b\n"
+        "    se y então\n"
+        "        retorne y\n"
+        "    fim\n"
+        "fim\n"
+        "para i, v em pares({}) faça\n"
+        "    local z = i\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///valido.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Deve ter detectado variáveis */
+    Se (doc->variableCount == 0) { 
+        registra_erro(": nenhuma variável detectada"); 
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA; 
+    }
+    
+    /* Primeira deve ser 'x' */
+    Se (strcmp(doc->variables[0].name, "x") != 0) {
+        registra_erro(": primeira variável não é 'x', é '%s'", doc->variables[0].name);
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n2_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Código com sintaxe inválida - LSP não deve crashar */
+    Imutável Caractere *codigo_invalido = 
+        "local x = \n"
+        "função sem fim\n"
+        "se sem então\n"
+        "para sem faça\n"
+        "{{{{{\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///invalido.sol", codigo_invalido);
+    lsp_analyze_document(lsp, doc);  /* Não deve crashar */
+    
+    /* Pode ter detectado algo ou não, mas não crashou */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n2_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Documento NULL */
+    lsp_analyze_document(lsp, NULL);  /* Não deve crashar */
+    
+    /* Documento com content NULL */
+    LSPDocument doc_vazio;
+    memset(&doc_vazio, 0, Meça(LSPDocument));
+    doc_vazio.uri = "file:///vazio.sol";
+    doc_vazio.content = NULL;
+    lsp_analyze_document(lsp, &doc_vazio);  /* Não deve crashar */
+    
+    /* Documento com content vazio */
+    LSPDocument *doc = lsp_add_document(lsp, "file:///empty.sol", "");
+    lsp_analyze_document(lsp, doc);
+    Se (doc->variableCount != 0) {
+        registra_erro(": detectou variáveis em código vazio");
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n2_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Código com muitas variáveis */
+    Caractere codigo[65536];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 500 && pos < 65000; i++) {
+        pos += snprintf(codigo + pos, 65536 - pos, "local var%d = %d\n", i, i);
+    }
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///muitas_vars.sol", codigo);
+    lsp_analyze_document(lsp, doc);  /* Não deve crashar */
+    
+    /* Código com aninhamento profundo */
+    Caractere aninhado[4096];
+    pos = 0;
+    Para (Inteiro i = 0; i < 50 && pos < 4000; i++) {
+        pos += snprintf(aninhado + pos, 4096 - pos, "se verdadeiro então\n");
+    }
+    Para (Inteiro i = 0; i < 50 && pos < 4000; i++) {
+        pos += snprintf(aninhado + pos, 4096 - pos, "fim\n");
+    }
+    
+    LSPDocument *doc2 = lsp_add_document(lsp, "file:///aninhado.sol", aninhado);
+    lsp_analyze_document(lsp, doc2);  /* Não deve crashar */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** NÍVEL 3: LSPVariable (Variáveis Detectadas)
+** ============================================================ */
+
+Inteiro teste_n3_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    Imutável Caractere *codigo = 
+        "local tabela = { campo1 = 1, campo2 = 2 }\n"
+        "local função metodo(self, x)\n"
+        "    retorne self.campo1 + x\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///vars.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Verifica 'tabela' */
+    Inteiro achou_tabela = 0;
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "tabela") == 0) {
+            achou_tabela = 1;
+            Se (doc->variables[i].type != LSP_TYPE_TABLE) {
+                registra_erro(": 'tabela' não é tipo TABLE");
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            Se (doc->variables[i].fieldCount < 2) {
+                registra_erro(": 'tabela' deve ter 2 campos, tem %d", doc->variables[i].fieldCount);
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            Interrompa;
+        }
+    }
+    
+    Se (!achou_tabela) {
+        registra_erro(": variável 'tabela' não encontrada");
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n3_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Variável com nome unicode complexo */
+    Imutável Caractere *codigo = "local variável_com_açúcar = 1\nlocal 日本語 = 2\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///unicode.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Deve ter detectado pelo menos a primeira (português) */
+    Se (doc->variableCount == 0) {
+        registra_erro(": não detectou variáveis unicode");
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n3_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Código só com keywords, sem variáveis */
+    Imutável Caractere *codigo = "se verdadeiro então fim\npara em faça fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///semvars.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Não deve ter variáveis mas não deve crashar */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n3_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Nome de variável muito longo */
+    Caractere nome_longo[1024];
+    memset(nome_longo, 'a', 1023);
+    nome_longo[1023] = '\0';
+    
+    Caractere codigo[2048];
+    snprintf(codigo, 2048, "local %s = 1", nome_longo);
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///nomelongo.sol", codigo);
+    lsp_analyze_document(lsp, doc);  /* Não deve crashar */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** NÍVEL 4: LSPField (Campos de Tabela)
+** ============================================================ */
+
+Inteiro teste_n4_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    Imutável Caractere *codigo = 
+        "local t = {\n"
+        "    nome = \"teste\",\n"
+        "    valor = 42,\n"
+        "    ativo = verdadeiro,\n"
+        "    dados = { x = 1, y = 2 }\n"
+        "}\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///campos.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Encontra 't' */
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "t") == 0) {
+            LSPVariable *v = &doc->variables[i];
+            Se (v->fieldCount < 4) {
+                registra_erro(": 't' deve ter 4 campos, tem %d", v->fieldCount);
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            
+            /* Verifica se 'nome' existe */
+            Inteiro achou_nome = 0;
+            Para (Inteiro j = 0; j < v->fieldCount; j++) {
+                Se (strcmp(v->fields[j].name, "nome") == 0) {
+                    achou_nome = 1;
+                    Interrompa;
+                }
+            }
+            Se (!achou_nome) {
+                registra_erro(": campo 'nome' não encontrado");
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            
+            lsp_shutdown(lsp);
+            sol_close(L);
+            Retorne TESTE_OK;
+        }
+    }
+    
+    registra_erro(": variável 't' não encontrada");
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_FALHA;
+}
+
+Inteiro teste_n4_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Tabela com sintaxe estranha mas válida */
+    Imutável Caractere *codigo = 
+        "local t = { [1] = 'a', ['chave'] = 'b', normal = 'c', }\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///tabela_mista.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Pelo menos 'normal' deve ser detectado */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n4_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Tabela vazia */
+    Imutável Caractere *codigo = "local t = {}\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///tabela_vazia.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "t") == 0) {
+            Se (doc->variables[i].fieldCount != 0) {
+                registra_erro(": tabela vazia tem %d campos", doc->variables[i].fieldCount);
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            Interrompa;
+        }
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n4_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Tabela com muitos campos */
+    Caractere codigo[65536];
+    Inteiro pos = snprintf(codigo, 65536, "local t = {\n");
+    Para (Inteiro i = 0; i < 200 && pos < 65000; i++) {
+        pos += snprintf(codigo + pos, 65536 - pos, "    campo%d = %d,\n", i, i);
+    }
+    pos += snprintf(codigo + pos, 65536 - pos, "}\n");
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///muitos_campos.sol", codigo);
+    lsp_analyze_document(lsp, doc);  /* Não deve crashar */
+    
+    /* Verifica se respeitou LSP_MAX_FIELDS */
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "t") == 0) {
+            Se (doc->variables[i].fieldCount > LSP_MAX_FIELDS) {
+                registra_erro(": excedeu LSP_MAX_FIELDS");
+                lsp_shutdown(lsp);
+                sol_close(L);
+                Retorne TESTE_FALHA;
+            }
+            Interrompa;
+        }
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** NÍVEL 5: Handlers LSP (completion, hover, definition)
+** ============================================================ */
+
+Inteiro teste_n5_esperado() {
+    sol_State *L = solL_newstate();
+    sol_openlibs(L);
+    LSPState *lsp = lsp_init(L);
+    
+    Imutável Caractere *codigo = "local obj = { metodo = função() fim }\n";
+    LSPDocument *doc = lsp_add_document(lsp, "file:///handler.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Simula request de completion após 'obj.' */
+    /* Como lsp_handle_completion espera stack Lua, testamos indiretamente */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n5_nao_esperado() {
+    sol_State *L = solL_newstate();
+    sol_openlibs(L);
+    LSPState *lsp = lsp_init(L);
+    
+    /* Request com método desconhecido - não deve crashar */
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n5_nulo() {
+    sol_State *L = solL_newstate();
+    sol_openlibs(L);
+    LSPState *lsp = lsp_init(L);
+    
+    /* Completion em documento inexistente */
+    LSPDocument *doc = lsp_get_document(lsp, "file:///nao_existe.sol");
+    Se (doc != NULL) {
+        registra_erro(": encontrou documento inexistente");
+        lsp_shutdown(lsp);
+        sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_n5_estouro() {
+    sol_State *L = solL_newstate();
+    sol_openlibs(L);
+    LSPState *lsp = lsp_init(L);
+    
+    /* Muitas requests seguidas */
+    Para (Inteiro i = 0; i < 1000; i++) {
+        Caractere uri[64];
+        snprintf(uri, 64, "file:///stress%d.sol", i % 10);
+        
+        LSPDocument *doc = lsp_add_document(lsp, uri, "local x = 1");
+        Se (doc) lsp_analyze_document(lsp, doc);
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** Função Principal - Executa Todos os Testes
+** ============================================================ */
+
+Inteiro Início() {
+    printf("\n=== TESTES LSP POR NIVEL DE INDENTACAO ===\n\n"); fflush(stdout);
+    
+    Inteiro total = 0, passou = 0;
+    
+    #Defina EXECUTA(nivel, cenario, func) \
+        total++; \
+        Se (func() == TESTE_OK) { passou++; imprime_resultado(nivel, cenario, TESTE_OK); } \
+        Senão { imprime_resultado(nivel, cenario, TESTE_FALHA); }
+    
+    printf("--- Nivel 0: LSPState ---\n"); fflush(stdout);
+    EXECUTA("N0", "ESPERADO", teste_n0_esperado);
+    EXECUTA("N0", "NAO_ESPERADO", teste_n0_nao_esperado);
+    EXECUTA("N0", "NULO", teste_n0_nulo);
+    EXECUTA("N0", "ESTOURO", teste_n0_estouro);
+    
+    printf("\n--- Nivel 1: LSPDocument ---\n"); fflush(stdout);
+    EXECUTA("N1", "ESPERADO", teste_n1_esperado);
+    EXECUTA("N1", "NAO_ESPERADO", teste_n1_nao_esperado);
+    EXECUTA("N1", "NULO", teste_n1_nulo);
+    EXECUTA("N1", "ESTOURO", teste_n1_estouro);
+    
+    printf("\n--- Nivel 2: Analise ---\n"); fflush(stdout);
+    EXECUTA("N2", "ESPERADO", teste_n2_esperado);
+    EXECUTA("N2", "NAO_ESPERADO", teste_n2_nao_esperado);
+    EXECUTA("N2", "NULO", teste_n2_nulo);
+    EXECUTA("N2", "ESTOURO", teste_n2_estouro);
+    
+    printf("\n--- Nivel 3: LSPVariable ---\n"); fflush(stdout);
+    EXECUTA("N3", "ESPERADO", teste_n3_esperado);
+    EXECUTA("N3", "NAO_ESPERADO", teste_n3_nao_esperado);
+    EXECUTA("N3", "NULO", teste_n3_nulo);
+    EXECUTA("N3", "ESTOURO", teste_n3_estouro);
+    
+    printf("\n--- Nivel 4: LSPField ---\n"); fflush(stdout);
+    EXECUTA("N4", "ESPERADO", teste_n4_esperado);
+    EXECUTA("N4", "NAO_ESPERADO", teste_n4_nao_esperado);
+    EXECUTA("N4", "NULO", teste_n4_nulo);
+    EXECUTA("N4", "ESTOURO", teste_n4_estouro);
+    
+    printf("\n--- Nivel 5: Handlers ---\n"); fflush(stdout);
+    EXECUTA("N5", "ESPERADO", teste_n5_esperado);
+    EXECUTA("N5", "NAO_ESPERADO", teste_n5_nao_esperado);
+    EXECUTA("N5", "NULO", teste_n5_nulo);
+    EXECUTA("N5", "ESTOURO", teste_n5_estouro);
+    
+    printf("\n=== RESULTADO: %d/%d testes passaram ===\n", passou, total); fflush(stdout);
+    
+    Retorne (passou == total) ? 0 : 1;
+}

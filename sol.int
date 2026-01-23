@@ -1,0 +1,551 @@
+/*
+** $Id: sol.h $
+** Sol - A Scripting Language
+** Sol.org, PUC-Rio, Brazil (www.sol.org)
+** See Copyright Notice at the end of this file
+*/
+
+
+#SeNãoDefinido sol_h
+#Defina sol_h
+
+#Inclua <stdarg.h>
+#Inclua <stddef.h>
+
+
+#Defina SOL_COPYRIGHT	SOL_RELEASE "  Copyright (C) 1994-2025 Sol.org, PUC-Rio"
+#Defina SOL_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
+
+
+#Defina SOL_VERSION_MAJOR_N	5
+#Defina SOL_VERSION_MINOR_N	5
+#Defina SOL_VERSION_RELEASE_N	0
+
+#Defina SOL_VERSION_NUM  (SOL_VERSION_MAJOR_N * 100 + SOL_VERSION_MINOR_N)
+#Defina SOL_VERSION_RELEASE_NUM  (SOL_VERSION_NUM * 100 + SOL_VERSION_RELEASE_N)
+
+
+#Inclua "sol_conf.int"
+
+
+/* mark Para precompiled code ('<esc>Sol') */
+#Defina SOL_SIGNATURE	"\x1bLua"
+
+/* option Para multiple returns in 'sol_pcall' and 'sol_call' */
+#Defina SOL_MULTRET	(-1)
+
+
+/*
+** Pseudo-indices
+** (The stack size is limited to INT_MAX/2; we keep some free empty
+** space after that to help overflow detection.)
+*/
+#Defina SOL_REGISTRYINDEX	(-(INT_MAX/2 + 1000))
+#Defina sol_upvalueindex(i)	(SOL_REGISTRYINDEX - (i))
+
+
+/* thread status */
+#Defina SOL_OK		0
+#Defina SOL_YIELD	1
+#Defina SOL_ERRRUN	2
+#Defina SOL_ERRSYNTAX	3
+#Defina SOL_ERRMEM	4
+#Defina SOL_ERRERR	5
+
+
+Estrutura sol_State;
+Pseudônimo Estrutura sol_State sol_State;
+
+
+/*
+** basic types
+*/
+#Defina SOL_TNONE		(-1)
+
+#Defina SOL_TNIL		0
+#Defina SOL_TBOOLEAN		1
+#Defina SOL_TLIGHTUSERDATA	2
+#Defina SOL_TNUMBER		3
+#Defina SOL_TSTRING		4
+#Defina SOL_TTABLE		5
+#Defina SOL_TFUNCTION		6
+#Defina SOL_TUSERDATA		7
+#Defina SOL_TTHREAD		8
+#Defina SOL_TCHANNEL    9
+#Defina SOL_TTASK       10
+#Defina SOL_TPROCESS    11
+
+#Defina SOL_NUMTYPES		12
+
+
+
+/* minimum Sol stack available to a C function */
+#Defina SOL_MINSTACK	20
+
+
+/* predefined values in the registry */
+/* index 1 is reserved Para the reference mechanism */
+#Defina SOL_RIDX_GLOBALS	2
+#Defina SOL_RIDX_MAINTHREAD	3
+#Defina SOL_RIDX_LAST		3
+
+
+/* type of numbers in Sol */
+Pseudônimo SOL_NUMBER sol_Number;
+
+
+/* type Para integer functions */
+Pseudônimo SOL_INTEGER sol_Integer;
+
+/* Natural integer type */
+Pseudônimo SOL_UNSIGNED sol_Unsigned;
+
+/* type Para continuation-function contexts */
+Pseudônimo SOL_KCONTEXT sol_KContext;
+
+
+/*
+** Type Para C functions registered with Sol
+*/
+Pseudônimo Inteiro (*sol_CFunction) (sol_State *L);
+
+/*
+** Type Para continuation functions
+*/
+Pseudônimo Inteiro (*sol_KFunction) (sol_State *L, Inteiro status, sol_KContext ctx);
+
+
+/*
+** Type Para functions that read/write blocks when loading/dumping Sol chunks
+*/
+Pseudônimo Imutável Caractere *(*sol_Reader) (sol_State *L, Vazio *ud, size_t *sz);
+
+Pseudônimo Inteiro (*sol_Writer) (sol_State *L, Imutável Vazio *p, size_t sz, Vazio *ud);
+
+
+/*
+** Type Para memory-allocation functions
+*/
+Pseudônimo Vazio * (*sol_Alloc) (Vazio *ud, Vazio *ptr, size_t osize, size_t nsize);
+
+
+/*
+** Type Para Aviso functions
+*/
+Pseudônimo Vazio (*sol_WarnFunction) (Vazio *ud, Imutável Caractere *msg, Inteiro tocont);
+
+
+/*
+** Type used by the debug API to collect debug information
+*/
+Pseudônimo Estrutura sol_Debug sol_Debug;
+
+
+/*
+** Functions to be called by the debugger in specific events
+*/
+Pseudônimo Vazio (*sol_Hook) (sol_State *L, sol_Debug *ar);
+
+
+/*
+** generic extra Inclua file
+*/
+#Se Definido(SOL_USER_H)
+#Inclua SOL_USER_H
+#FimSe
+
+
+/*
+** RCS ident string
+*/
+Externo Imutável Caractere sol_ident[];
+
+
+/*
+** state manipulation
+*/
+SOL_API sol_State *(sol_newstate) (sol_Alloc f, Vazio *ud, Natural seed);
+SOL_API Vazio       (sol_close) (sol_State *L);
+SOL_API sol_State *(sol_newthread) (sol_State *L);
+SOL_API Inteiro        (sol_closethread) (sol_State *L, sol_State *from);
+
+SOL_API sol_CFunction (sol_atpanic) (sol_State *L, sol_CFunction panicf);
+
+
+SOL_API sol_Number (sol_version) (sol_State *L);
+
+
+/*
+** basic stack manipulation
+*/
+SOL_API Inteiro   (sol_absindex) (sol_State *L, Inteiro idx);
+SOL_API Inteiro   (sol_gettop) (sol_State *L);
+SOL_API Vazio  (sol_settop) (sol_State *L, Inteiro idx);
+SOL_API Vazio  (sol_pushvalue) (sol_State *L, Inteiro idx);
+SOL_API Vazio  (sol_rotate) (sol_State *L, Inteiro idx, Inteiro n);
+SOL_API Vazio  (sol_copy) (sol_State *L, Inteiro fromidx, Inteiro toidx);
+SOL_API Inteiro   (sol_checkstack) (sol_State *L, Inteiro n);
+
+SOL_API Vazio  (sol_xmove) (sol_State *from, sol_State *to, Inteiro n);
+
+
+/*
+** access functions (stack -> C)
+*/
+
+SOL_API Inteiro             (sol_isnumber) (sol_State *L, Inteiro idx);
+SOL_API Inteiro             (sol_isstring) (sol_State *L, Inteiro idx);
+SOL_API Inteiro             (sol_iscfunction) (sol_State *L, Inteiro idx);
+SOL_API Inteiro             (sol_isinteger) (sol_State *L, Inteiro idx);
+SOL_API Inteiro             (sol_isuserdata) (sol_State *L, Inteiro idx);
+SOL_API Inteiro             (sol_type) (sol_State *L, Inteiro idx);
+SOL_API Imutável Caractere     *(sol_typename) (sol_State *L, Inteiro tp);
+
+SOL_API sol_Number      (sol_tonumberx) (sol_State *L, Inteiro idx, Inteiro *isnum);
+SOL_API sol_Integer     (sol_tointegerx) (sol_State *L, Inteiro idx, Inteiro *isnum);
+SOL_API Inteiro             (sol_toboolean) (sol_State *L, Inteiro idx);
+SOL_API Imutável Caractere     *(sol_tolstring) (sol_State *L, Inteiro idx, size_t *len);
+SOL_API sol_Unsigned    (sol_rawlen) (sol_State *L, Inteiro idx);
+SOL_API sol_CFunction   (sol_tocfunction) (sol_State *L, Inteiro idx);
+SOL_API Vazio	       *(sol_touserdata) (sol_State *L, Inteiro idx);
+SOL_API sol_State      *(sol_tothread) (sol_State *L, Inteiro idx);
+SOL_API Imutável Vazio     *(sol_topointer) (sol_State *L, Inteiro idx);
+
+
+/*
+** Comparison and arithmetic functions
+*/
+
+#Defina SOL_OPADD	0	/* ORDER TM, ORDER OP */
+#Defina SOL_OPSUB	1
+#Defina SOL_OPMUL	2
+#Defina SOL_OPMOD	3
+#Defina SOL_OPPOW	4
+#Defina SOL_OPDIV	5
+#Defina SOL_OPIDIV	6
+#Defina SOL_OPBAND	7
+#Defina SOL_OPBOR	8
+#Defina SOL_OPBXOR	9
+#Defina SOL_OPSHL	10
+#Defina SOL_OPSHR	11
+#Defina SOL_OPUNM	12
+#Defina SOL_OPBNOT	13
+
+SOL_API Vazio  (sol_arith) (sol_State *L, Inteiro op);
+
+#Defina SOL_OPEQ	0
+#Defina SOL_OPLT	1
+#Defina SOL_OPLE	2
+
+SOL_API Inteiro   (sol_rawequal) (sol_State *L, Inteiro idx1, Inteiro idx2);
+SOL_API Inteiro   (sol_compare) (sol_State *L, Inteiro idx1, Inteiro idx2, Inteiro op);
+
+
+/*
+** push functions (C -> stack)
+*/
+SOL_API Vazio        (sol_pushnil) (sol_State *L);
+SOL_API Vazio        (sol_pushnumber) (sol_State *L, sol_Number n);
+SOL_API Vazio        (sol_pushinteger) (sol_State *L, sol_Integer n);
+SOL_API Imutável Caractere *(sol_pushlstring) (sol_State *L, Imutável Caractere *s, size_t len);
+SOL_API Imutável Caractere *(sol_pushexternalstring) (sol_State *L,
+		Imutável Caractere *s, size_t len, sol_Alloc falloc, Vazio *ud);
+SOL_API Imutável Caractere *(sol_pushstring) (sol_State *L, Imutável Caractere *s);
+SOL_API Imutável Caractere *(sol_pushvfstring) (sol_State *L, Imutável Caractere *fmt,
+                                                      va_list argp);
+SOL_API Imutável Caractere *(sol_pushfstring) (sol_State *L, Imutável Caractere *fmt, ...);
+SOL_API Vazio  (sol_pushcclosure) (sol_State *L, sol_CFunction fn, Inteiro n);
+SOL_API Vazio  (sol_pushboolean) (sol_State *L, Inteiro b);
+SOL_API Vazio  (sol_pushlightuserdata) (sol_State *L, Vazio *p);
+SOL_API Inteiro   (sol_pushthread) (sol_State *L);
+
+
+/*
+** get functions (Sol -> stack)
+*/
+SOL_API Inteiro (sol_getglobal) (sol_State *L, Imutável Caractere *name);
+SOL_API Inteiro (sol_gettable) (sol_State *L, Inteiro idx);
+SOL_API Inteiro (sol_getfield) (sol_State *L, Inteiro idx, Imutável Caractere *k);
+SOL_API Inteiro (sol_geti) (sol_State *L, Inteiro idx, sol_Integer n);
+SOL_API Inteiro (sol_rawget) (sol_State *L, Inteiro idx);
+SOL_API Inteiro (sol_rawgeti) (sol_State *L, Inteiro idx, sol_Integer n);
+SOL_API Inteiro (sol_rawgetp) (sol_State *L, Inteiro idx, Imutável Vazio *p);
+
+SOL_API Vazio  (sol_createtable) (sol_State *L, Inteiro narr, Inteiro nrec);
+SOL_API Vazio *(sol_newuserdatauv) (sol_State *L, size_t sz, Inteiro nuvalue);
+SOL_API Inteiro   (sol_getmetatable) (sol_State *L, Inteiro objindex);
+SOL_API Inteiro  (sol_getiuservalue) (sol_State *L, Inteiro idx, Inteiro n);
+
+
+/*
+** set functions (stack -> Sol)
+*/
+SOL_API Vazio  (sol_setglobal) (sol_State *L, Imutável Caractere *name);
+SOL_API Vazio  (sol_settable) (sol_State *L, Inteiro idx);
+SOL_API Vazio  (sol_setfield) (sol_State *L, Inteiro idx, Imutável Caractere *k);
+SOL_API Vazio  (sol_seti) (sol_State *L, Inteiro idx, sol_Integer n);
+SOL_API Vazio  (sol_rawset) (sol_State *L, Inteiro idx);
+SOL_API Vazio  (sol_rawseti) (sol_State *L, Inteiro idx, sol_Integer n);
+SOL_API Vazio  (sol_rawsetp) (sol_State *L, Inteiro idx, Imutável Vazio *p);
+SOL_API Inteiro   (sol_setmetatable) (sol_State *L, Inteiro objindex);
+SOL_API Inteiro   (sol_setiuservalue) (sol_State *L, Inteiro idx, Inteiro n);
+
+
+/*
+** 'load' and 'call' functions (load and run Sol code)
+*/
+SOL_API Vazio  (sol_callk) (sol_State *L, Inteiro nargs, Inteiro nresults,
+                           sol_KContext ctx, sol_KFunction k);
+#Defina sol_call(L,n,r)		sol_callk(L, (n), (r), 0, NULL)
+
+SOL_API Inteiro   (sol_pcallk) (sol_State *L, Inteiro nargs, Inteiro nresults, Inteiro errfunc,
+                            sol_KContext ctx, sol_KFunction k);
+#Defina sol_pcall(L,n,r,f)	sol_pcallk(L, (n), (r), (f), 0, NULL)
+
+SOL_API Inteiro   (sol_load) (sol_State *L, sol_Reader reader, Vazio *dt,
+                          Imutável Caractere *chunkname, Imutável Caractere *mode);
+
+SOL_API Inteiro (sol_dump) (sol_State *L, sol_Writer writer, Vazio *data, Inteiro strip);
+
+
+/*
+** coroutine functions
+*/
+SOL_API Inteiro  (sol_yieldk)     (sol_State *L, Inteiro nresults, sol_KContext ctx,
+                               sol_KFunction k);
+SOL_API Inteiro  (sol_resume)     (sol_State *L, sol_State *from, Inteiro narg,
+                               Inteiro *nres);
+SOL_API Inteiro  (sol_status)     (sol_State *L);
+SOL_API Inteiro (sol_isyieldable) (sol_State *L);
+
+#Defina sol_yield(L,n)		sol_yieldk(L, (n), 0, NULL)
+
+
+/*
+** Warning-related functions
+*/
+SOL_API Vazio (sol_setwarnf) (sol_State *L, sol_WarnFunction f, Vazio *ud);
+SOL_API Vazio (sol_warning)  (sol_State *L, Imutável Caractere *msg, Inteiro tocont);
+
+
+/*
+** garbage-collection options
+*/
+
+#Defina SOL_GCSTOP		0
+#Defina SOL_GCRESTART		1
+#Defina SOL_GCCOLLECT		2
+#Defina SOL_GCCOUNT		3
+#Defina SOL_GCCOUNTB		4
+#Defina SOL_GCSTEP		5
+#Defina SOL_GCISRUNNING		6
+#Defina SOL_GCGEN		7
+#Defina SOL_GCINC		8
+#Defina SOL_GCPARAM		9
+
+
+/*
+** garbage-collection parameters
+*/
+/* parameters Para generational mode */
+#Defina SOL_GCPMINORMUL		0  /* control minor collections */
+#Defina SOL_GCPMAJORMINOR	1  /* control shift major->minor */
+#Defina SOL_GCPMINORMAJOR	2  /* control shift minor->major */
+
+/* parameters Para incremental mode */
+#Defina SOL_GCPPAUSE		3  /* size of pause between successive GCs */
+#Defina SOL_GCPSTEPMUL		4  /* GC "speed" */
+#Defina SOL_GCPSTEPSIZE		5  /* GC granularity */
+
+/* number of parameters */
+#Defina SOL_GCPN		6
+
+
+SOL_API Inteiro (sol_gc) (sol_State *L, Inteiro what, ...);
+
+
+/*
+** miscellaneous functions
+*/
+
+SOL_API Inteiro   (sol_error) (sol_State *L);
+
+SOL_API Inteiro   (sol_next) (sol_State *L, Inteiro idx);
+
+SOL_API Vazio  (sol_concat) (sol_State *L, Inteiro n);
+SOL_API Vazio  (sol_len)    (sol_State *L, Inteiro idx);
+
+#Defina SOL_N2SBUFFSZ	64
+SOL_API Natural  (sol_numbertocstring) (sol_State *L, Inteiro idx, Caractere *buff);
+SOL_API size_t  (sol_stringtonumber) (sol_State *L, Imutável Caractere *s);
+
+SOL_API sol_Alloc (sol_getallocf) (sol_State *L, Vazio **ud);
+SOL_API Vazio      (sol_setallocf) (sol_State *L, sol_Alloc f, Vazio *ud);
+
+SOL_API Vazio (sol_toclose) (sol_State *L, Inteiro idx);
+SOL_API Vazio (sol_closeslot) (sol_State *L, Inteiro idx);
+
+
+/*
+** {==============================================================
+** some useful macros
+** ===============================================================
+*/
+
+#Defina sol_getextraspace(L)	((Vazio *)((Caractere *)(L) - SOL_EXTRASPACE))
+
+#Defina sol_tonumber(L,i)	sol_tonumberx(L,(i),NULL)
+#Defina sol_tointeger(L,i)	sol_tointegerx(L,(i),NULL)
+
+#Defina sol_pop(L,n)		sol_settop(L, -(n)-1)
+
+#Defina sol_newtable(L)		sol_createtable(L, 0, 0)
+
+#Defina sol_register(L,n,f) (sol_pushcfunction(L, (f)), sol_setglobal(L, (n)))
+
+#Defina sol_pushcfunction(L,f)	sol_pushcclosure(L, (f), 0)
+
+#Defina sol_isfunction(L,n)	(sol_type(L, (n)) == SOL_TFUNCTION)
+#Defina sol_istable(L,n)	(sol_type(L, (n)) == SOL_TTABLE)
+#Defina sol_islightuserdata(L,n)	(sol_type(L, (n)) == SOL_TLIGHTUSERDATA)
+#Defina sol_isnil(L,n)		(sol_type(L, (n)) == SOL_TNIL)
+#Defina sol_isboolean(L,n)	(sol_type(L, (n)) == SOL_TBOOLEAN)
+#Defina sol_isthread(L,n)	(sol_type(L, (n)) == SOL_TTHREAD)
+#Defina sol_isnone(L,n)		(sol_type(L, (n)) == SOL_TNONE)
+#Defina sol_isnoneornil(L, n)	(sol_type(L, (n)) <= 0)
+
+#Defina sol_pushliteral(L, s)	sol_pushstring(L, "" s)
+
+#Defina sol_pushglobaltable(L)  \
+	((Vazio)sol_rawgeti(L, SOL_REGISTRYINDEX, SOL_RIDX_GLOBALS))
+
+#Defina sol_tostring(L,i)	sol_tolstring(L, (i), NULL)
+
+
+#Defina sol_insert(L,idx)	sol_rotate(L, (idx), 1)
+
+#Defina sol_remove(L,idx)	(sol_rotate(L, (idx), -1), sol_pop(L, 1))
+
+#Defina sol_replace(L,idx)	(sol_copy(L, -1, (idx)), sol_pop(L, 1))
+
+/* }============================================================== */
+
+
+/*
+** {==============================================================
+** compatibility macros
+** ===============================================================
+*/
+
+#Defina sol_newuserdata(L,s)	sol_newuserdatauv(L,s,1)
+#Defina sol_getuservalue(L,idx)	sol_getiuservalue(L,idx,1)
+#Defina sol_setuservalue(L,idx)	sol_setiuservalue(L,idx,1)
+
+#Defina sol_resetthread(L)	sol_closethread(L,NULL)
+
+/* }============================================================== */
+
+/*
+** {======================================================================
+** Debug API
+** =======================================================================
+*/
+
+
+/*
+** Event codes
+*/
+#Defina SOL_HOOKCALL	0
+#Defina SOL_HOOKRET	1
+#Defina SOL_HOOKLINE	2
+#Defina SOL_HOOKCOUNT	3
+#Defina SOL_HOOKTAILCALL 4
+
+
+/*
+** Event masks
+*/
+#Defina SOL_MASKCALL	(1 << SOL_HOOKCALL)
+#Defina SOL_MASKRET	(1 << SOL_HOOKRET)
+#Defina SOL_MASKLINE	(1 << SOL_HOOKLINE)
+#Defina SOL_MASKCOUNT	(1 << SOL_HOOKCOUNT)
+
+
+SOL_API Inteiro (sol_getstack) (sol_State *L, Inteiro level, sol_Debug *ar);
+SOL_API Inteiro (sol_getinfo) (sol_State *L, Imutável Caractere *what, sol_Debug *ar);
+SOL_API Imutável Caractere *(sol_getlocal) (sol_State *L, Imutável sol_Debug *ar, Inteiro n);
+SOL_API Imutável Caractere *(sol_setlocal) (sol_State *L, Imutável sol_Debug *ar, Inteiro n);
+SOL_API Imutável Caractere *(sol_getupvalue) (sol_State *L, Inteiro funcindex, Inteiro n);
+SOL_API Imutável Caractere *(sol_setupvalue) (sol_State *L, Inteiro funcindex, Inteiro n);
+
+SOL_API Vazio *(sol_upvalueid) (sol_State *L, Inteiro fidx, Inteiro n);
+SOL_API Vazio  (sol_upvaluejoin) (sol_State *L, Inteiro fidx1, Inteiro n1,
+                                               Inteiro fidx2, Inteiro n2);
+
+SOL_API Vazio (sol_sethook) (sol_State *L, sol_Hook func, Inteiro mask, Inteiro count);
+SOL_API sol_Hook (sol_gethook) (sol_State *L);
+SOL_API Inteiro (sol_gethookmask) (sol_State *L);
+SOL_API Inteiro (sol_gethookcount) (sol_State *L);
+
+
+Estrutura sol_Debug {
+  Inteiro event;
+  Imutável Caractere *name;	/* (n) */
+  Imutável Caractere *namewhat;	/* (n) 'global', 'local', 'field', 'method' */
+  Imutável Caractere *what;	/* (S) 'Sol', 'C', 'main', 'tail' */
+  Imutável Caractere *source;	/* (S) */
+  size_t srclen;	/* (S) */
+  Inteiro currentline;	/* (l) */
+  Inteiro linedefined;	/* (S) */
+  Inteiro lastlinedefined;	/* (S) */
+  Natural Caractere nups;	/* (u) number of upvalues */
+  Natural Caractere nparams;/* (u) number of parameters */
+  Caractere isvararg;        /* (u) */
+  Natural Caractere extraargs;  /* (t) number of extra arguments */
+  Caractere istailcall;	/* (t) */
+  Inteiro ftransfer;   /* (r) index of first value transferred */
+  Inteiro ntransfer;   /* (r) number of transferred values */
+  Caractere short_src[SOL_IDSIZE]; /* (S) */
+  /* private part */
+  Estrutura CallInfo *i_ci;  /* active function */
+};
+
+/* }====================================================================== */
+
+
+#Defina SOL_TOSTRAUX(x)	#x
+#Defina SOL_TOSTR(x)		SOL_TOSTRAUX(x)
+
+#Defina SOL_VERSION_MAJOR	SOL_TOSTR(SOL_VERSION_MAJOR_N)
+#Defina SOL_VERSION_MINOR	SOL_TOSTR(SOL_VERSION_MINOR_N)
+#Defina SOL_VERSION_RELEASE	SOL_TOSTR(SOL_VERSION_RELEASE_N)
+
+#Defina SOL_VERSION	"Sol " SOL_VERSION_MAJOR "." SOL_VERSION_MINOR
+#Defina SOL_RELEASE	SOL_VERSION "." SOL_VERSION_RELEASE
+
+
+/******************************************************************************
+* Copyright (C) 1994-2025 Sol.org, PUC-Rio.
+*
+* Permission is hereby granted, free of charge, to any person obtaining
+* a copy of this software and associated documentation files (the
+* "Software"), to deal in the Software without restriction, including
+* without limitation the rights to use, copy, modify, merge, publish,
+* distribute, sublicense, and/or sell copies of the Software, and to
+* permit persons to whom the Software is furnished to Faça so, subject to
+* the following conditions:
+*
+* The above copyright notice and this permission notice shall be
+* included in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+******************************************************************************/
+
+
+#FimSe

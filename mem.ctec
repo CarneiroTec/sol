@@ -1,0 +1,215 @@
+/*
+** $Id: lmem.c $
+** Interface to Memory Manager
+** See Copyright Notice in sol.h
+*/
+
+#Defina mem_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <stddef.h>
+
+#Inclua "sol.int"
+
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "gc.int"
+#Inclua "mem.int"
+#Inclua "object.int"
+#Inclua "state.int"
+
+
+
+/*
+** About the realloc function:
+** Vazio *frealloc (Vazio *ud, Vazio *ptr, size_t osize, size_t nsize);
+** ('osize' is the old size, 'nsize' is the new size)
+**
+** - frealloc(ud, p, x, 0) frees the block 'p' and returns NULL.
+** Particularly, frealloc(ud, NULL, 0, 0) does nothing,
+** which is equivalent to free(NULL) in ISO C.
+**
+** - frealloc(ud, NULL, x, s) creates a new block of size 's'
+** (no matter 'x'). Returns NULL Se it cannot create the new block.
+**
+** - otherwise, frealloc(ud, b, x, y) reallocates the block 'b' from
+** size 'x' to size 'y'. Returns NULL Se it cannot reallocate the
+** block to the new size.
+*/
+
+
+/*
+** Macro to call the allocation function.
+*/
+#Defina callfrealloc(g,block,os,ns)    ((*g->frealloc)(g->ud, block, os, ns))
+
+
+/*
+** When an allocation fails, it will try again after an emergency
+** collection, except when it cannot run a collection.  The GC should
+** not be called Enquanto the state is not fully built, as the collector
+** is not yet fully initialized. Also, it should not be called when
+** 'gcstopem' is true, because then the interpreter is in the middle of
+** a collection step.
+*/
+#Defina cantryagain(g)	(completestate(g) && !g->gcstopem)
+
+
+
+
+#Se Definido(EMERGENCYGCTESTS)
+/*
+** First allocation will fail except when freeing a block (frees never
+** fail) and when it cannot try again; this fail will trigger 'tryagain'
+** and a full GC cycle at every allocation.
+*/
+Fixo Vazio *firsttry (global_State *g, Vazio *block, size_t os, size_t ns) {
+  Se (ns > 0 && cantryagain(g))
+    Retorne NULL;  /* fail */
+  Senão  /* normal allocation */
+    Retorne callfrealloc(g, block, os, ns);
+}
+#Senão
+#Defina firsttry(g,block,os,ns)    callfrealloc(g, block, os, ns)
+#FimSe
+
+
+
+
+
+/*
+** {==================================================================
+** Functions to allocate/deallocate arrays Para the Parser
+** ===================================================================
+*/
+
+/*
+** Minimum size Para arrays during parsing, to avoid overhead of
+** reallocating to size 1, then 2, and then 4. All these arrays
+** will be reallocated to exact sizes or erased when parsing ends.
+*/
+#Defina MINSIZEARRAY	4
+
+
+Vazio *sol_m_growaux_ (sol_State *L, Vazio *block, Inteiro nelems, Inteiro *psize,
+                     Natural size_elems, Inteiro limit, Imutável Caractere *what) {
+  Vazio *newblock;
+  Inteiro size = *psize;
+  Se (nelems + 1 <= size)  /* does one extra element still fit? */
+    Retorne block;  /* nothing to be done */
+  Se (size >= limit / 2) {  /* cannot Duplo it? */
+    Se (l_unlikely(size >= limit))  /* cannot grow even a little? */
+      sol_g_runerror(L, "muitos %s (limite é %d)", what, limit);
+    size = limit;  /* still have at least one free place */
+  }
+  Senão {
+    size *= 2;
+    Se (size < MINSIZEARRAY)
+      size = MINSIZEARRAY;  /* minimum size */
+  }
+  sol_assert(nelems + 1 <= size && size <= limit);
+  /* 'limit' ensures that multiplication will not overflow */
+  newblock = sol_m_saferealloc_(L, block, cast_sizet(*psize) * size_elems,
+                                         cast_sizet(size) * size_elems);
+  *psize = size;  /* update only when everything Senão is OK */
+  Retorne newblock;
+}
+
+
+/*
+** In prototypes, the size of the array is also its number of
+** elements (to save memory). So, Se it cannot shrink an array
+** to its number of elements, the only option is to raise an
+** Erro.
+*/
+Vazio *sol_m_shrinkvector_ (sol_State *L, Vazio *block, Inteiro *size,
+                          Inteiro final_n, Natural size_elem) {
+  Vazio *newblock;
+  size_t oldsize = cast_sizet(*size) * size_elem;
+  size_t newsize = cast_sizet(final_n) * size_elem;
+  sol_assert(newsize <= oldsize);
+  newblock = sol_m_saferealloc_(L, block, oldsize, newsize);
+  *size = final_n;
+  Retorne newblock;
+}
+
+/* }================================================================== */
+
+
+l_noret sol_m_toobig (sol_State *L) {
+  sol_g_runerror(L, "memory allocation Erro: block too big");
+}
+
+
+/*
+** Free memory
+*/
+Vazio sol_m_free_ (sol_State *L, Vazio *block, size_t osize) {
+  global_State *g = G(L);
+  sol_assert((osize == 0) == (block == NULL));
+  callfrealloc(g, block, osize, 0);
+  g->GCdebt += cast(l_mem, osize);
+}
+
+
+/*
+** In Caso of allocation fail, this function will Faça an emergency
+** collection to free some memory and then try the allocation again.
+*/
+Fixo Vazio *tryagain (sol_State *L, Vazio *block,
+                       size_t osize, size_t nsize) {
+  global_State *g = G(L);
+  Se (cantryagain(g)) {
+    sol_c_fullgc(L, 1);  /* try to free some memory... */
+    Retorne callfrealloc(g, block, osize, nsize);  /* try again */
+  }
+  Senão Retorne NULL;  /* cannot run an emergency collection */
+}
+
+
+/*
+** Generic allocation routine.
+*/
+Vazio *sol_m_realloc_ (sol_State *L, Vazio *block, size_t osize, size_t nsize) {
+  Vazio *newblock;
+  global_State *g = G(L);
+  sol_assert((osize == 0) == (block == NULL));
+  newblock = firsttry(g, block, osize, nsize);
+  Se (l_unlikely(newblock == NULL && nsize > 0)) {
+    newblock = tryagain(L, block, osize, nsize);
+    Se (newblock == NULL)  /* still no memory? */
+      Retorne NULL;  /* Faça not update 'GCdebt' */
+  }
+  sol_assert((nsize == 0) == (newblock == NULL));
+  g->GCdebt -= cast(l_mem, nsize) - cast(l_mem, osize);
+  Retorne newblock;
+}
+
+
+Vazio *sol_m_saferealloc_ (sol_State *L, Vazio *block, size_t osize,
+                                                    size_t nsize) {
+  Vazio *newblock = sol_m_realloc_(L, block, osize, nsize);
+  Se (l_unlikely(newblock == NULL && nsize > 0))  /* allocation failed? */
+    sol_m_error(L);
+  Retorne newblock;
+}
+
+
+Vazio *sol_m_malloc_ (sol_State *L, size_t size, Inteiro tag) {
+  Se (size == 0)
+    Retorne NULL;  /* that's all */
+  Senão {
+    global_State *g = G(L);
+    Vazio *newblock = firsttry(g, NULL, cast_sizet(tag), size);
+    Se (l_unlikely(newblock == NULL)) {
+      newblock = tryagain(L, NULL, cast_sizet(tag), size);
+      Se (newblock == NULL)
+        sol_m_error(L);
+    }
+    g->GCdebt -= cast(l_mem, size);
+    Retorne newblock;
+  }
+}

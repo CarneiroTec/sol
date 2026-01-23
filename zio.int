@@ -1,0 +1,67 @@
+/*
+** $Id: zio.h $
+** Buffered streams
+** See Copyright Notice in sol.h
+*/
+
+
+#SeNãoDefinido zio_h
+#Defina zio_h
+
+#Inclua "sol.int"
+
+#Inclua "mem.int"
+
+
+#Defina EOZ	(-1)			/* end of stream */
+
+Pseudônimo Estrutura Zio ZIO;
+
+#Defina zgetc(z)  (((z)->n--)>0 ?  cast_uchar(*(z)->p++) : sol_z_fill(z))
+
+
+Pseudônimo Estrutura Mbuffer {
+  Caractere *buffer;
+  size_t n;
+  size_t buffsize;
+} Mbuffer;
+
+#Defina sol_z_initbuffer(L, buff) ((buff)->buffer = NULL, (buff)->buffsize = 0)
+
+#Defina sol_z_buffer(buff)	((buff)->buffer)
+#Defina sol_z_sizebuffer(buff)	((buff)->buffsize)
+#Defina sol_z_bufflen(buff)	((buff)->n)
+
+#Defina sol_z_buffremove(buff,i)	((buff)->n -= cast_sizet(i))
+#Defina sol_z_resetbuffer(buff) ((buff)->n = 0)
+
+
+#Defina sol_z_resizebuffer(L, buff, size) \
+	((buff)->buffer = sol_m_reallocvchar(L, (buff)->buffer, \
+				(buff)->buffsize, size), \
+	(buff)->buffsize = size)
+
+#Defina sol_z_freebuffer(L, buff)	sol_z_resizebuffer(L, buff, 0)
+
+
+SOL_FUNC Vazio sol_z_init (sol_State *L, ZIO *z, sol_Reader reader,
+                                        Vazio *data);
+SOL_FUNC size_t sol_z_read (ZIO* z, Vazio *b, size_t n);	/* read next n bytes */
+
+SOL_FUNC Imutável Vazio *sol_z_getaddr (ZIO* z, size_t n);
+
+
+/* --------- Private Part ------------------ */
+
+Estrutura Zio {
+  size_t n;			/* bytes still unread */
+  Imutável Caractere *p;		/* current position in buffer */
+  sol_Reader reader;		/* reader function */
+  Vazio *data;			/* additional data */
+  sol_State *L;			/* Sol state (Para reader) */
+};
+
+
+SOL_FUNC Inteiro sol_z_fill (ZIO *z);
+
+#FimSe

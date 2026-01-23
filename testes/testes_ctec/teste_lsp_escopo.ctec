@@ -1,0 +1,569 @@
+/*
+** teste_lsp_escopo.ctec - Testes de escopo de variáveis no LSP
+** 
+** Verifica que variáveis locais respeitam escopo:
+** - Parâmetros de função visíveis apenas dentro
+** - Variáveis de loop visíveis apenas dentro
+** - Variáveis de bloco 'se' visíveis apenas dentro
+** - scopeStartLine e scopeEndLine corretos
+**
+** Cada nível de aninhamento = 4 cenários:
+** ESPERADO, NAO_ESPERADO, NULO, ESTOURO
+*/
+
+#Defina teste_escopo_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "lsp.int"
+
+#Defina TESTE_OK 0
+#Defina TESTE_FALHA 1
+#Defina MAX_ERRO 512
+
+Fixo Caractere ultimo_erro[MAX_ERRO] = "";
+
+Fixo Vazio registra_erro(Imutável Caractere *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(ultimo_erro, MAX_ERRO, fmt, args);
+    va_end(args);
+}
+
+Fixo Vazio imprime(Imutável Caractere *nome, Imutável Caractere *cenario, Inteiro ok) {
+    fprintf(stderr, "[%s][%s] %s%s\n", nome, cenario, ok ? "OK" : "FALHA", ok ? "" : ultimo_erro);
+}
+
+/* Função auxiliar: verifica se variável está no escopo de uma linha */
+Fixo Inteiro var_visivel_na_linha(LSPDocument *doc, Imutável Caractere *nome, Inteiro linha) {
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, nome) == 0) {
+            Se (linha >= doc->variables[i].scopeStartLine && 
+                linha <= doc->variables[i].scopeEndLine) {
+                Retorne 1;
+            }
+        }
+    }
+    Retorne 0;
+}
+
+/* Função auxiliar: verifica se variável NÃO está no escopo de uma linha */
+Fixo Inteiro var_invisivel_na_linha(LSPDocument *doc, Imutável Caractere *nome, Inteiro linha) {
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, nome) == 0) {
+            Se (linha >= doc->variables[i].scopeStartLine && 
+                linha <= doc->variables[i].scopeEndLine) {
+                Retorne 0;  /* Está visível, falhou */
+            }
+        }
+    }
+    Retorne 1;  /* Invisível ou não existe, passou */
+}
+
+/* ============================================================
+** ESCOPO: Parâmetros de Função
+** ============================================================ */
+
+Inteiro teste_param_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Linha 0: função soma(a, b)
+       Linha 1:     retorne a + b
+       Linha 2: fim */
+    Imutável Caractere *codigo = 
+        "função soma(a, b)\n"
+        "    retorne a + b\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///param.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'a' deve estar visível na linha 1 (dentro da função) */
+    Se (!var_visivel_na_linha(doc, "a", 1)) {
+        registra_erro(": 'a' deveria estar visível na linha 1");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    /* 'b' deve estar visível na linha 1 */
+    Se (!var_visivel_na_linha(doc, "b", 1)) {
+        registra_erro(": 'b' deveria estar visível na linha 1");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_param_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Parâmetro 'x' NÃO deve estar visível na linha 4 (fora da função) */
+    Imutável Caractere *codigo = 
+        "função teste(x)\n"
+        "    retorne x\n"
+        "fim\n"
+        "local y = 1\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///param_fora.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'x' NÃO deve estar visível na linha 3 (fora) */
+    Se (!var_invisivel_na_linha(doc, "x", 3)) {
+        registra_erro(": 'x' vazou para fora da função (linha 3)");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_param_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Função sem parâmetros */
+    Imutável Caractere *codigo = 
+        "função vazia()\n"
+        "    retorne nulo\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///param_vazio.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Nenhum parâmetro para vazar */
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_param_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Função com muitos parâmetros */
+    Caractere codigo[4096];
+    Inteiro pos = snprintf(codigo, 4096, "função grande(");
+    Para (Inteiro i = 0; i < 100; i++) {
+        pos += snprintf(codigo + pos, 4096 - pos, "p%d%s", i, i < 99 ? ", " : "");
+    }
+    pos += snprintf(codigo + pos, 4096 - pos, ")\n    retorne p0\nfim\n");
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///param_muitos.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Todos devem estar visíveis na linha 1 */
+    Se (!var_visivel_na_linha(doc, "p0", 1)) {
+        registra_erro(": 'p0' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    Se (!var_visivel_na_linha(doc, "p99", 1)) {
+        registra_erro(": 'p99' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** ESCOPO: Variáveis de Loop (para)
+** ============================================================ */
+
+Inteiro teste_loop_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Linha 0: para i = 1, 10 faça
+       Linha 1:     exiba(i)
+       Linha 2: fim */
+    Imutável Caractere *codigo = 
+        "para i = 1, 10 faça\n"
+        "    exiba(i)\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///loop.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'i' deve estar visível na linha 1 (dentro) */
+    Se (!var_visivel_na_linha(doc, "i", 1)) {
+        registra_erro(": 'i' deveria estar visível na linha 1");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_loop_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* 'i' NÃO deve estar visível na linha 3 (fora do loop) */
+    Imutável Caractere *codigo = 
+        "para i = 1, 10 faça\n"
+        "    exiba(i)\n"
+        "fim\n"
+        "local x = 1\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///loop_fora.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'i' NÃO deve estar visível na linha 3 */
+    Se (!var_invisivel_na_linha(doc, "i", 3)) {
+        registra_erro(": 'i' vazou para fora do loop");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_loop_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Loop com _ (variável descartável) */
+    Imutável Caractere *codigo = 
+        "para _, v em pares({}) faça\n"
+        "    exiba(v)\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///loop_desc.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* '_' NÃO deve ser registrado como variável */
+    Inteiro achou_underscore = 0;
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "_") == 0) {
+            achou_underscore = 1;
+            Interrompa;
+        }
+    }
+    
+    Se (achou_underscore) {
+        registra_erro(": '_' não deveria ser registrado");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    /* 'v' deve existir */
+    Se (!var_visivel_na_linha(doc, "v", 1)) {
+        registra_erro(": 'v' deveria estar visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_loop_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Loops aninhados profundos */
+    Caractere codigo[8192];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 30; i++) {
+        pos += snprintf(codigo + pos, 8192 - pos, 
+            "%*spara v%d = 1, 5 faça\n", i * 2, "", i);
+    }
+    pos += snprintf(codigo + pos, 8192 - pos, "%*slocal x = 1\n", 60, "");
+    Para (Inteiro i = 29; i >= 0; i--) {
+        pos += snprintf(codigo + pos, 8192 - pos, "%*sfim\n", i * 2, "");
+    }
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///loop_aninhado.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* v0 deve estar visível na linha 30 */
+    Se (!var_visivel_na_linha(doc, "v0", 30)) {
+        registra_erro(": 'v0' deveria estar visível na linha 30");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    /* v29 deve estar visível na linha 30 */
+    Se (!var_visivel_na_linha(doc, "v29", 30)) {
+        registra_erro(": 'v29' deveria estar visível na linha 30");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** ESCOPO: Blocos 'se'
+** ============================================================ */
+
+Inteiro teste_se_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Linha 0: se verdadeiro então
+       Linha 1:     local dentro = 1
+       Linha 2: fim */
+    Imutável Caractere *codigo = 
+        "se verdadeiro então\n"
+        "    local dentro = 1\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///se.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'dentro' deve estar visível na linha 1 */
+    Se (!var_visivel_na_linha(doc, "dentro", 1)) {
+        registra_erro(": 'dentro' deveria estar visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_se_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* 'dentro' NÃO deve estar visível fora do se */
+    Imutável Caractere *codigo = 
+        "se verdadeiro então\n"
+        "    local dentro = 1\n"
+        "fim\n"
+        "local fora = 2\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///se_fora.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* 'dentro' NÃO deve estar visível na linha 3 */
+    Se (!var_invisivel_na_linha(doc, "dentro", 3)) {
+        registra_erro(": 'dentro' vazou para fora do bloco se");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    /* 'fora' deve estar visível na linha 3 */
+    Se (!var_visivel_na_linha(doc, "fora", 3)) {
+        registra_erro(": 'fora' deveria estar visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_se_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Bloco se vazio */
+    Imutável Caractere *codigo = 
+        "se verdadeiro então\n"
+        "fim\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///se_vazio.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Não deve crashar */
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_se_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Muitos se aninhados */
+    Caractere codigo[8192];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 32; i++) {
+        pos += snprintf(codigo + pos, 8192 - pos, 
+            "%*sse verdadeiro então\n%*slocal v%d = %d\n", 
+            i * 2, "", i * 2, "", i, i);
+    }
+    Para (Inteiro i = 31; i >= 0; i--) {
+        pos += snprintf(codigo + pos, 8192 - pos, "%*sfim\n", i * 2, "");
+    }
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///se_aninhado.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Limite de escopo é 32 (scopes[32]) - não deve crashar */
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** ESCOPO: Múltiplas Variáveis (local a, b, c = ...)
+** ============================================================ */
+
+Inteiro teste_multiplas_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    Imutável Caractere *codigo = 
+        "local a, b, c = 1, 2, 3\n"
+        "exiba(a, b, c)\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///mult.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Todas devem existir */
+    Se (!var_visivel_na_linha(doc, "a", 1)) {
+        registra_erro(": 'a' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    Se (!var_visivel_na_linha(doc, "b", 1)) {
+        registra_erro(": 'b' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    Se (!var_visivel_na_linha(doc, "c", 1)) {
+        registra_erro(": 'c' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_multiplas_nao_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Variáveis múltiplas dentro de função devem fechar escopo junto */
+    Imutável Caractere *codigo = 
+        "função teste()\n"
+        "    local x, y = 1, 2\n"
+        "fim\n"
+        "local z = 3\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///mult_escopo.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* x, y NÃO devem estar visíveis na linha 3 */
+    Se (!var_invisivel_na_linha(doc, "x", 3)) {
+        registra_erro(": 'x' vazou");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    Se (!var_invisivel_na_linha(doc, "y", 3)) {
+        registra_erro(": 'y' vazou");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_multiplas_nulo() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* local sem variáveis */
+    Imutável Caractere *codigo = "local\n";
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///mult_vazio.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Não deve crashar */
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_multiplas_estouro() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    /* Muitas variáveis em uma linha */
+    Caractere codigo[4096];
+    Inteiro pos = snprintf(codigo, 4096, "local ");
+    Para (Inteiro i = 0; i < 50; i++) {
+        pos += snprintf(codigo + pos, 4096 - pos, "v%d%s", i, i < 49 ? ", " : " = ");
+    }
+    Para (Inteiro i = 0; i < 50; i++) {
+        pos += snprintf(codigo + pos, 4096 - pos, "%d%s", i, i < 49 ? ", " : "\n");
+    }
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///mult_muitas.sol", codigo);
+    lsp_analyze_document(lsp, doc);
+    
+    /* Todas devem existir */
+    Se (!var_visivel_na_linha(doc, "v0", 0)) {
+        registra_erro(": 'v0' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    Se (!var_visivel_na_linha(doc, "v49", 0)) {
+        registra_erro(": 'v49' não visível");
+        lsp_shutdown(lsp); sol_close(L);
+        Retorne TESTE_FALHA;
+    }
+    
+    lsp_shutdown(lsp); sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** Função Principal
+** ============================================================ */
+
+Inteiro Início() {
+    fprintf(stderr, "\n=== TESTES LSP: ESCOPO DE VARIÁVEIS ===\n\n");
+    
+    Inteiro total = 0, passou = 0;
+    
+    #Defina EXECUTA(nome, cenario, func) \
+        total++; \
+        Se (func() == TESTE_OK) { passou++; imprime(nome, cenario, 1); } \
+        Senão { imprime(nome, cenario, 0); }
+    
+    fprintf(stderr, "--- Parâmetros de Função ---\n");
+    EXECUTA("param", "ESPERADO", teste_param_esperado);
+    EXECUTA("param", "NAO_ESPERADO", teste_param_nao_esperado);
+    EXECUTA("param", "NULO", teste_param_nulo);
+    EXECUTA("param", "ESTOURO", teste_param_estouro);
+    
+    fprintf(stderr, "\n--- Variáveis de Loop ---\n");
+    EXECUTA("loop", "ESPERADO", teste_loop_esperado);
+    EXECUTA("loop", "NAO_ESPERADO", teste_loop_nao_esperado);
+    EXECUTA("loop", "NULO", teste_loop_nulo);
+    EXECUTA("loop", "ESTOURO", teste_loop_estouro);
+    
+    fprintf(stderr, "\n--- Blocos 'se' ---\n");
+    EXECUTA("se", "ESPERADO", teste_se_esperado);
+    EXECUTA("se", "NAO_ESPERADO", teste_se_nao_esperado);
+    EXECUTA("se", "NULO", teste_se_nulo);
+    EXECUTA("se", "ESTOURO", teste_se_estouro);
+    
+    fprintf(stderr, "\n--- Múltiplas Variáveis ---\n");
+    EXECUTA("mult", "ESPERADO", teste_multiplas_esperado);
+    EXECUTA("mult", "NAO_ESPERADO", teste_multiplas_nao_esperado);
+    EXECUTA("mult", "NULO", teste_multiplas_nulo);
+    EXECUTA("mult", "ESTOURO", teste_multiplas_estouro);
+    
+    fprintf(stderr, "\n=== RESULTADO: %d/%d testes passaram ===\n", passou, total);
+    
+    Retorne (passou == total) ? 0 : 1;
+}

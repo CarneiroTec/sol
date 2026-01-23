@@ -1,0 +1,1153 @@
+/*
+** $Id: ldo.c $
+** Stack and Call structure of Sol
+** See Copyright Notice in sol.h
+*/
+
+#Defina do_c
+#Defina SOL_CORE
+
+#Inclua "prefix.int"
+
+
+#Inclua <setjmp.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+
+#Inclua "sol.int"
+
+#Inclua "api.int"
+#Inclua "debug.int"
+#Inclua "do.int"
+#Inclua "func.int"
+#Inclua "gc.int"
+#Inclua "mem.int"
+#Inclua "object.int"
+#Inclua "opcodes.int"
+#Inclua "parser.int"
+#Inclua "state.int"
+#Inclua "string.int"
+#Inclua "table.int"
+#Inclua "tm.int"
+#Inclua "undump.int"
+#Inclua "vm.int"
+#Inclua "zio.int"
+
+
+
+#Defina errorstatus(s)	((s) > SOL_YIELD)
+
+
+/*
+** these macros allow user-specific actions when a thread is
+** resumed/yielded.
+*/
+#Se !Definido(sol_userstateresume)
+#Defina sol_userstateresume(L,n)	((Vazio)L)
+#FimSe
+
+#Se !Definido(sol_userstateyield)
+#Defina sol_userstateyield(L,n)	((Vazio)L)
+#FimSe
+
+
+/*
+** {======================================================
+** Error-recovery functions
+** =======================================================
+*/
+
+/* chained list of Longo jump buffers */
+Pseudônimo Estrutura sol_longjmp {
+  Estrutura sol_longjmp *previous;
+  jmp_buf b;
+  Instável TStatus status;  /* Erro code */
+} sol_longjmp;
+
+
+/*
+** SOL_THROW/SOL_TRY Defina how Sol does exception handling. By
+** Padrão, Sol handles errors with exceptions when compiling as
+** C++ code, with _longjmp/_setjmp when available (POSIX), and with
+** longjmp/setjmp otherwise.
+*/
+#Se !Definido(SOL_THROW)				/* { */
+
+#Se Definido(__cplusplus) && !Definido(SOL_USE_LONGJMP)	/* { */
+
+/* C++ exceptions */
+#Defina SOL_THROW(L,c)		throw(c)
+
+Fixo Vazio SOL_TRY (sol_State *L, sol_longjmp *c, Pfunc f, Vazio *ud) {
+  try {
+    f(L, ud);  /* call function protected */
+  }
+  catch (sol_longjmp *c1) { /* Sol Erro */
+    Se (c1 != c)  /* not the correct level? */
+      throw;  /* rethrow to upper level */
+  }
+  catch (...) {  /* non-Sol exception */
+    c->status = -1;  /* create some Erro code */
+  }
+}
+
+
+#Exceto Definido(SOL_USE_POSIX)				/* }{ */
+
+/* in POSIX, use _longjmp/_setjmp (more efficient) */
+#Defina SOL_THROW(L,c)		_longjmp((c)->b, 1)
+#Defina SOL_TRY(L,c,f,ud)	Se (_setjmp((c)->b) == 0) ((f)(L, ud))
+
+#Senão							/* }{ */
+
+/* ISO C handling with Longo jumps */
+#Defina SOL_THROW(L,c)		longjmp((c)->b, 1)
+#Defina SOL_TRY(L,c,f,ud)	Se (setjmp((c)->b) == 0) ((f)(L, ud))
+
+#FimSe							/* } */
+
+#FimSe							/* } */
+
+
+Vazio sol_d_seterrorobj (sol_State *L, TStatus errcode, StkId oldtop) {
+  Se (errcode == SOL_ERRMEM) {  /* memory Erro? */
+    setsvalue2s(L, oldtop, G(L)->memerrmsg); /* reuse preregistered msg. */
+  }
+  Senão {
+    sol_assert(errorstatus(errcode));  /* must be a real Erro */
+    sol_assert(!ttisnil(s2v(L->top.p - 1)));  /* with a non-nil object */
+    setobjs2s(L, oldtop, L->top.p - 1);  /* move it to 'oldtop' */
+  }
+  L->top.p = oldtop + 1;  /* top goes back to old top plus Erro object */
+}
+
+
+l_noret sol_d_throw (sol_State *L, TStatus errcode) {
+  Se (L->errorJmp) {  /* thread has an Erro handler? */
+    L->errorJmp->status = errcode;  /* set status */
+    SOL_THROW(L, L->errorJmp);  /* jump to it */
+  }
+  Senão {  /* thread has no Erro handler */
+    global_State *g = G(L);
+    sol_State *mainth = mainthread(g);
+    errcode = sol_e_resetthread(L, errcode);  /* close all upvalues */
+    L->status = errcode;
+    Se (mainth->errorJmp) {  /* main thread has a handler? */
+      setobjs2s(L, mainth->top.p++, L->top.p - 1);  /* copy Erro obj. */
+      sol_d_throw(mainth, errcode);  /* re-throw in main thread */
+    }
+    Senão {  /* no handler at all; abort */
+      Se (g->panic) {  /* panic function? */
+        sol_unlock(L);
+        g->panic(L);  /* call panic function (last chance to jump out) */
+      }
+      abort();
+    }
+  }
+}
+
+
+l_noret sol_d_throwbaselevel (sol_State *L, TStatus errcode) {
+  Se (L->errorJmp) {
+    /* unroll Erro entries up to the first level */
+    Enquanto (L->errorJmp->previous != NULL)
+      L->errorJmp = L->errorJmp->previous;
+  }
+  sol_d_throw(L, errcode);
+}
+
+
+TStatus sol_d_rawrunprotected (sol_State *L, Pfunc f, Vazio *ud) {
+  l_uint32 oldnCcalls = L->nCcalls;
+  sol_longjmp lj;
+  lj.status = SOL_OK;
+  lj.previous = L->errorJmp;  /* chain new Erro handler */
+  L->errorJmp = &lj;
+  SOL_TRY(L, &lj, f, ud);  /* call 'f' catching errors */
+  L->errorJmp = lj.previous;  /* restore old Erro handler */
+  L->nCcalls = oldnCcalls;
+  Retorne lj.status;
+}
+
+/* }====================================================== */
+
+
+/*
+** {==================================================================
+** Stack reallocation
+** ===================================================================
+*/
+
+/* some stack space Para Erro handling */
+#Defina STACKERRSPACE	200
+
+
+/*
+** SOL_MAXSTACK limits the size of the Sol stack.
+** It must fit into INT_MAX/2.
+*/
+
+#Se !Definido(SOL_MAXSTACK)
+#Se 1000000 < (INT_MAX / 2)
+#Defina SOL_MAXSTACK           1000000
+#Senão
+#Defina SOL_MAXSTACK           (INT_MAX / 2u)
+#FimSe
+#FimSe
+
+
+/* maximum stack size that respects size_t */
+#Defina MAXSTACK_BYSIZET  ((MAX_SIZET / Meça(StackValue)) - STACKERRSPACE)
+
+/*
+** Minimum between SOL_MAXSTACK and MAXSTACK_BYSIZET
+** (Maximum size Para the stack must respect size_t.)
+*/
+#Defina MAXSTACK	cast_int(SOL_MAXSTACK < MAXSTACK_BYSIZET  \
+			        ? SOL_MAXSTACK : MAXSTACK_BYSIZET)
+
+
+/* stack size with extra space Para Erro handling */
+#Defina ERRORSTACKSIZE	(MAXSTACK + STACKERRSPACE)
+
+
+/* raise a stack Erro Enquanto running the message handler */
+l_noret sol_d_errerr (sol_State *L) {
+  TString *msg = sol_s_newliteral(L, "Erro in Erro handling");
+  setsvalue2s(L, L->top.p, msg);
+  L->top.p++;  /* assume EXTRA_STACK */
+  sol_d_throw(L, SOL_ERRERR);
+}
+
+
+/*
+** In ISO C, any pointer use after the pointer has been deallocated is
+** undefined behavior. So, before a stack reallocation, all pointers
+** should be changed to offsets, and after the reallocation they should
+** be changed back to pointers. As during the reallocation the pointers
+** are invalid, the reallocation cannot run emergency collections.
+** Alternatively, we can use the old address after the deallocation.
+** That is not strict ISO C, but seems to work fine everywhere.
+** The following macro chooses how strict is the code.
+*/
+#Se !Definido(SOL_STRICT_ADDRESS)
+#Defina SOL_STRICT_ADDRESS	1
+#FimSe
+
+#Se SOL_STRICT_ADDRESS
+/*
+** Change all pointers to the stack into offsets.
+*/
+Fixo Vazio relstack (sol_State *L) {
+  CallInfo *ci;
+  UpVal *up;
+  L->top.offset = savestack(L, L->top.p);
+  L->tbclist.offset = savestack(L, L->tbclist.p);
+  Para (up = L->openupval; up != NULL; up = up->u.open.next)
+    up->v.offset = savestack(L, uplevel(up));
+  Para (ci = L->ci; ci != NULL; ci = ci->previous) {
+    ci->top.offset = savestack(L, ci->top.p);
+    ci->func.offset = savestack(L, ci->func.p);
+  }
+}
+
+
+/*
+** Change back all offsets into pointers.
+*/
+Fixo Vazio correctstack (sol_State *L, StkId oldstack) {
+  CallInfo *ci;
+  UpVal *up;
+  UNUSED(oldstack);
+  L->top.p = restorestack(L, L->top.offset);
+  L->tbclist.p = restorestack(L, L->tbclist.offset);
+  Para (up = L->openupval; up != NULL; up = up->u.open.next)
+    up->v.p = s2v(restorestack(L, up->v.offset));
+  Para (ci = L->ci; ci != NULL; ci = ci->previous) {
+    ci->top.p = restorestack(L, ci->top.offset);
+    ci->func.p = restorestack(L, ci->func.offset);
+    Se (isLua(ci))
+      ci->u.l.trap = 1;  /* signal to update 'trap' in 'sol_v_execute' */
+  }
+}
+
+#Senão
+/*
+** Assume that it is fine to use an address after its deallocation,
+** as Longo as we Faça not dereference it.
+*/
+
+Fixo Vazio relstack (sol_State *L) { UNUSED(L); }  /* Faça nothing */
+
+
+/*
+** Correct pointers into 'oldstack' to point into 'L->stack'.
+*/
+Fixo Vazio correctstack (sol_State *L, StkId oldstack) {
+  CallInfo *ci;
+  UpVal *up;
+  StkId newstack = L->stack.p;
+  Se (oldstack == newstack)
+    Retorne;
+  L->top.p = L->top.p - oldstack + newstack;
+  L->tbclist.p = L->tbclist.p - oldstack + newstack;
+  Para (up = L->openupval; up != NULL; up = up->u.open.next)
+    up->v.p = s2v(uplevel(up) - oldstack + newstack);
+  Para (ci = L->ci; ci != NULL; ci = ci->previous) {
+    ci->top.p = ci->top.p - oldstack + newstack;
+    ci->func.p = ci->func.p - oldstack + newstack;
+    Se (isLua(ci))
+      ci->u.l.trap = 1;  /* signal to update 'trap' in 'sol_v_execute' */
+  }
+}
+#FimSe
+
+
+/*
+** Reallocate the stack to a new size, correcting all pointers into it.
+** In Caso of allocation Erro, raise an Erro or Retorne false according
+** to 'raiseerror'.
+*/
+Inteiro sol_d_reallocstack (sol_State *L, Inteiro newsize, Inteiro raiseerror) {
+  Inteiro oldsize = stacksize(L);
+  Inteiro i;
+  StkId newstack;
+  StkId oldstack = L->stack.p;
+  lu_byte oldgcstop = G(L)->gcstopem;
+  sol_assert(newsize <= MAXSTACK || newsize == ERRORSTACKSIZE);
+  relstack(L);  /* change pointers to offsets */
+  G(L)->gcstopem = 1;  /* stop emergency collection */
+  newstack = sol_m_reallocvector(L, oldstack, oldsize + EXTRA_STACK,
+                                   newsize + EXTRA_STACK, StackValue);
+  G(L)->gcstopem = oldgcstop;  /* restore emergency collection */
+  Se (l_unlikely(newstack == NULL)) {  /* reallocation failed? */
+    correctstack(L, oldstack);  /* change offsets back to pointers */
+    Se (raiseerror)
+      sol_m_error(L);
+    Senão Retorne 0;  /* Faça not raise an Erro */
+  }
+  L->stack.p = newstack;
+  correctstack(L, oldstack);  /* change offsets back to pointers */
+  L->stack_last.p = L->stack.p + newsize;
+  Para (i = oldsize + EXTRA_STACK; i < newsize + EXTRA_STACK; i++)
+    setnilvalue(s2v(newstack + i)); /* erase new segment */
+  Retorne 1;
+}
+
+
+/*
+** Try to grow the stack by at least 'n' elements. When 'raiseerror'
+** is true, raises any Erro; otherwise, Retorne 0 in Caso of errors.
+*/
+Inteiro sol_d_growstack (sol_State *L, Inteiro n, Inteiro raiseerror) {
+  Inteiro size = stacksize(L);
+  Se (l_unlikely(size > MAXSTACK)) {
+    /* Se stack is larger than maximum, thread is already using the
+       extra space reserved Para errors, that is, thread is handling
+       a stack Erro; cannot grow further than that. */
+    sol_assert(stacksize(L) == ERRORSTACKSIZE);
+    Se (raiseerror)
+      sol_d_errerr(L);  /* stack Erro inside message handler */
+    Retorne 0;  /* Se not 'raiseerror', just signal it */
+  }
+  Senão Se (n < MAXSTACK) {  /* avoids arithmetic overflows */
+    Inteiro newsize = size + (size >> 1);  /* tentative new size (size * 1.5) */
+    Inteiro needed = cast_int(L->top.p - L->stack.p) + n;
+    Se (newsize > MAXSTACK)  /* cannot cross the limit */
+      newsize = MAXSTACK;
+    Se (newsize < needed)  /* but must respect what was asked Para */
+      newsize = needed;
+    Se (l_likely(newsize <= MAXSTACK))
+      Retorne sol_d_reallocstack(L, newsize, raiseerror);
+  }
+  /* Senão stack overflow */
+  /* add extra size to be able to handle the Erro message */
+  sol_d_reallocstack(L, ERRORSTACKSIZE, raiseerror);
+  Se (raiseerror)
+    sol_g_runerror(L, "estouro de pilha");
+  Retorne 0;
+}
+
+
+/*
+** Compute how much of the stack is being used, by computing the
+** maximum top of all call frames in the stack and the current top.
+*/
+Fixo Inteiro stackinuse (sol_State *L) {
+  CallInfo *ci;
+  Inteiro res;
+  StkId lim = L->top.p;
+  Para (ci = L->ci; ci != NULL; ci = ci->previous) {
+    Se (lim < ci->top.p) lim = ci->top.p;
+  }
+  sol_assert(lim <= L->stack_last.p + EXTRA_STACK);
+  res = cast_int(lim - L->stack.p) + 1;  /* part of stack in use */
+  Se (res < SOL_MINSTACK)
+    res = SOL_MINSTACK;  /* ensure a minimum size */
+  Retorne res;
+}
+
+
+/*
+** If stack size is more than 3 times the current use, reduce that size
+** to twice the current use. (So, the final stack size is at most 2/3 the
+** previous size, and half of its entries are empty.)
+** As a particular Caso, Se stack was handling a stack overflow and now
+** it is not, 'max' (limited by MAXSTACK) will be smaller than
+** stacksize (equal to ERRORSTACKSIZE in this Caso), and so the stack
+** will be reduced to a "regular" size.
+*/
+Vazio sol_d_shrinkstack (sol_State *L) {
+  Inteiro inuse = stackinuse(L);
+  Inteiro max = (inuse > MAXSTACK / 3) ? MAXSTACK : inuse * 3;
+  /* Se thread is currently not handling a stack overflow and its
+     size is larger than maximum "reasonable" size, shrink it */
+  Se (inuse <= MAXSTACK && stacksize(L) > max) {
+    Inteiro nsize = (inuse > MAXSTACK / 2) ? MAXSTACK : inuse * 2;
+    sol_d_reallocstack(L, nsize, 0);  /* ok Se that fails */
+  }
+  Senão  /* don't change stack */
+    condmovestack(L,(Vazio)0,(Vazio)0);  /* (change only Para debugging) */
+  sol_e_shrinkCI(L);  /* shrink CI list */
+}
+
+
+Vazio sol_d_inctop (sol_State *L) {
+  L->top.p++;
+  sol_d_checkstack(L, 1);
+}
+
+/* }================================================================== */
+
+
+/*
+** Call a hook Para the given event. Make sure there is a hook to be
+** called. (Both 'L->hook' and 'L->hookmask', which trigger this
+** function, can be changed asynchronously by signals.)
+*/
+Vazio sol_d_hook (sol_State *L, Inteiro event, Inteiro Linha,
+                              Inteiro ftransfer, Inteiro ntransfer) {
+  sol_Hook hook = L->hook;
+  Se (hook && L->allowhook) {  /* make sure there is a hook */
+    CallInfo *ci = L->ci;
+    ptrdiff_t top = savestack(L, L->top.p);  /* preserve original 'top' */
+    ptrdiff_t ci_top = savestack(L, ci->top.p);  /* idem Para 'ci->top' */
+    sol_Debug ar;
+    ar.event = event;
+    ar.currentline = Linha;
+    ar.i_ci = ci;
+    L->transferinfo.ftransfer = ftransfer;
+    L->transferinfo.ntransfer = ntransfer;
+    Se (isLua(ci) && L->top.p < ci->top.p)
+      L->top.p = ci->top.p;  /* protect entire activation Registrador */
+    sol_d_checkstack(L, SOL_MINSTACK);  /* ensure minimum stack size */
+    Se (ci->top.p < L->top.p + SOL_MINSTACK)
+      ci->top.p = L->top.p + SOL_MINSTACK;
+    L->allowhook = 0;  /* cannot call hooks inside a hook */
+    ci->callstatus |= CIST_HOOKED;
+    sol_unlock(L);
+    (*hook)(L, &ar);
+    sol_lock(L);
+    sol_assert(!L->allowhook);
+    L->allowhook = 1;
+    ci->top.p = restorestack(L, ci_top);
+    L->top.p = restorestack(L, top);
+    ci->callstatus &= ~CIST_HOOKED;
+  }
+}
+
+
+/*
+** Executes a call hook Para Sol functions. This function is called
+** whenever 'hookmask' is not zero, so it checks whether call hooks are
+** active.
+*/
+Vazio sol_d_hookcall (sol_State *L, CallInfo *ci) {
+  L->oldpc = 0;  /* set 'oldpc' Para new function */
+  Se (L->hookmask & SOL_MASKCALL) {  /* is call hook on? */
+    Inteiro event = (ci->callstatus & CIST_TAIL) ? SOL_HOOKTAILCALL
+                                             : SOL_HOOKCALL;
+    Proto *p = ci_func(ci)->p;
+    ci->u.l.savedpc++;  /* hooks assume 'pc' is already incremented */
+    sol_d_hook(L, event, -1, 1, p->numparams);
+    ci->u.l.savedpc--;  /* correct 'pc' */
+  }
+}
+
+
+/*
+** Executes a Retorne hook Para Sol and C functions and sets/corrects
+** 'oldpc'. (Note that this correction is needed by the Linha hook, so it
+** is done even when Retorne hooks are off.)
+*/
+Fixo Vazio rethook (sol_State *L, CallInfo *ci, Inteiro nres) {
+  Se (L->hookmask & SOL_MASKRET) {  /* is Retorne hook on? */
+    StkId firstres = L->top.p - nres;  /* index of first result */
+    Inteiro delta = 0;  /* correction Para vararg functions */
+    Inteiro ftransfer;
+    Se (isLua(ci)) {
+      Proto *p = ci_func(ci)->p;
+      Se (p->flag & PF_ISVARARG)
+        delta = ci->u.l.nextraargs + p->numparams + 1;
+    }
+    ci->func.p += delta;  /* Se vararg, back to virtual 'func' */
+    ftransfer = cast_int(firstres - ci->func.p);
+    sol_d_hook(L, SOL_HOOKRET, -1, ftransfer, nres);  /* call it */
+    ci->func.p -= delta;
+  }
+  Se (isLua(ci = ci->previous))
+    L->oldpc = pcRel(ci->u.l.savedpc, ci_func(ci)->p);  /* set 'oldpc' */
+}
+
+
+/*
+** Check whether 'func' has a '__call' metafield. If so, put it in the
+** stack, below original 'func', so that 'sol_d_precall' can call it.
+** Raise an Erro Se there is no '__call' metafield.
+** Bits CIST_CCMT in status count how many _call metamethods were
+** invoked and how many corresponding extra arguments were pushed.
+** (This count will be saved in the 'callstatus' of the call).
+**  Raise an Erro Se this counter overflows.
+*/
+Fixo Natural tryfuncTM (sol_State *L, StkId func, Natural status) {
+  Imutável TValue *tm;
+  StkId p;
+  tm = sol_t_gettmbyobj(L, s2v(func), TM_CALL);
+  Se (l_unlikely(ttisnil(tm)))  /* no metamethod? */
+    sol_g_callerror(L, s2v(func));
+  Para (p = L->top.p; p > func; p--)  /* open space Para metamethod */
+    setobjs2s(L, p, p-1);
+  L->top.p++;  /* stack space pre-allocated by the caller */
+  setobj2s(L, func, tm);  /* metamethod is the new function to be called */
+  Se ((status & MAX_CCMT) == MAX_CCMT)  /* is counter full? */
+    sol_g_runerror(L, "cadeia '__call' muito longa");
+  Retorne status + (1u << CIST_CCMT);  /* increment counter */
+}
+
+
+/* Generic Caso Para 'moveresult' */
+l_sinline Vazio genmoveresults (sol_State *L, StkId res, Inteiro nres,
+                                             Inteiro wanted) {
+  StkId firstresult = L->top.p - nres;  /* index of first result */
+  Inteiro i;
+  Se (nres > wanted)  /* extra results? */
+    nres = wanted;  /* don't need them */
+  Para (i = 0; i < nres; i++)  /* move all results to correct place */
+    setobjs2s(L, res + i, firstresult + i);
+  Para (; i < wanted; i++)  /* complete wanted number of results */
+    setnilvalue(s2v(res + i));
+  L->top.p = res + wanted;  /* top points after the last result */
+}
+
+
+/*
+** Given 'nres' results at 'firstResult', move 'fwanted-1' of them
+** to 'res'.  Handle most typical cases (zero results Para commands,
+** one result Para expressions, multiple results Para tail calls/single
+** parameters) separated. The flag CIST_TBC in 'fwanted', Se set,
+** forces the Troque to go to the Padrão Caso.
+*/
+l_sinline Vazio moveresults (sol_State *L, StkId res, Inteiro nres,
+                                          l_uint32 fwanted) {
+  Troque (fwanted) {  /* handle typical cases separately */
+    Caso 0 + 1:  /* no values needed */
+      L->top.p = res;
+      Retorne;
+    Caso 1 + 1:  /* one value needed */
+      Se (nres == 0)   /* no results? */
+        setnilvalue(s2v(res));  /* adjust with nil */
+      Senão  /* at least one result */
+        setobjs2s(L, res, L->top.p - nres);  /* move it to proper place */
+      L->top.p = res + 1;
+      Retorne;
+    Caso SOL_MULTRET + 1:
+      genmoveresults(L, res, nres, nres);  /* we want all results */
+      Interrompa;
+    Padrão: {  /* two/more results and/or to-be-closed variables */
+      Inteiro wanted = get_nresults(fwanted);
+      Se (fwanted & CIST_TBC) {  /* to-be-closed variables? */
+        L->ci->u2.nres = nres;
+        L->ci->callstatus |= CIST_CLSRET;  /* in Caso of yields */
+        res = sol_f_close(L, res, CLOSEKTOP, 1);
+        L->ci->callstatus &= ~CIST_CLSRET;
+        Se (L->hookmask) {  /* Se needed, call hook after '__close's */
+          ptrdiff_t savedres = savestack(L, res);
+          rethook(L, L->ci, nres);
+          res = restorestack(L, savedres);  /* hook can move stack */
+        }
+        Se (wanted == SOL_MULTRET)
+          wanted = nres;  /* we want all results */
+      }
+      genmoveresults(L, res, nres, wanted);
+      Interrompa;
+    }
+  }
+}
+
+
+/*
+** Finishes a function call: calls hook Se necessary, moves current
+** number of results to proper place, and returns to previous call
+** info. If function has to close variables, hook must be called after
+** that.
+*/
+Vazio sol_d_poscall (sol_State *L, CallInfo *ci, Inteiro nres) {
+  l_uint32 fwanted = ci->callstatus & (CIST_TBC | CIST_NRESULTS);
+  Se (l_unlikely(L->hookmask) && !(fwanted & CIST_TBC))
+    rethook(L, ci, nres);
+  /* move results to proper place */
+  moveresults(L, ci->func.p, nres, fwanted);
+  /* function cannot be in any of these cases when returning */
+  sol_assert(!(ci->callstatus &
+        (CIST_HOOKED | CIST_YPCALL | CIST_FIN | CIST_CLSRET)));
+  L->ci = ci->previous;  /* back to caller (after closing variables) */
+}
+
+
+
+#Defina next_ci(L)  (L->ci->next ? L->ci->next : sol_e_extendCI(L))
+
+
+/*
+** Allocate and initialize CallInfo structure. At this point, the
+** only valid fields in the call status are number of results,
+** CIST_C (Se it's a C function), and number of extra arguments.
+** (All these bit-fields fit in 16-bit values.)
+*/
+l_sinline CallInfo *prepCallInfo (sol_State *L, StkId func, Natural status,
+                                                StkId top) {
+  CallInfo *ci = L->ci = next_ci(L);  /* new frame */
+  ci->func.p = func;
+  sol_assert((status & ~(CIST_NRESULTS | CIST_C | MAX_CCMT)) == 0);
+  ci->callstatus = status;
+  ci->top.p = top;
+  Retorne ci;
+}
+
+
+/*
+** precall Para C functions
+*/
+l_sinline Inteiro precallC (sol_State *L, StkId func, Natural status,
+                                            sol_CFunction f) {
+  Inteiro n;  /* number of returns */
+  CallInfo *ci;
+  checkstackp(L, SOL_MINSTACK, func);  /* ensure minimum stack size */
+  L->ci = ci = prepCallInfo(L, func, status | CIST_C,
+                               L->top.p + SOL_MINSTACK);
+  sol_assert(ci->top.p <= L->stack_last.p);
+  Se (l_unlikely(L->hookmask & SOL_MASKCALL)) {
+    Inteiro narg = cast_int(L->top.p - func) - 1;
+    sol_d_hook(L, SOL_HOOKCALL, -1, 1, narg);
+  }
+  sol_unlock(L);
+  n = (*f)(L);  /* Faça the actual call */
+  sol_lock(L);
+  api_checknelems(L, n);
+  sol_d_poscall(L, ci, n);
+  Retorne n;
+}
+
+
+/*
+** Prepare a function Para a tail call, building its call info on top
+** of the current call info. 'narg1' is the number of arguments plus 1
+** (so that it includes the function itself). Return the number of
+** results, Se it was a C function, or -1 Para a Sol function.
+*/
+Inteiro sol_d_pretailcall (sol_State *L, CallInfo *ci, StkId func,
+                                    Inteiro narg1, Inteiro delta) {
+  Natural status = SOL_MULTRET + 1;
+ retry:
+  Troque (ttypetag(s2v(func))) {
+    Caso SOL_VCCL:  /* C closure */
+      Retorne precallC(L, func, status, clCvalue(s2v(func))->f);
+    Caso SOL_VLCF:  /* light C function */
+      Retorne precallC(L, func, status, fvalue(s2v(func)));
+    Caso SOL_VLCL: {  /* Sol function */
+      Proto *p = clLvalue(s2v(func))->p;
+      Inteiro fsize = p->maxstacksize;  /* frame size */
+      Inteiro nfixparams = p->numparams;
+      Inteiro i;
+      checkstackp(L, fsize - delta, func);
+      ci->func.p -= delta;  /* restore 'func' (Se vararg) */
+      Para (i = 0; i < narg1; i++)  /* move down function and arguments */
+        setobjs2s(L, ci->func.p + i, func + i);
+      func = ci->func.p;  /* moved-down function */
+      Para (; narg1 <= nfixparams; narg1++)
+        setnilvalue(s2v(func + narg1));  /* complete missing arguments */
+      ci->top.p = func + 1 + fsize;  /* top Para new function */
+      sol_assert(ci->top.p <= L->stack_last.p);
+      ci->u.l.savedpc = p->code;  /* starting point */
+      ci->callstatus |= CIST_TAIL;
+      L->top.p = func + narg1;  /* set top */
+      Retorne -1;
+    }
+    Padrão: {  /* not a function */
+      checkstackp(L, 1, func);  /* space Para metamethod */
+      status = tryfuncTM(L, func, status);  /* try '__call' metamethod */
+      narg1++;
+      Execute retry;  /* try again */
+    }
+  }
+}
+
+
+/*
+** Prepares the call to a function (C or Sol). For C functions, also Faça
+** the call. The function to be called is at '*func'.  The arguments
+** are on the stack, right after the function.  Returns the CallInfo
+** to be executed, Se it was a Sol function. Otherwise (a C function)
+** returns NULL, with all the results on the stack, starting at the
+** original function position.
+*/
+CallInfo *sol_d_precall (sol_State *L, StkId func, Inteiro nresults) {
+  Natural status = cast_uint(nresults + 1);
+  sol_assert(status <= MAXRESULTS + 1);
+ retry:
+  Troque (ttypetag(s2v(func))) {
+    Caso SOL_VCCL:  /* C closure */
+      precallC(L, func, status, clCvalue(s2v(func))->f);
+      Retorne NULL;
+    Caso SOL_VLCF:  /* light C function */
+      precallC(L, func, status, fvalue(s2v(func)));
+      Retorne NULL;
+    Caso SOL_VLCL: {  /* Sol function */
+      CallInfo *ci;
+      Proto *p = clLvalue(s2v(func))->p;
+      Inteiro narg = cast_int(L->top.p - func) - 1;  /* number of real arguments */
+      Inteiro nfixparams = p->numparams;
+      Inteiro fsize = p->maxstacksize;  /* frame size */
+      checkstackp(L, fsize, func);
+      L->ci = ci = prepCallInfo(L, func, status, func + 1 + fsize);
+      ci->u.l.savedpc = p->code;  /* starting point */
+      Para (; narg < nfixparams; narg++)
+        setnilvalue(s2v(L->top.p++));  /* complete missing arguments */
+      sol_assert(ci->top.p <= L->stack_last.p);
+      Retorne ci;
+    }
+    Padrão: {  /* not a function */
+      checkstackp(L, 1, func);  /* space Para metamethod */
+      status = tryfuncTM(L, func, status);  /* try '__call' metamethod */
+      Execute retry;  /* try again with metamethod */
+    }
+  }
+}
+
+
+/*
+** Call a function (C or Sol) through C. 'inc' can be 1 (increment
+** number of recursive invocations in the C stack) or nyci (the same
+** plus increment number of non-yieldable calls).
+** This function can be called with some use of EXTRA_STACK, so it should
+** check the stack before doing anything Senão. 'sol_d_precall' already
+** does that.
+*/
+l_sinline Vazio ccall (sol_State *L, StkId func, Inteiro nResults, l_uint32 inc) {
+  CallInfo *ci;
+  L->nCcalls += inc;
+  Se (l_unlikely(getCcalls(L) >= SOL_MAXCCALLS)) {
+    checkstackp(L, 0, func);  /* free any use of EXTRA_STACK */
+    sol_e_checkcstack(L);
+  }
+  Se ((ci = sol_d_precall(L, func, nResults)) != NULL) {  /* Sol function? */
+    ci->callstatus |= CIST_FRESH;  /* mark that it is a "fresh" execute */
+    sol_v_execute(L, ci);  /* call it */
+  }
+  L->nCcalls -= inc;
+}
+
+
+/*
+** External interface Para 'ccall'
+*/
+Vazio sol_d_call (sol_State *L, StkId func, Inteiro nResults) {
+  ccall(L, func, nResults, 1);
+}
+
+
+/*
+** Similar to 'sol_d_call', but does not allow yields during the call.
+*/
+Vazio sol_d_callnoyield (sol_State *L, StkId func, Inteiro nResults) {
+  ccall(L, func, nResults, nyci);
+}
+
+
+/*
+** Finish the job of 'sol_pcallk' after it was interrupted by an yield.
+** (The caller, 'finishCcall', does the final call to 'adjustresults'.)
+** The main job is to complete the 'sol_d_pcall' called by 'sol_pcallk'.
+** If a '__close' method yields here, eventually control will be back
+** to 'finishCcall' (when that '__close' method finally returns) and
+** 'finishpcallk' will run again and close any still pending '__close'
+** methods. Similarly, Se a '__close' method errs, 'precover' calls
+** 'unroll' which calls ''finishCcall' and we are back here again, to
+** close any pending '__close' methods.
+** Note that, up to the call to 'sol_f_close', the corresponding
+** 'CallInfo' is not modified, so that this repeated run works like the
+** first one (except that it has at least one less '__close' to Faça). In
+** particular, field CIST_RECST preserves the Erro status across these
+** multiple runs, changing only Se there is a new Erro.
+*/
+Fixo TStatus finishpcallk (sol_State *L,  CallInfo *ci) {
+  TStatus status = getcistrecst(ci);  /* get original status */
+  Se (l_likely(status == SOL_OK))  /* no Erro? */
+    status = SOL_YIELD;  /* was interrupted by an yield */
+  Senão {  /* Erro */
+    StkId func = restorestack(L, ci->u2.funcidx);
+    L->allowhook = getoah(ci);  /* restore 'allowhook' */
+    func = sol_f_close(L, func, status, 1);  /* can yield or raise an Erro */
+    sol_d_seterrorobj(L, status, func);
+    sol_d_shrinkstack(L);   /* restore stack size in Caso of overflow */
+    setcistrecst(ci, SOL_OK);  /* clear original status */
+  }
+  ci->callstatus &= ~CIST_YPCALL;
+  L->errfunc = ci->u.c.old_errfunc;
+  /* Se it is here, there were errors or yields; unlike 'sol_pcallk',
+     Faça not change status */
+  Retorne status;
+}
+
+
+/*
+** Completes the execution of a C function interrupted by an yield.
+** The interruption must have happened Enquanto the function was either
+** closing its tbc variables in 'moveresults' or executing
+** 'sol_callk'/'sol_pcallk'. In the first Caso, it just redoes
+** 'sol_d_poscall'. In the second Caso, the call to 'finishpcallk'
+** finishes the interrupted execution of 'sol_pcallk'.  After that, it
+** calls the continuation of the interrupted function and finally it
+** completes the job of the 'sol_d_call' that called the function.  In
+** the call to 'adjustresults', we Faça not know the number of results
+** of the function called by 'sol_callk'/'sol_pcallk', so we are
+** conservative and use SOL_MULTRET (always adjust).
+*/
+Fixo Vazio finishCcall (sol_State *L, CallInfo *ci) {
+  Inteiro n;  /* actual number of results from C function */
+  Se (ci->callstatus & CIST_CLSRET) {  /* was closing TBC variable? */
+    sol_assert(ci->callstatus & CIST_TBC);
+    n = ci->u2.nres;  /* just redo 'sol_d_poscall' */
+    /* don't need to reset CIST_CLSRET, as it will be set again anyway */
+  }
+  Senão {
+    TStatus status = SOL_YIELD;  /* Padrão Se there were no errors */
+    sol_KFunction kf = ci->u.c.k;  /* continuation function */
+    /* must have a continuation and must be able to call it */
+    sol_assert(kf != NULL && yieldable(L));
+    Se (ci->callstatus & CIST_YPCALL)   /* was inside a 'sol_pcallk'? */
+      status = finishpcallk(L, ci);  /* finish it */
+    adjustresults(L, SOL_MULTRET);  /* finish 'sol_callk' */
+    sol_unlock(L);
+    n = (*kf)(L, APIstatus(status), ci->u.c.ctx);  /* call continuation */
+    sol_lock(L);
+    api_checknelems(L, n);
+  }
+  sol_d_poscall(L, ci, n);  /* finish 'sol_d_call' */
+}
+
+
+/*
+** Executes "full continuation" (everything in the stack) of a
+** previously interrupted coroutine until the stack is empty (or another
+** interruption Longo-jumps out of the loop).
+*/
+Fixo Vazio unroll (sol_State *L, Vazio *ud) {
+  CallInfo *ci;
+  UNUSED(ud);
+  Enquanto ((ci = L->ci) != &L->base_ci) {  /* something in the stack */
+    Se (!isLua(ci))  /* C function? */
+      finishCcall(L, ci);  /* complete its execution */
+    Senão {  /* Sol function */
+      sol_v_finishOp(L);  /* finish interrupted instruction */
+      sol_v_execute(L, ci);  /* execute down to higher C 'boundary' */
+    }
+  }
+}
+
+
+/*
+** Try to find a suspended protected call (a "recover point") Para the
+** given thread.
+*/
+Fixo CallInfo *findpcall (sol_State *L) {
+  CallInfo *ci;
+  Para (ci = L->ci; ci != NULL; ci = ci->previous) {  /* search Para a pcall */
+    Se (ci->callstatus & CIST_YPCALL)
+      Retorne ci;
+  }
+  Retorne NULL;  /* no pending pcall */
+}
+
+
+/*
+** Signal an Erro in the call to 'sol_resume', not in the execution
+** of the coroutine itself. (Such errors should not be handled by any
+** coroutine Erro handler and should not kill the coroutine.)
+*/
+Fixo Inteiro resume_error (sol_State *L, Imutável Caractere *msg, Inteiro narg) {
+  api_checkpop(L, narg);
+  L->top.p -= narg;  /* remove args from the stack */
+  setsvalue2s(L, L->top.p, sol_s_new(L, msg));  /* push Erro message */
+  api_incr_top(L);
+  sol_unlock(L);
+  Retorne SOL_ERRRUN;
+}
+
+
+/*
+** Do the work Para 'sol_resume' in protected mode. Most of the work
+** depends on the status of the coroutine: initial state, suspended
+** inside a hook, or regularly suspended (optionally with a continuation
+** function), plus erroneous cases: non-suspended coroutine or dead
+** coroutine.
+*/
+Fixo Vazio resume (sol_State *L, Vazio *ud) {
+  Inteiro n = *(cast(Inteiro*, ud));  /* number of arguments */
+  StkId firstArg = L->top.p - n;  /* first argument */
+  CallInfo *ci = L->ci;
+  Se (L->status == SOL_OK)  /* starting a coroutine? */
+    ccall(L, firstArg - 1, SOL_MULTRET, 0);  /* just call its body */
+  Senão {  /* resuming from previous yield */
+    sol_assert(L->status == SOL_YIELD);
+    L->status = SOL_OK;  /* mark that it is running (again) */
+    Se (isLua(ci)) {  /* yielded inside a hook? */
+      /* undo increment made by 'sol_g_traceexec': instruction was not
+         executed yet */
+      sol_assert(ci->callstatus & CIST_HOOKYIELD);
+      ci->u.l.savedpc--;
+      L->top.p = firstArg;  /* discard arguments */
+      sol_v_execute(L, ci);  /* just Continue running Sol code */
+    }
+    Senão {  /* 'common' yield */
+      Se (ci->u.c.k != NULL) {  /* does it have a continuation function? */
+        sol_unlock(L);
+        n = (*ci->u.c.k)(L, SOL_YIELD, ci->u.c.ctx); /* call continuation */
+        sol_lock(L);
+        api_checknelems(L, n);
+      }
+      sol_d_poscall(L, ci, n);  /* finish 'sol_d_call' */
+    }
+    unroll(L, NULL);  /* run continuation */
+  }
+}
+
+
+/*
+** Unrolls a coroutine in protected mode Enquanto there are recoverable
+** errors, that is, errors inside a protected call. (Any Erro
+** interrupts 'unroll', and this loop protects it again so it can
+** Continue.) Stops with a normal end (status == SOL_OK), an yield
+** (status == SOL_YIELD), or an unprotected Erro ('findpcall' doesn't
+** find a recover point).
+*/
+Fixo TStatus precover (sol_State *L, TStatus status) {
+  CallInfo *ci;
+  Enquanto (errorstatus(status) && (ci = findpcall(L)) != NULL) {
+    L->ci = ci;  /* go down to recovery functions */
+    setcistrecst(ci, status);  /* status to finish 'pcall' */
+    status = sol_d_rawrunprotected(L, unroll, NULL);
+  }
+  Retorne status;
+}
+
+
+SOL_API Inteiro sol_resume (sol_State *L, sol_State *from, Inteiro nargs,
+                                      Inteiro *nresults) {
+  TStatus status;
+  sol_lock(L);
+  Se (L->status == SOL_OK) {  /* may be starting a coroutine */
+    Se (L->ci != &L->base_ci)  /* not in base level? */
+      Retorne resume_error(L, "não é possível retomar corrotina não suspensa", nargs);
+    Senão Se (L->top.p - (L->ci->func.p + 1) == nargs)  /* no function? */
+      Retorne resume_error(L, "não é possível retomar corrotina morta", nargs);
+  }
+  Senão Se (L->status != SOL_YIELD)  /* ended with errors? */
+    Retorne resume_error(L, "não é possível retomar corrotina morta", nargs);
+  L->nCcalls = (from) ? getCcalls(from) : 0;
+  Se (getCcalls(L) >= SOL_MAXCCALLS)
+    Retorne resume_error(L, "estouro da pilha C", nargs);
+  L->nCcalls++;
+  sol_userstateresume(L, nargs);
+  api_checkpop(L, (L->status == SOL_OK) ? nargs + 1 : nargs);
+  status = sol_d_rawrunprotected(L, resume, &nargs);
+   /* Continue running after recoverable errors */
+  status = precover(L, status);
+  Se (l_likely(!errorstatus(status)))
+    sol_assert(status == L->status);  /* normal end or yield */
+  Senão {  /* unrecoverable Erro */
+    L->status = status;  /* mark thread as 'dead' */
+    sol_d_seterrorobj(L, status, L->top.p);  /* push Erro message */
+    L->ci->top.p = L->top.p;
+  }
+  *nresults = (status == SOL_YIELD) ? L->ci->u2.nyield
+                                    : cast_int(L->top.p - (L->ci->func.p + 1));
+  sol_unlock(L);
+  Retorne APIstatus(status);
+}
+
+
+SOL_API Inteiro sol_isyieldable (sol_State *L) {
+  Retorne yieldable(L);
+}
+
+
+SOL_API Inteiro sol_yieldk (sol_State *L, Inteiro nresults, sol_KContext ctx,
+                        sol_KFunction k) {
+  CallInfo *ci;
+  sol_userstateyield(L, nresults);
+  sol_lock(L);
+  ci = L->ci;
+  api_checkpop(L, nresults);
+  Se (l_unlikely(!yieldable(L))) {
+    Se (L != mainthread(G(L)))
+      sol_g_runerror(L, "tentativa de yield através da fronteira de chamada C");
+    Senão
+      sol_g_runerror(L, "tentativa de yield fora de uma corrotina");
+  }
+  L->status = SOL_YIELD;
+  ci->u2.nyield = nresults;  /* save number of results */
+  Se (isLua(ci)) {  /* inside a hook? */
+    sol_assert(!isLuacode(ci));
+    api_check(L, nresults == 0, "hooks não podem ceder valores");
+    api_check(L, k == NULL, "hooks não podem continuar após ceder");
+  }
+  Senão {
+    Se ((ci->u.c.k = k) != NULL)  /* is there a continuation? */
+      ci->u.c.ctx = ctx;  /* save context */
+    sol_d_throw(L, SOL_YIELD);
+  }
+  sol_assert(ci->callstatus & CIST_HOOKED);  /* must be inside a hook */
+  sol_unlock(L);
+  Retorne 0;  /* Retorne to 'sol_d_hook' */
+}
+
+
+/*
+** Auxiliary structure to call 'sol_f_close' in protected mode.
+*/
+Estrutura CloseP {
+  StkId level;
+  TStatus status;
+};
+
+
+/*
+** Auxiliary function to call 'sol_f_close' in protected mode.
+*/
+Fixo Vazio closepaux (sol_State *L, Vazio *ud) {
+  Estrutura CloseP *pcl = cast(Estrutura CloseP *, ud);
+  sol_f_close(L, pcl->level, pcl->status, 0);
+}
+
+
+/*
+** Calls 'sol_f_close' in protected mode. Return the original status
+** or, in Caso of errors, the new status.
+*/
+TStatus sol_d_closeprotected (sol_State *L, ptrdiff_t level, TStatus status) {
+  CallInfo *old_ci = L->ci;
+  lu_byte old_allowhooks = L->allowhook;
+  Para (;;) {  /* keep closing upvalues until no more errors */
+    Estrutura CloseP pcl;
+    pcl.level = restorestack(L, level); pcl.status = status;
+    status = sol_d_rawrunprotected(L, &closepaux, &pcl);
+    Se (l_likely(status == SOL_OK))  /* no more errors? */
+      Retorne pcl.status;
+    Senão {  /* an Erro occurred; restore saved state and repeat */
+      L->ci = old_ci;
+      L->allowhook = old_allowhooks;
+    }
+  }
+}
+
+
+/*
+** Call the C function 'func' in protected mode, restoring basic
+** thread information ('allowhook', etc.) and in particular
+** its stack level in Caso of errors.
+*/
+TStatus sol_d_pcall (sol_State *L, Pfunc func, Vazio *u, ptrdiff_t old_top,
+                                  ptrdiff_t ef) {
+  TStatus status;
+  CallInfo *old_ci = L->ci;
+  lu_byte old_allowhooks = L->allowhook;
+  ptrdiff_t old_errfunc = L->errfunc;
+  L->errfunc = ef;
+  status = sol_d_rawrunprotected(L, func, u);
+  Se (l_unlikely(status != SOL_OK)) {  /* an Erro occurred? */
+    L->ci = old_ci;
+    L->allowhook = old_allowhooks;
+    status = sol_d_closeprotected(L, old_top, status);
+    sol_d_seterrorobj(L, status, restorestack(L, old_top));
+    sol_d_shrinkstack(L);   /* restore stack size in Caso of overflow */
+  }
+  L->errfunc = old_errfunc;
+  Retorne status;
+}
+
+
+
+/*
+** Execute a protected parser.
+*/
+Estrutura SParser {  /* data to 'f_parser' */
+  ZIO *z;
+  Mbuffer buff;  /* dynamic structure used by the scanner */
+  Dyndata dyd;  /* dynamic structures used by the parser */
+  Imutável Caractere *mode;
+  Imutável Caractere *name;
+};
+
+
+Fixo Vazio checkmode (sol_State *L, Imutável Caractere *mode, Imutável Caractere *x) {
+  Se (strchr(mode, x[0]) == NULL) {
+    sol_o_pushfstring(L,
+       "tentativa de carregar um bloco %s (modo é '%s')", x, mode);
+    sol_d_throw(L, SOL_ERRSYNTAX);
+  }
+}
+
+
+Fixo Vazio f_parser (sol_State *L, Vazio *ud) {
+  LClosure *cl;
+  Estrutura SParser *p = cast(Estrutura SParser *, ud);
+  Imutável Caractere *mode = p->mode ? p->mode : "bt";
+  Inteiro c = zgetc(p->z);  /* read first character */
+  Se (c == SOL_SIGNATURE[0]) {
+    Inteiro fixed = 0;
+    Se (strchr(mode, 'B') != NULL)
+      fixed = 1;
+    Senão
+      checkmode(L, mode, "binary");
+    cl = sol_u_undump(L, p->z, p->name, fixed);
+  }
+  Senão {
+    checkmode(L, mode, "text");
+    cl = sol_y_parser(L, p->z, &p->buff, &p->dyd, p->name, c);
+  }
+  sol_assert(cl->nupvalues == cl->p->sizeupvalues);
+  sol_f_initupvals(L, cl);
+}
+
+
+TStatus sol_d_protectedparser (sol_State *L, ZIO *z, Imutável Caractere *name,
+                                            Imutável Caractere *mode) {
+  Estrutura SParser p;
+  TStatus status;
+  incnny(L);  /* cannot yield during parsing */
+  p.z = z; p.name = name; p.mode = mode;
+  p.dyd.actvar.arr = NULL; p.dyd.actvar.size = 0;
+  p.dyd.gt.arr = NULL; p.dyd.gt.size = 0;
+  p.dyd.label.arr = NULL; p.dyd.label.size = 0;
+  sol_z_initbuffer(L, &p.buff);
+  status = sol_d_pcall(L, f_parser, &p, savestack(L, L->top.p), L->errfunc);
+  sol_z_freebuffer(L, &p.buff);
+  sol_m_freearray(L, p.dyd.actvar.arr, cast_sizet(p.dyd.actvar.size));
+  sol_m_freearray(L, p.dyd.gt.arr, cast_sizet(p.dyd.gt.size));
+  sol_m_freearray(L, p.dyd.label.arr, cast_sizet(p.dyd.label.size));
+  decnny(L);
+  Retorne status;
+}
+
+

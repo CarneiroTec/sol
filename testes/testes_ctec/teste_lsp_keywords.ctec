@@ -1,0 +1,516 @@
+/*
+** teste_lsp_keywords.ctec - Testes das 16 keywords Sol
+** 
+** Keywords Sol (de lex.ctec):
+** e, interrompa, faça, fim, falso, para, função, global,
+** execute, se, em, local, nulo, não, ou, retorne, então, verdadeiro
+**
+** Cada keyword testa: ESPERADO, NAO_ESPERADO, NULO, ESTOURO
+*/
+
+#Defina teste_keywords_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "lsp.int"
+
+#Defina TESTE_OK 0
+#Defina TESTE_FALHA 1
+
+Fixo Caractere ultimo_erro[512] = "";
+
+Fixo Vazio registra_erro(Imutável Caractere *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(ultimo_erro, 512, fmt, args);
+    va_end(args);
+}
+
+Fixo Vazio imprime(Imutável Caractere *kw, Imutável Caractere *cenario, Inteiro ok) {
+    printf("[%s][%s] %s%s\n", kw, cenario, ok ? "OK" : "FALHA", ok ? "" : ultimo_erro);
+    fflush(stdout);
+}
+
+/* Função auxiliar para testar análise */
+Fixo Inteiro analisa_e_verifica(Imutável Caractere *codigo, Inteiro expect_vars, Imutável Caractere *expect_name) {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///teste.sol", codigo);
+    Se (!doc) { 
+        lsp_shutdown(lsp); 
+        sol_close(L); 
+        registra_erro(": doc NULL");
+        Retorne TESTE_FALHA; 
+    }
+    
+    lsp_analyze_document(lsp, doc);
+    
+    Inteiro resultado = TESTE_OK;
+    
+    Se (expect_vars >= 0 && doc->variableCount != expect_vars) {
+        registra_erro(": esperava %d vars, tem %d", expect_vars, doc->variableCount);
+        resultado = TESTE_FALHA;
+    }
+    
+    Se (expect_name && doc->variableCount > 0) {
+        Inteiro achou = 0;
+        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+            Se (strcmp(doc->variables[i].name, expect_name) == 0) {
+                achou = 1;
+                Interrompa;
+            }
+        }
+        Se (!achou) {
+            registra_erro(": não encontrou '%s'", expect_name);
+            resultado = TESTE_FALHA;
+        }
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne resultado;
+}
+
+/* Função para testar se código não crashar o LSP */
+Fixo Inteiro nao_crashou(Imutável Caractere *codigo) {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    LSPDocument *doc = lsp_add_document(lsp, "file:///teste.sol", codigo);
+    Se (doc) lsp_analyze_document(lsp, doc);
+    lsp_shutdown(lsp);
+    sol_close(L);
+    Retorne TESTE_OK;
+}
+
+/* ============================================================
+** KEYWORD: local
+** ============================================================ */
+
+Inteiro teste_local_esperado() {
+    Retorne analisa_e_verifica("local x = 1\nlocal y = 2", 2, "x");
+}
+
+Inteiro teste_local_nao_esperado() {
+    /* 'locale' não é keyword, deve ser tratado como global */
+    Retorne nao_crashou("locale x = 1");
+}
+
+Inteiro teste_local_nulo() {
+    /* local sem nome */
+    Retorne nao_crashou("local = 1");
+}
+
+Inteiro teste_local_estouro() {
+    /* Muitos locals */
+    Caractere codigo[32768];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 300; i++) {
+        pos += snprintf(codigo + pos, 32768 - pos, "local var%d = %d\n", i, i);
+    }
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORD: função
+** ============================================================ */
+
+Inteiro teste_funcao_esperado() {
+    Retorne analisa_e_verifica(
+        "local função teste(a, b)\n"
+        "    retorne a + b\n"
+        "fim\n", -1, "a");  /* 'a' deve existir como parâmetro */
+}
+
+Inteiro teste_funcao_nao_esperado() {
+    /* função sem nome */
+    Retorne nao_crashou("local função (x) retorne x fim");
+}
+
+Inteiro teste_funcao_nulo() {
+    /* função sem parênteses */
+    Retorne nao_crashou("local função nome retorne 1 fim");
+}
+
+Inteiro teste_funcao_estouro() {
+    /* função com muitos parâmetros */
+    Caractere codigo[4096];
+    Inteiro pos = snprintf(codigo, 4096, "local função f(");
+    Para (Inteiro i = 0; i < 100; i++) {
+        pos += snprintf(codigo + pos, 4096 - pos, "p%d%s", i, i < 99 ? ", " : "");
+    }
+    pos += snprintf(codigo + pos, 4096 - pos, ") fim");
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORD: se/então/fim
+** ============================================================ */
+
+Inteiro teste_se_esperado() {
+    Retorne nao_crashou(
+        "local x = 1\n"
+        "se x então\n"
+        "    local y = 2\n"
+        "fim\n");
+}
+
+Inteiro teste_se_nao_esperado() {
+    /* se sem então */
+    Retorne nao_crashou("se x\n    local y = 1\nfim");
+}
+
+Inteiro teste_se_nulo() {
+    /* se vazio */
+    Retorne nao_crashou("se então fim");
+}
+
+Inteiro teste_se_estouro() {
+    /* muitos se aninhados */
+    Caractere codigo[8192];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 50; i++) {
+        pos += snprintf(codigo + pos, 8192 - pos, "se verdadeiro então\n");
+    }
+    Para (Inteiro i = 0; i < 50; i++) {
+        pos += snprintf(codigo + pos, 8192 - pos, "fim\n");
+    }
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORD: para/em/faça
+** ============================================================ */
+
+Inteiro teste_para_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///para.sol",
+        "para i, v em pares({}) faça\n"
+        "    local x = i\n"
+        "fim\n");
+    lsp_analyze_document(lsp, doc);
+    
+    /* Deve ter detectado 'i' e 'v' como variáveis de loop */
+    Inteiro achou_i = 0, achou_v = 0;
+    Para (Inteiro j = 0; j < doc->variableCount; j++) {
+        Se (strcmp(doc->variables[j].name, "i") == 0) achou_i = 1;
+        Se (strcmp(doc->variables[j].name, "v") == 0) achou_v = 1;
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    
+    Se (!achou_i || !achou_v) {
+        registra_erro(": não encontrou i=%d v=%d", achou_i, achou_v);
+        Retorne TESTE_FALHA;
+    }
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_para_nao_esperado() {
+    /* para sem em */
+    Retorne nao_crashou("para i pares({}) faça fim");
+}
+
+Inteiro teste_para_nulo() {
+    /* para vazio */
+    Retorne nao_crashou("para em faça fim");
+}
+
+Inteiro teste_para_estouro() {
+    /* muitas variáveis de loop */
+    Retorne nao_crashou("para a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p em x faça fim");
+}
+
+/* ============================================================
+** KEYWORD: retorne
+** ============================================================ */
+
+Inteiro teste_retorne_esperado() {
+    Retorne nao_crashou("local função f() retorne 1 fim");
+}
+
+Inteiro teste_retorne_nao_esperado() {
+    /* retorne fora de função (sintaxe válida em Sol) */
+    Retorne nao_crashou("retorne 1");
+}
+
+Inteiro teste_retorne_nulo() {
+    /* retorne sem valor */
+    Retorne nao_crashou("local função f() retorne fim");
+}
+
+Inteiro teste_retorne_estouro() {
+    /* retorne com muitos valores */
+    Retorne nao_crashou("local função f() retorne 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 fim");
+}
+
+/* ============================================================
+** KEYWORDS: verdadeiro/falso/nulo
+** ============================================================ */
+
+Inteiro teste_literais_esperado() {
+    Retorne nao_crashou(
+        "local a = verdadeiro\n"
+        "local b = falso\n"
+        "local c = nulo\n");
+}
+
+Inteiro teste_literais_nao_esperado() {
+    /* typos */
+    Retorne nao_crashou("local a = verdadeir\nlocal b = fals");
+}
+
+Inteiro teste_literais_nulo() {
+    Retorne nao_crashou("local x = ");  /* valor incompleto */
+}
+
+Inteiro teste_literais_estouro() {
+    /* Muitos literais */
+    Caractere codigo[16384];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 500; i++) {
+        pos += snprintf(codigo + pos, 16384 - pos, "local v%d = %s\n", i, 
+            i % 3 == 0 ? "verdadeiro" : (i % 3 == 1 ? "falso" : "nulo"));
+    }
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORDS: e/ou/não (operadores lógicos)
+** ============================================================ */
+
+Inteiro teste_logicos_esperado() {
+    Retorne nao_crashou(
+        "local a = verdadeiro e falso\n"
+        "local b = verdadeiro ou falso\n"
+        "local c = não verdadeiro\n");
+}
+
+Inteiro teste_logicos_nao_esperado() {
+    /* uso incorreto */
+    Retorne nao_crashou("local x = e ou não");
+}
+
+Inteiro teste_logicos_nulo() {
+    Retorne nao_crashou("local x = não");
+}
+
+Inteiro teste_logicos_estouro() {
+    /* expressão lógica muito longa */
+    Caractere codigo[8192];
+    Inteiro pos = snprintf(codigo, 8192, "local x = verdadeiro");
+    Para (Inteiro i = 0; i < 100; i++) {
+        pos += snprintf(codigo + pos, 8192 - pos, " e verdadeiro ou falso");
+    }
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORDS: interrompa/execute
+** ============================================================ */
+
+Inteiro teste_controle_esperado() {
+    Retorne nao_crashou(
+        "para i em x faça\n"
+        "    se i então interrompa fim\n"
+        "fim\n"
+        "execute\n"
+        "    local x = 1\n"
+        "fim\n");
+}
+
+Inteiro teste_controle_nao_esperado() {
+    /* interrompa fora de loop */
+    Retorne nao_crashou("interrompa");
+}
+
+Inteiro teste_controle_nulo() {
+    Retorne nao_crashou("execute fim");
+}
+
+Inteiro teste_controle_estouro() {
+    /* muitos interrompa */
+    Caractere codigo[4096];
+    Inteiro pos = snprintf(codigo, 4096, "para i em x faça\n");
+    Para (Inteiro i = 0; i < 50; i++) {
+        pos += snprintf(codigo + pos, 4096 - pos, "se i então interrompa fim\n");
+    }
+    pos += snprintf(codigo + pos, 4096 - pos, "fim");
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** KEYWORD: global
+** ============================================================ */
+
+Inteiro teste_global_esperado() {
+    Retorne analisa_e_verifica("global G = {}\nG.campo = 1", -1, "G");
+}
+
+Inteiro teste_global_nao_esperado() {
+    Retorne nao_crashou("global = 1");  /* global sem nome */
+}
+
+Inteiro teste_global_nulo() {
+    Retorne nao_crashou("global");
+}
+
+Inteiro teste_global_estouro() {
+    Caractere codigo[16384];
+    Inteiro pos = 0;
+    Para (Inteiro i = 0; i < 200; i++) {
+        pos += snprintf(codigo + pos, 16384 - pos, "global G%d = %d\n", i, i);
+    }
+    Retorne nao_crashou(codigo);
+}
+
+/* ============================================================
+** METAMÉTODOS: __index, __newindex, __call, __add, etc.
+** ============================================================ */
+
+Inteiro teste_metamétodos_esperado() {
+    sol_State *L = solL_newstate();
+    LSPState *lsp = lsp_init(L);
+    
+    LSPDocument *doc = lsp_add_document(lsp, "file:///meta.sol",
+        "local mt = {\n"
+        "    __index = função(t, k) retorne nulo fim,\n"
+        "    __newindex = função(t, k, v) fim,\n"
+        "    __call = função(t) fim,\n"
+        "    __add = função(a, b) fim,\n"
+        "    __tostring = função(t) retorne \"\" fim\n"
+        "}\n");
+    lsp_analyze_document(lsp, doc);
+    
+    /* Verifica se 'mt' tem campos __index, etc. */
+    Inteiro achou_index = 0;
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, "mt") == 0) {
+            Para (Inteiro j = 0; j < doc->variables[i].fieldCount; j++) {
+                Se (strcmp(doc->variables[i].fields[j].name, "__index") == 0) {
+                    achou_index = 1;
+                    Interrompa;
+                }
+            }
+            Interrompa;
+        }
+    }
+    
+    lsp_shutdown(lsp);
+    sol_close(L);
+    
+    Se (!achou_index) {
+        registra_erro(": __index não detectado");
+        Retorne TESTE_FALHA;
+    }
+    Retorne TESTE_OK;
+}
+
+Inteiro teste_metamétodos_nao_esperado() {
+    /* metamétodo com nome errado */
+    Retorne nao_crashou("local mt = { __indice = 1 }");
+}
+
+Inteiro teste_metamétodos_nulo() {
+    Retorne nao_crashou("local mt = { __index = }");
+}
+
+Inteiro teste_metamétodos_estouro() {
+    /* tabela com todos os metamétodos */
+    Retorne nao_crashou(
+        "local mt = {\n"
+        "__index = 1, __newindex = 1, __call = 1,\n"
+        "__add = 1, __sub = 1, __mul = 1, __div = 1,\n"
+        "__mod = 1, __pow = 1, __unm = 1, __concat = 1,\n"
+        "__len = 1, __eq = 1, __lt = 1, __le = 1,\n"
+        "__gc = 1, __tostring = 1, __pairs = 1, __ipairs = 1,\n"
+        "__name = 1, __close = 1\n"
+        "}\n");
+}
+
+/* ============================================================
+** Função Principal
+** ============================================================ */
+
+Inteiro Início() {
+    printf("\n=== TESTES LSP: KEYWORDS SOL ===\n\n"); fflush(stdout);
+    
+    Inteiro total = 0, passou = 0;
+    
+    #Defina EXECUTA(kw, cenario, func) \
+        total++; \
+        Se (func() == TESTE_OK) { passou++; imprime(kw, cenario, 1); } \
+        Senão { imprime(kw, cenario, 0); }
+    
+    printf("--- local ---\n"); fflush(stdout);
+    EXECUTA("local", "ESPERADO", teste_local_esperado);
+    EXECUTA("local", "NAO_ESPERADO", teste_local_nao_esperado);
+    EXECUTA("local", "NULO", teste_local_nulo);
+    EXECUTA("local", "ESTOURO", teste_local_estouro);
+    
+    printf("\n--- funcao ---\n"); fflush(stdout);
+    EXECUTA("funcao", "ESPERADO", teste_funcao_esperado);
+    EXECUTA("funcao", "NAO_ESPERADO", teste_funcao_nao_esperado);
+    EXECUTA("funcao", "NULO", teste_funcao_nulo);
+    EXECUTA("funcao", "ESTOURO", teste_funcao_estouro);
+    
+    printf("\n--- se/entao/fim ---\n"); fflush(stdout);
+    EXECUTA("se", "ESPERADO", teste_se_esperado);
+    EXECUTA("se", "NAO_ESPERADO", teste_se_nao_esperado);
+    EXECUTA("se", "NULO", teste_se_nulo);
+    EXECUTA("se", "ESTOURO", teste_se_estouro);
+    
+    printf("\n--- para/em/faca ---\n"); fflush(stdout);
+    EXECUTA("para", "ESPERADO", teste_para_esperado);
+    EXECUTA("para", "NAO_ESPERADO", teste_para_nao_esperado);
+    EXECUTA("para", "NULO", teste_para_nulo);
+    EXECUTA("para", "ESTOURO", teste_para_estouro);
+    
+    printf("\n--- retorne ---\n"); fflush(stdout);
+    EXECUTA("retorne", "ESPERADO", teste_retorne_esperado);
+    EXECUTA("retorne", "NAO_ESPERADO", teste_retorne_nao_esperado);
+    EXECUTA("retorne", "NULO", teste_retorne_nulo);
+    EXECUTA("retorne", "ESTOURO", teste_retorne_estouro);
+    
+    printf("\n--- verdadeiro/falso/nulo ---\n"); fflush(stdout);
+    EXECUTA("literais", "ESPERADO", teste_literais_esperado);
+    EXECUTA("literais", "NAO_ESPERADO", teste_literais_nao_esperado);
+    EXECUTA("literais", "NULO", teste_literais_nulo);
+    EXECUTA("literais", "ESTOURO", teste_literais_estouro);
+    
+    printf("\n--- e/ou/nao ---\n"); fflush(stdout);
+    EXECUTA("logicos", "ESPERADO", teste_logicos_esperado);
+    EXECUTA("logicos", "NAO_ESPERADO", teste_logicos_nao_esperado);
+    EXECUTA("logicos", "NULO", teste_logicos_nulo);
+    EXECUTA("logicos", "ESTOURO", teste_logicos_estouro);
+    
+    printf("\n--- interrompa/execute ---\n"); fflush(stdout);
+    EXECUTA("controle", "ESPERADO", teste_controle_esperado);
+    EXECUTA("controle", "NAO_ESPERADO", teste_controle_nao_esperado);
+    EXECUTA("controle", "NULO", teste_controle_nulo);
+    EXECUTA("controle", "ESTOURO", teste_controle_estouro);
+    
+    printf("\n--- global ---\n"); fflush(stdout);
+    EXECUTA("global", "ESPERADO", teste_global_esperado);
+    EXECUTA("global", "NAO_ESPERADO", teste_global_nao_esperado);
+    EXECUTA("global", "NULO", teste_global_nulo);
+    EXECUTA("global", "ESTOURO", teste_global_estouro);
+    
+    printf("\n--- metametodos ---\n"); fflush(stdout);
+    EXECUTA("meta", "ESPERADO", teste_metamétodos_esperado);
+    EXECUTA("meta", "NAO_ESPERADO", teste_metamétodos_nao_esperado);
+    EXECUTA("meta", "NULO", teste_metamétodos_nulo);
+    EXECUTA("meta", "ESTOURO", teste_metamétodos_estouro);
+    
+    printf("\n=== RESULTADO: %d/%d testes passaram ===\n", passou, total); fflush(stdout);
+    
+    Retorne (passou == total) ? 0 : 1;
+}

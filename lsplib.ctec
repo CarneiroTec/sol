@@ -1,0 +1,1496 @@
+#Defina lsplib_c
+#Defina SOL_LIB
+
+#Inclua "prefix.int"
+
+#Inclua <stdio.h>
+#Inclua <stdlib.h>
+#Inclua <string.h>
+#Inclua <ctype.h>
+
+#Se Definido(_WIN32)
+#Inclua <io.h>
+#Inclua <fcntl.h>
+#Inclua <signal.h>
+#FimSe
+
+#Inclua "sol.int"
+#Inclua "auxlib.int"
+#Inclua "limits.int"
+#Inclua "lsp.int"
+
+#Defina CaractereNãoSinalizado Natural Caractere
+
+Caractere* lsp_strdup(Imutável Caractere *s) {
+    Se (s == NULL) Retorne NULL;
+    size_t len = strlen(s);
+    Caractere *dup = (Caractere*)malloc(len + 1);
+    Se (dup) memcpy(dup, s, len + 1);
+    Retorne dup;
+}
+
+/* Pula prefixo file:// ou file:/// para comparação de path puro */
+Fixo Imutável Caractere* lsp_skip_uri_prefix(Imutável Caractere *uri) {
+    Se (uri && strncmp(uri, "file://", 7) == 0) {
+        uri += 7;
+        Se (*uri == '/') uri++;
+    }
+    Retorne uri;
+}
+
+LSPDocument* lsp_get_document(LSPState *lsp, Imutável Caractere *uri) {
+    Se (!lsp || !uri) Retorne NULL;
+    Imutável Caractere *p2 = lsp_skip_uri_prefix(uri);
+    Para (Inteiro i = 0; i < lsp->docCount; i++) {
+        Imutável Caractere *p1 = lsp_skip_uri_prefix(lsp->docs[i].uri);
+        Inteiro j = 0, k = 0;
+        Enquanto (1) {
+            Natural Caractere c1 = (Natural Caractere)p1[j];
+            Natural Caractere c2 = (Natural Caractere)p2[k];
+            /* Normaliza casing (Windows), barras e encoding %3A */
+            Se (c1 == '%' && p1[j+1] == '3' && (p1[j+2] == 'A' || p1[j+2] == 'a')) { c1 = ':'; j += 2; }
+            Se (c1 == '\\') c1 = '/';
+            Se (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+            Se (c2 == '%' && p2[k+1] == '3' && (p2[k+2] == 'A' || p2[k+2] == 'a')) { c2 = ':'; k += 2; }
+            Se (c2 == '\\') c2 = '/';
+            Se (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+            Se (c1 != c2) Interrompa;
+            Se (c1 == '\0') Retorne &lsp->docs[i];
+            j++; k++;
+        }
+    }
+    Retorne NULL;
+}
+
+LSPDocument* lsp_add_document(LSPState *lsp, Imutável Caractere *uri, Imutável Caractere *content) {
+    /* Validação de entrada */
+    Se (!lsp || !uri || !content) Retorne NULL;
+    
+    /* Primeiro verifica se documento já existe */
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Se (doc) {
+        /* Atualiza documento existente */
+        Se (doc->content) free(doc->content);
+        doc->content = lsp_strdup(content);
+        doc->contentLen = strlen(content);
+        doc->version++;
+        Retorne doc;
+    }
+    
+    /* Cria novo documento */
+    Se (lsp->docCount >= LSP_MAX_DOCS) Retorne NULL;
+    doc = &lsp->docs[lsp->docCount++];
+    memset(doc, 0, Meça(LSPDocument));
+    doc->uri = lsp_strdup(uri);
+    doc->content = lsp_strdup(content);
+    doc->contentLen = strlen(content);
+    doc->version = 1;
+    Retorne doc;
+}
+
+Fixo Vazio lsp_free_document_symbols(LSPDocument *doc) {
+    Se (doc->symbols) {
+        Para (Inteiro i = 0; i < doc->symbolCount; i++) {
+            free(doc->symbols[i].name);
+        }
+        free(doc->symbols);
+        doc->symbols = NULL;
+        doc->symbolCount = 0;
+        doc->symbolCapacity = 0;
+    }
+}
+
+Fixo Vazio lsp_free_document_variables(LSPDocument *doc) {
+    Se (doc->variables) {
+        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+            free(doc->variables[i].name);
+            Para (Inteiro j = 0; j < doc->variables[i].fieldCount; j++) {
+                free(doc->variables[i].fields[j].name);
+            }
+        }
+        free(doc->variables);
+        doc->variables = NULL;
+        doc->variableCount = 0;
+        doc->variableCapacity = 0;
+    }
+}
+
+Fixo Vazio lsp_add_symbol(LSPDocument *doc, Imutável Caractere *name, Inteiro kind, Inteiro line) {
+    Se (doc->symbolCount >= doc->symbolCapacity) {
+        doc->symbolCapacity = doc->symbolCapacity == 0 ? 32 : doc->symbolCapacity * 2;
+        doc->symbols = (LSPSymbol*)realloc(doc->symbols, doc->symbolCapacity * Meça(LSPSymbol));
+    }
+    LSPSymbol *sym = &doc->symbols[doc->symbolCount++];
+    sym->name = lsp_strdup(name);
+    sym->kind = kind;
+    sym->range.start.line = line;
+}
+
+Fixo LSPVariable* lsp_add_variable(LSPDocument *doc, Imutável Caractere *name, Inteiro line) {
+    /* Safeguard: não adiciona keywords como variáveis */
+    Se (strcmp(name, "função") == 0 || strcmp(name, "funcao") == 0 || 
+        strcmp(name, "local") == 0 || strcmp(name, "global") == 0 ||
+        strcmp(name, "se") == 0 || strcmp(name, "para") == 0 ||
+        strcmp(name, "_") == 0) {
+        Retorne NULL;
+    }
+    
+    Se (doc->variableCount >= doc->variableCapacity) {
+        doc->variableCapacity = doc->variableCapacity == 0 ? 32 : doc->variableCapacity * 2;
+        doc->variables = (LSPVariable*)realloc(doc->variables, doc->variableCapacity * Meça(LSPVariable));
+    }
+    LSPVariable *var = &doc->variables[doc->variableCount++];
+    memset(var, 0, Meça(LSPVariable));
+    var->name = lsp_strdup(name);
+    var->line = line;
+    var->isLocal = 1;
+    Retorne var;
+}
+
+Vazio lsp_skip_whitespace(Imutável Caractere **p, Inteiro *line) {
+    Enquanto (**p && isspace((CaractereNãoSinalizado)**p)) {
+        Se (**p == '\n' && line) (*line)++;
+        (*p)++;
+    }
+}
+
+Vazio lsp_skip_comment(Imutável Caractere **p) {
+    Se ((*p)[0] == '-' && (*p)[1] == '-') {
+        *p += 2;
+        Enquanto (**p && **p != '\n') (*p)++;
+    }
+}
+
+Inteiro lsp_peek_keyword(Imutável Caractere *p, Imutável Caractere *kw) {
+    size_t len = strlen(kw);
+    Se (strncmp(p, kw, len) == 0) {
+        Natural Caractere next = (Natural Caractere)p[len];
+        Se (!isalnum(next) && next != '_' && next <= 127) {
+            Retorne 1;
+        }
+    }
+    Retorne 0;
+}
+
+Inteiro lsp_check_keyword(Imutável Caractere **p, Imutável Caractere *kw) {
+    size_t len = strlen(kw);
+    Se (strncmp(*p, kw, len) == 0) {
+        Natural Caractere next = (Natural Caractere)(*p)[len];
+        Se (!isalnum(next) && next != '_' && next <= 127) {
+            *p += len;
+            Retorne 1;
+        }
+    }
+    Retorne 0;
+}
+
+Inteiro lsp_is_utf8_continuation(Natural Caractere c) {
+    Retorne (c & 0xC0) == 0x80;
+}
+
+Inteiro lsp_extract_name(Imutável Caractere **p, Caractere *out, Inteiro maxLen) {
+    Imutável Caractere *start = *p;
+    Enquanto (**p) {
+        Natural Caractere c = (Natural Caractere)**p;
+        Se (isalnum(c) || c == '_') {
+            (*p)++;
+        } Senão Se (c > 127) {
+            (*p)++;
+            Enquanto (**p && lsp_is_utf8_continuation((Natural Caractere)**p)) (*p)++;
+        } Senão {
+            Interrompa;
+        }
+    }
+    Inteiro len = *p - start;
+    Se (len > 0 && len < maxLen) {
+        memcpy(out, start, len);
+        out[len] = '\0';
+        Retorne 1;
+    }
+    Retorne 0;
+}
+
+Inteiro lsp_check_function_keyword(Imutável Caractere **p) {
+    Imutável Caractere *save = *p;
+    Caractere name[64];
+    Se (lsp_extract_name(p, name, 64)) {
+        Se (strcmp(name, "função") == 0 || strcmp(name, "funcao") == 0) {
+            Retorne 1;
+        }
+    }
+    *p = save;
+    Retorne 0;
+}
+
+Vazio lsp_skip_balanced(Imutável Caractere **p, Caractere open, Caractere close) {
+    Inteiro depth = 1;
+    Enquanto (**p && depth > 0) {
+        Se (**p == open) depth++;
+        Senão Se (**p == close) depth--;
+        (*p)++;
+    }
+}
+
+Vazio lsp_parse_table(LSPDocument *doc, LSPVariable *v, Imutável Caractere **p, Inteiro *line) {
+    (Vazio)doc;
+    Se (**p == '{') (*p)++;
+    
+    Enquanto (**p) {
+        lsp_skip_whitespace(p, line);
+        Se (**p == '}') { (*p)++; Retorne; }
+        Se ((*p)[0] == '-' && (*p)[1] == '-') { lsp_skip_comment(p); Continue; }
+        
+        Caractere name[256];
+        Imutável Caractere *save = *p;
+        
+        Se (lsp_extract_name(p, name, 256)) {
+            lsp_skip_whitespace(p, line);
+            Se (**p == '=') {
+                (*p)++;
+                Se (v->fieldCount < LSP_MAX_FIELDS) {
+                    LSPField *f = &v->fields[v->fieldCount++];
+                    f->name = lsp_strdup(name);
+                    f->type = LSP_TYPE_UNKNOWN;
+                }
+                Enquanto (**p) {
+                    Se (**p == '{') { (*p)++; lsp_skip_balanced(p, '{', '}'); }
+                    Senão Se (**p == '[') { (*p)++; lsp_skip_balanced(p, '[', ']'); }
+                    Senão Se (**p == '"' || **p == '\'') {
+                        Caractere quote = **p; (*p)++;
+                        Enquanto (**p && **p != quote) { Se (**p == '\\') (*p)++; (*p)++; }
+                        Se (**p == quote) (*p)++;
+                    }
+                    Senão Se (**p == ',' || **p == ';' || **p == '}') { Interrompa; }
+                    Senão { (*p)++; }
+                }
+            } Senão { *p = save; }
+        }
+        
+        Enquanto (**p) {
+            Se (**p == '{') { (*p)++; lsp_skip_balanced(p, '{', '}'); }
+            Senão Se (**p == '[') { (*p)++; lsp_skip_balanced(p, '[', ']'); }
+            Senão Se (**p == '}') { Interrompa; }
+            Senão Se (**p == ',' || **p == ';') { (*p)++; Interrompa; }
+            Senão { (*p)++; }
+        }
+    }
+}
+
+Vazio lsp_detect_field_assignment(LSPDocument *doc, Imutável Caractere **p, Inteiro *line) {
+    Imutável Caractere *save = *p;
+    Inteiro saveLine = *line;
+    Caractere varName[256], fieldName[256];
+    
+    Se (!lsp_extract_name(p, varName, 256)) { *p = save; *line = saveLine; Retorne; }
+    lsp_skip_whitespace(p, line);
+    Se (**p != '.') { *p = save; *line = saveLine; Retorne; }
+    (*p)++;
+    lsp_skip_whitespace(p, line);
+    Se (!lsp_extract_name(p, fieldName, 256)) { *p = save; *line = saveLine; Retorne; }
+    lsp_skip_whitespace(p, line);
+    Se (**p != '=') { *p = save; *line = saveLine; Retorne; }
+    
+    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+        Se (strcmp(doc->variables[i].name, varName) == 0) {
+            LSPVariable *v = &doc->variables[i];
+            Inteiro exists = 0;
+            Para (Inteiro j = 0; j < v->fieldCount; j++) {
+                Se (strcmp(v->fields[j].name, fieldName) == 0) { exists = 1; Interrompa; }
+            }
+            Se (!exists && v->fieldCount < LSP_MAX_FIELDS) {
+                LSPField *f = &v->fields[v->fieldCount++];
+                f->name = lsp_strdup(fieldName);
+                f->type = LSP_TYPE_UNKNOWN;
+            }
+            Interrompa;
+        }
+    }
+}
+
+Vazio lsp_analyze_document(LSPState *lsp, LSPDocument *doc) {
+    (Vazio)lsp;
+    Se (!doc) Retorne;
+    lsp_free_document_symbols(doc);
+    lsp_free_document_variables(doc);
+    Se (!doc->content) Retorne;
+    
+    Imutável Caractere *p = doc->content;
+    Inteiro line = 0;
+    Inteiro debugEnabled = 0; /* Desativado */
+    
+    Se (debugEnabled) fprintf(stderr, "DEBUG: lsp_analyze_document iniciado, conteudo=%zu bytes\\n", strlen(doc->content));
+    
+    Estrutura { Inteiro startLine; Inteiro varStartIndex; } scopes[32];
+    Inteiro scopeDepth = 0;
+    scopes[0].startLine = 0;
+    scopes[0].varStartIndex = 0;
+    
+    Enquanto (*p) {
+        lsp_skip_whitespace(&p, &line);
+        Se (!*p) Interrompa;
+        
+        Imutável Caractere *save_p = p; /* Guardar posição inicial da iteração */
+        
+        /* tokenLine é a linha do token atual (após pular whitespace) */
+        Inteiro tokenLine = line;
+        
+        Se (debugEnabled) {
+            Caractere preview[20];
+            Inteiro i;
+            Para (i = 0; i < 15 && p[i] && p[i] != '\n'; i++) preview[i] = p[i];
+            preview[i] = '\0';
+            fprintf(stderr, "DEBUG: linha=%d tokenLine=%d, proximo='%s'\\n", line, tokenLine, preview);
+        }
+        
+        Se (p[0] == '-' && p[1] == '-') { lsp_skip_comment(&p); Continue; }
+        
+        /* Detectar labels ::nome:: para execute (goto) */
+        Se (p[0] == ':' && p[1] == ':') {
+            p += 2; /* pula :: */
+            lsp_skip_whitespace(&p, &line);
+            Caractere labelName[64];
+            Se (lsp_extract_name(&p, labelName, 64)) {
+                lsp_skip_whitespace(&p, &line);
+                Se (p[0] == ':' && p[1] == ':') {
+                    p += 2; /* pula :: final */
+                    lsp_add_symbol(doc, labelName, LSP_SYM_LABEL, line);
+                }
+            }
+            Continue;
+        }
+        
+        Se (lsp_check_keyword(&p, "local")) {
+            lsp_skip_whitespace(&p, &line);
+            Inteiro isFunction = lsp_check_function_keyword(&p);
+            lsp_skip_whitespace(&p, &line);
+            
+            Caractere name[64] = "";
+            lsp_extract_name(&p, name, 64);
+            
+            Se (name[0] != '\0' && strcmp(name, "função") != 0 && strcmp(name, "funcao") != 0) {
+                LSPVariable *v = lsp_add_variable(doc, name, line);
+                v->scopeStartLine = line;
+                v->scopeEndLine = 999999;
+                lsp_add_symbol(doc, name, LSP_SYM_LOCAL, line);
+                
+                /* Suporte para múltiplas variáveis: local a, b, c = ... */
+                lsp_skip_whitespace(&p, &line);
+                Enquanto (*p == ',') {
+                    p++;
+                    lsp_skip_whitespace(&p, &line);
+                    Caractere nextName[64] = "";
+                    Se (lsp_extract_name(&p, nextName, 64) && nextName[0] != '\0') {
+                        LSPVariable *vNext = lsp_add_variable(doc, nextName, line);
+                        vNext->scopeStartLine = line;
+                        vNext->scopeEndLine = 999999;
+                        lsp_add_symbol(doc, nextName, LSP_SYM_LOCAL, line);
+                    }
+                    lsp_skip_whitespace(&p, &line);
+                }
+                
+                Se (isFunction) {
+                    /* local função nome() */
+                    v->type = LSP_TYPE_FUNCTION;
+                    Se (scopeDepth < 31) {
+                        scopeDepth++;
+                        scopes[scopeDepth].startLine = line;
+                        scopes[scopeDepth].varStartIndex = doc->variableCount;
+                    }
+                    lsp_skip_whitespace(&p, &line);
+                    Se (*p == '(') {
+                        p++;
+                        Enquanto (*p && *p != ')') {
+                            lsp_skip_whitespace(&p, &line);
+                            Se (*p == ')') Interrompa;
+                            Caractere paramName[64];
+                            Se (lsp_extract_name(&p, paramName, 64)) {
+                                LSPVariable *param = lsp_add_variable(doc, paramName, line);
+                                param->scopeStartLine = line;
+                                param->scopeEndLine = 999999;
+                            }
+                            lsp_skip_whitespace(&p, &line);
+                            Se (*p == ',') p++;
+                        }
+                        Se (*p == ')') p++;
+                    }
+                } Senão {
+                    Imutável Caractere *save = p;
+                    lsp_skip_whitespace(&p, &line);
+                    Se (*p == '=') {
+                        p++;
+                        lsp_skip_whitespace(&p, &line);
+                        Se (*p == '{') {
+                            v->type = LSP_TYPE_TABLE;
+                            lsp_parse_table(doc, v, &p, &line);
+                        } Senão Se (lsp_check_function_keyword(&p)) {
+                            /* local var = função() */
+                            v->type = LSP_TYPE_FUNCTION;
+                        } Senão { p = save; }
+                    } Senão { p = save; }
+                }
+            }
+            Continue;
+        }
+        
+        Se (lsp_check_function_keyword(&p)) {
+            /* DEBUG desativado */
+            lsp_skip_whitespace(&p, &line);
+            
+            Caractere funcName[128], tableName[64] = "", methodName[64] = "";
+            Inteiro isColon = 0;
+            Inteiro isMethod = 0;
+            
+            Se (lsp_extract_name(&p, funcName, 128)) {
+                lsp_skip_whitespace(&p, &line);
+                Se (*p == '.' || *p == ':') {
+                    isColon = (*p == ':');
+                    isMethod = 1;
+                    strcpy(tableName, funcName);
+                    p++;
+                    lsp_skip_whitespace(&p, &line);
+                    Se (lsp_extract_name(&p, methodName, 64)) {
+                        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+                            Se (strcmp(doc->variables[i].name, tableName) == 0) {
+                                LSPVariable *v = &doc->variables[i];
+                                Se (v->fieldCount < LSP_MAX_FIELDS) {
+                                    Inteiro exists = 0;
+                                    Para (Inteiro j = 0; j < v->fieldCount; j++) {
+                                        Se (strcmp(v->fields[j].name, methodName) == 0) { exists = 1; Interrompa; }
+                                    }
+                                    Se (!exists) {
+                                        LSPField *f = &v->fields[v->fieldCount++];
+                                        f->name = lsp_strdup(methodName);
+                                        f->type = LSP_TYPE_FUNCTION;
+                                    }
+                                }
+                                Interrompa;
+                            }
+                        }
+                    }
+                } Senão {
+                    /* função nome() - função global nomeada */
+                    Inteiro exists = 0;
+                    Para (Inteiro i = 0; i < doc->variableCount; i++) {
+                        Se (strcmp(doc->variables[i].name, funcName) == 0) { exists = 1; Interrompa; }
+                    }
+                    Se (!exists) {
+                        LSPVariable *v = lsp_add_variable(doc, funcName, line);
+                        v->type = LSP_TYPE_FUNCTION;
+                        v->scopeStartLine = 0;
+                        v->scopeEndLine = 999999;
+                        lsp_add_symbol(doc, funcName, LSP_SYM_FUNCTION, line);
+                    }
+                }
+            }
+            
+            /* Abre escopo DEPOIS de registrar a função global, para que parâmetros fiquem no escopo */
+            Se (scopeDepth < 31) {
+                scopeDepth++;
+                scopes[scopeDepth].startLine = line;
+                scopes[scopeDepth].varStartIndex = doc->variableCount;
+            }
+            
+            lsp_skip_whitespace(&p, &line);
+            Se (*p == '(') {
+                p++;
+                Se (isColon) {
+                    LSPVariable *v = lsp_add_variable(doc, "eu", line);
+                    v->scopeStartLine = line;
+                    v->scopeEndLine = 999999;
+                    v->type = LSP_TYPE_TABLE;
+                }
+                Enquanto (*p && *p != ')') {
+                    lsp_skip_whitespace(&p, &line);
+                    Se (*p == ')') Interrompa;
+                    Caractere paramName[64] = "";
+                    Se (lsp_extract_name(&p, paramName, 64) && paramName[0] != '\0') {
+                        LSPVariable *v = lsp_add_variable(doc, paramName, line);
+                        Se (v) {
+                            v->scopeStartLine = line;
+                            v->scopeEndLine = 999999;
+                        }
+                    }
+                    lsp_skip_whitespace(&p, &line);
+                    Se (*p == ',') p++;
+                }
+                Se (*p == ')') p++;
+            }
+            Continue;
+        }
+        
+        Se (lsp_check_keyword(&p, "para")) {
+            Se (scopeDepth < 31) {
+                scopeDepth++;
+                scopes[scopeDepth].startLine = line;
+                scopes[scopeDepth].varStartIndex = doc->variableCount;
+            }
+            lsp_skip_whitespace(&p, &line);
+            /* Extrai variáveis do para até encontrar = ou em/in */
+            Enquanto (*p && *p != '=' && !lsp_peek_keyword(p, "em") && !lsp_peek_keyword(p, "in")) {
+                Caractere varName[64] = "";
+                Se (lsp_extract_name(&p, varName, 64) && varName[0] != '\0') {
+                    LSPVariable *v = lsp_add_variable(doc, varName, line);
+                    Se (v) {
+                        v->scopeStartLine = line;
+                        v->scopeEndLine = 999999;
+                    }
+                }
+                lsp_skip_whitespace(&p, &line);
+                Se (*p == ',') { p++; lsp_skip_whitespace(&p, &line); }
+                Senão { Interrompa; }
+            }
+            /* Pula até encontrar faça e consume-o para não abrir escopo duplicado */
+            Enquanto (*p && !lsp_peek_keyword(p, "faça") && !lsp_peek_keyword(p, "faca") && !lsp_peek_keyword(p, "do")) {
+                Se (*p == '\n') line++;
+                p++;
+            }
+            /* Consome o faça/faca/do */
+            lsp_check_keyword(&p, "faça");
+            lsp_check_keyword(&p, "faca");
+            lsp_check_keyword(&p, "do");
+            Continue;
+        }
+        
+        /* se abre escopo; execute é goto em Sol, não abre escopo */
+        Se (lsp_check_keyword(&p, "se")) {
+            Se (scopeDepth < 31) {
+                scopeDepth++;
+                scopes[scopeDepth].startLine = line;
+                scopes[scopeDepth].varStartIndex = doc->variableCount;
+            }
+            Continue;
+        }
+        
+        Se (lsp_check_keyword(&p, "fim")) {
+            Se (debugEnabled) fprintf(stderr, "DEBUG: fim na linha %d (tokenLine=%d), scopeDepth=%d\\n", line, tokenLine, scopeDepth);
+            Se (scopeDepth > 0) {
+                Se (debugEnabled) fprintf(stderr, "DEBUG: fechando escopo, varStartIndex=%d, variableCount=%d\\n", 
+                    scopes[scopeDepth].varStartIndex, doc->variableCount);
+                Para (Inteiro i = scopes[scopeDepth].varStartIndex; i < doc->variableCount; i++) {
+                    Se (debugEnabled) fprintf(stderr, "DEBUG: definindo scopeEndLine=%d para %s\\n", tokenLine, doc->variables[i].name);
+                    doc->variables[i].scopeEndLine = tokenLine;
+                }
+                scopeDepth--;
+            }
+            Continue;
+        }
+        
+        lsp_detect_field_assignment(doc, &p, &line);
+        
+        Se (scopeDepth == 0) {
+            Imutável Caractere *save = p;
+            Caractere globalName[64];
+            Se (lsp_extract_name(&p, globalName, 64)) {
+                /* Ignora se for keyword reservada */
+                Se (strcmp(globalName, "função") == 0 || strcmp(globalName, "funcao") == 0 ||
+                    strcmp(globalName, "local") == 0 || strcmp(globalName, "global") == 0 ||
+                    strcmp(globalName, "se") == 0 || strcmp(globalName, "para") == 0 ||
+                    strcmp(globalName, "fim") == 0 || strcmp(globalName, "então") == 0 ||
+                    strcmp(globalName, "entao") == 0 || strcmp(globalName, "senão") == 0 ||
+                    strcmp(globalName, "senao") == 0 || strcmp(globalName, "retorne") == 0 ||
+                    strcmp(globalName, "faça") == 0 || strcmp(globalName, "faca") == 0 ||
+                    strcmp(globalName, "enquanto") == 0 || strcmp(globalName, "repita") == 0 ||
+                    strcmp(globalName, "até") == 0 || strcmp(globalName, "ate") == 0 ||
+                    strcmp(globalName, "e") == 0 || strcmp(globalName, "ou") == 0 ||
+                    strcmp(globalName, "não") == 0 || strcmp(globalName, "nao") == 0 ||
+                    strcmp(globalName, "nulo") == 0 || strcmp(globalName, "verdadeiro") == 0 ||
+                    strcmp(globalName, "falso") == 0 || strcmp(globalName, "em") == 0 ||
+                    strcmp(globalName, "interrompa") == 0 || strcmp(globalName, "execute") == 0) {
+                    p = save;
+                } Senão {
+                    lsp_skip_whitespace(&p, &line);
+                    Se (*p == '=') {
+                        p++;
+                        lsp_skip_whitespace(&p, &line);
+                        Inteiro exists = 0;
+                        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+                            Se (strcmp(doc->variables[i].name, globalName) == 0) { exists = 1; Interrompa; }
+                        }
+                        Se (!exists) {
+                            LSPVariable *v = lsp_add_variable(doc, globalName, line);
+                            Se (v) {
+                                v->scopeStartLine = line;
+                                v->scopeEndLine = 999999;
+                                lsp_add_symbol(doc, globalName, LSP_SYM_GLOBAL, line);
+                                Se (*p == '{') {
+                                    v->type = LSP_TYPE_TABLE;
+                                    lsp_parse_table(doc, v, &p, &line);
+                                }
+                            }
+                        }
+                        Continue;
+                    } Senão { p = save; }
+                }
+            } Senão { p = save; }
+        }
+        
+        /* Fallback: se nenhum bloco consumiu o caractere ou processou algo, avança forçadamente */
+        Se (p == save_p) {
+            Se (isalnum((Natural Caractere)*p) || *p == '_' || (Natural Caractere)*p > 127) {
+                Enquanto (*p && (isalnum((Natural Caractere)*p) || *p == '_' || (Natural Caractere)*p > 127)) p++;
+            } Senão {
+                Se (*p == '\n') line++;
+                p++;
+            }
+        }
+    }
+}
+
+Fixo Vazio lsp_send_nds(sol_State *L, Inteiro tableIdx) {
+    sol_getglobal(L, "nds");
+    Se (!sol_istable(L, -1)) {
+        sol_pop(L, 1);
+        Retorne;
+    }
+    sol_getfield(L, -1, "serialize");
+    Se (!sol_isfunction(L, -1)) {
+        sol_pop(L, 2);
+        Retorne;
+    }
+    sol_pushvalue(L, tableIdx < 0 ? tableIdx - 2 : tableIdx);
+    sol_pushboolean(L, 0);
+    Se (sol_pcall(L, 2, 1, 0) == SOL_OK) {
+        size_t len;
+        Imutável Caractere *ndsStr = sol_tolstring(L, -1, &len);
+        fwrite(ndsStr, 1, len, stdout);
+        fwrite("\0", 1, 1, stdout);
+        fflush(stdout);
+        sol_pop(L, 1);
+    } Senão {
+        sol_pop(L, 1);
+    }
+    sol_pop(L, 1);
+}
+
+/* Envia resposta de erro estruturada */
+Fixo Vazio lsp_send_error(sol_State *L, Inteiro id, Inteiro code, Imutável Caractere *msg) {
+    sol_newtable(L);
+    sol_pushinteger(L, id);
+    sol_setfield(L, -2, "id");
+    sol_newtable(L);
+    sol_pushinteger(L, code);
+    sol_setfield(L, -2, "code");
+    sol_pushstring(L, msg);
+    sol_setfield(L, -2, "message");
+    sol_setfield(L, -2, "erro");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+/* Códigos de erro LSP */
+#Defina LSP_ERR_PARSE       -32700
+#Defina LSP_ERR_INVALID_REQ -32600
+#Defina LSP_ERR_METHOD      -32601
+#Defina LSP_ERR_PARAMS      -32602
+#Defina LSP_ERR_INTERNAL    -32603
+
+Fixo Vazio lsp_advance_utf8_to_utf16_col(Imutável Caractere **p, Inteiro cursorChar) {
+    Inteiro col = 0;
+    Enquanto (**p && **p != '\n' && col < cursorChar) {
+        Natural Caractere b0 = (Natural Caractere)**p;
+        Inteiro bytes = 1;
+        Inteiro units = 1;
+        
+        Se (b0 < 0x80) {
+            bytes = 1;
+            units = 1;
+        } Senão Se ((b0 & 0xE0) == 0xC0) {
+            Natural Caractere b1 = (Natural Caractere)(*p)[1];
+            Se ((*p)[1] && lsp_is_utf8_continuation(b1)) {
+                bytes = 2;
+                units = 1;
+            } Senão {
+                bytes = 1;
+                units = 1;
+            }
+        } Senão Se ((b0 & 0xF0) == 0xE0) {
+            Natural Caractere b1 = (Natural Caractere)(*p)[1];
+            Natural Caractere b2 = (Natural Caractere)(*p)[2];
+            Se ((*p)[1] && (*p)[2] && lsp_is_utf8_continuation(b1) && lsp_is_utf8_continuation(b2)) {
+                bytes = 3;
+                units = 1;
+            } Senão {
+                bytes = 1;
+                units = 1;
+            }
+        } Senão Se ((b0 & 0xF8) == 0xF0) {
+            Natural Caractere b1 = (Natural Caractere)(*p)[1];
+            Natural Caractere b2 = (Natural Caractere)(*p)[2];
+            Natural Caractere b3 = (Natural Caractere)(*p)[3];
+            Se ((*p)[1] && (*p)[2] && (*p)[3] && lsp_is_utf8_continuation(b1) && lsp_is_utf8_continuation(b2) && lsp_is_utf8_continuation(b3)) {
+                bytes = 4;
+                units = 2;
+            } Senão {
+                bytes = 1;
+                units = 1;
+            }
+        } Senão {
+            bytes = 1;
+            units = 1;
+        }
+        
+        Se (col + units > cursorChar) {
+            Interrompa;
+        }
+        
+        (*p) += bytes;
+        col += units;
+    }
+}
+
+Vazio lsp_get_cursor_context(LSPDocument *doc, Inteiro cursorLine, Inteiro cursorChar, 
+                                  Caractere *wordOut, Inteiro wordMax, Inteiro *isDot, Caractere *tableOut, Inteiro tableMax) {
+    *isDot = 0;
+    wordOut[0] = '\0';
+    tableOut[0] = '\0';
+    Se (!doc || !doc->content) Retorne;
+    
+    Imutável Caractere *p = doc->content;
+    Inteiro l = 0;
+    Enquanto (*p && l < cursorLine) { Se (*p == '\n') l++; p++; }
+    
+    Imutável Caractere *lineStart = p;
+    lsp_advance_utf8_to_utf16_col(&p, cursorChar);
+    Se (p == lineStart) Retorne;
+    
+    Imutável Caractere *dotPos = NULL;
+    Imutável Caractere *searchPos = NULL;
+    Se (p > lineStart) searchPos = p - 1;
+    Se (searchPos) {
+        Enquanto (searchPos >= lineStart && *searchPos != '\n') {
+            Se (*searchPos == '.' || *searchPos == ':') { dotPos = searchPos; Interrompa; }
+            Se (!(isalnum((CaractereNãoSinalizado)*searchPos) || *searchPos == '_' || (Natural Caractere)*searchPos > 127)) Interrompa;
+            searchPos--;
+        }
+    }
+    
+    Se (dotPos && dotPos > lineStart) {
+        *isDot = 1;
+        Imutável Caractere *back = dotPos - 1;
+        Enquanto (back >= lineStart && isspace((CaractereNãoSinalizado)*back)) back--;
+        Imutável Caractere *endName = back + 1;
+        Enquanto (back >= lineStart) {
+            Natural Caractere c = (Natural Caractere)*back;
+            Se (isalnum(c) || c == '_' || c > 127) back--;
+            Senão Interrompa;
+        }
+        back++;
+        size_t len = endName - back;
+        Se (len > 0 && len < (size_t)tableMax) {
+            memcpy(tableOut, back, len);
+            tableOut[len] = '\0';
+        }
+    } Senão {
+        /* Extrai a palavra sob o cursor de forma robusta (sem underflow) */
+        Imutável Caractere *end = p;
+        Se (end > lineStart) end--;
+        Imutável Caractere *start = end;
+        Enquanto (start >= lineStart) {
+            Natural Caractere c = (Natural Caractere)*start;
+            Se (isalnum(c) || c == '_' || c > 127) start--;
+            Senão Interrompa;
+        }
+        start++;
+        Se (end >= start) {
+            Natural Caractere cEnd = (Natural Caractere)*end;
+            Se (isalnum(cEnd) || cEnd == '_' || cEnd > 127) {
+                size_t len = (size_t)(end - start + 1);
+                Se (len > 0 && len < (size_t)wordMax) {
+                    memcpy(wordOut, start, len);
+                    wordOut[len] = '\0';
+                }
+            }
+        }
+    }
+}
+
+Vazio lsp_handle_initialize(LSPState *lsp, sol_State *L, Inteiro id) {
+    lsp->initialized = 1;
+    sol_newtable(L);
+    sol_pushinteger(L, id);
+    sol_setfield(L, -2, "id");
+    sol_newtable(L);
+    sol_newtable(L);
+    sol_pushinteger(L, 1);
+    sol_setfield(L, -2, "textDocumentSync");
+    sol_newtable(L);
+    sol_newtable(L);
+    sol_pushstring(L, ".");
+    sol_rawseti(L, -2, 1);
+    sol_pushstring(L, ":");
+    sol_rawseti(L, -2, 2);
+    sol_setfield(L, -2, "triggerCharacters");
+    sol_setfield(L, -2, "completionProvider");
+    sol_setfield(L, -2, "capabilities");
+    sol_newtable(L);
+    sol_pushstring(L, "sol-lsp");
+    sol_setfield(L, -2, "name");
+    sol_pushstring(L, "1.0");
+    sol_setfield(L, -2, "version");
+    sol_setfield(L, -2, "serverInfo");
+    sol_setfield(L, -2, "resultado");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+Vazio lsp_publish_diagnostics(LSPState *lsp, sol_State *L, Imutável Caractere *uri) {
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Se (!doc || !doc->content) Retorne;
+    
+    sol_newtable(L);
+    sol_pushstring(L, "textDocument/publishDiagnostics");
+    sol_setfield(L, -2, "metodo");
+    sol_newtable(L);
+    sol_pushstring(L, uri);
+    sol_setfield(L, -2, "uri");
+    sol_newtable(L);
+    Inteiro diagCount = 0;
+    Inteiro diagArrayIdx = sol_gettop(L);
+    
+    Inteiro erro = sol_loadstring(L, doc->content);
+    Se (erro != SOL_OK) {
+        Imutável Caractere *msg = sol_tostring(L, -1);
+        Inteiro errorLine = 0;
+        Imutável Caractere *colonPos = msg ? strchr(msg, ':') : NULL;
+        Se (colonPos) {
+            Imutável Caractere *afterColon = colonPos + 1;
+            Se (isdigit((Natural Caractere)*afterColon)) {
+                errorLine = atoi(afterColon) - 1;
+                Se (errorLine < 0) errorLine = 0;
+            }
+        }
+        sol_pop(L, 1);
+        
+        sol_newtable(L);
+        sol_newtable(L);
+        sol_newtable(L);
+        sol_pushinteger(L, errorLine);
+        sol_setfield(L, -2, "line");
+        sol_pushinteger(L, 0);
+        sol_setfield(L, -2, "character");
+        sol_setfield(L, -2, "start");
+        sol_newtable(L);
+        sol_pushinteger(L, errorLine);
+        sol_setfield(L, -2, "line");
+        sol_pushinteger(L, 999);
+        sol_setfield(L, -2, "character");
+        sol_setfield(L, -2, "end");
+        sol_setfield(L, -2, "range");
+        sol_pushinteger(L, 1);
+        sol_setfield(L, -2, "severity");
+        sol_pushstring(L, msg ? msg : "Erro de sintaxe");
+        sol_setfield(L, -2, "message");
+        sol_pushstring(L, "sol");
+        sol_setfield(L, -2, "source");
+        diagCount++;
+        sol_rawseti(L, diagArrayIdx, diagCount);
+    } Senão { sol_pop(L, 1); }
+    
+    sol_setfield(L, -2, "diagnostics");
+    sol_setfield(L, -2, "parametros");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+Vazio lsp_handle_did_open(LSPState *lsp, sol_State *L) {
+    Se (!sol_istable(L, -1)) Retorne;
+    sol_getfield(L, -1, "textDocument");
+    Se (!sol_istable(L, -1)) { sol_pop(L, 1); Retorne; }
+    sol_getfield(L, -1, "uri");
+    Imutável Caractere *uri = sol_tostring(L, -1);
+    sol_getfield(L, -2, "text");
+    Imutável Caractere *text = sol_tostring(L, -1);
+    Caractere uriCopy[512] = "";
+    Se (uri) strncpy(uriCopy, uri, 511);
+    Se (uri && text) {
+        LSPDocument *doc = lsp_add_document(lsp, uri, text);
+        Se (doc) lsp_analyze_document(lsp, doc);
+    }
+    sol_pop(L, 3);
+    Se (uriCopy[0]) lsp_publish_diagnostics(lsp, L, uriCopy);
+}
+
+Vazio lsp_handle_did_change(LSPState *lsp, sol_State *L) {
+    Se (!sol_istable(L, -1)) Retorne;
+    sol_getfield(L, -1, "textDocument");
+    Se (!sol_istable(L, -1)) { sol_pop(L, 1); Retorne; }
+    sol_getfield(L, -1, "uri");
+    Imutável Caractere *uri = sol_tostring(L, -1);
+    Caractere uriCopy[512] = "";
+    Se (uri) strncpy(uriCopy, uri, 511);
+    sol_getfield(L, -3, "contentChanges");
+    Se (sol_istable(L, -1)) {
+        sol_rawgeti(L, -1, 1);
+        sol_getfield(L, -1, "text");
+        Imutável Caractere *text = sol_tostring(L, -1);
+        Se (uri && text) {
+            LSPDocument *doc = lsp_add_document(lsp, uri, text);
+            Se (doc) lsp_analyze_document(lsp, doc);
+        }
+        sol_pop(L, 2);
+    }
+    sol_pop(L, 3);
+    Se (uriCopy[0]) lsp_publish_diagnostics(lsp, L, uriCopy);
+}
+
+Vazio lsp_handle_hover(LSPState *lsp, sol_State *L, Inteiro id) {
+    Se (!sol_istable(L, -1)) {
+        sol_newtable(L);
+        sol_pushinteger(L, id);
+        sol_setfield(L, -2, "id");
+        sol_pushnil(L);
+        sol_setfield(L, -2, "resultado");
+        lsp_send_nds(L, -1);
+        sol_pop(L, 1);
+        Retorne;
+    }
+    
+    sol_getfield(L, -1, "textDocument");
+    sol_getfield(L, -1, "uri");
+    Imutável Caractere *uri = sol_tostring(L, -1);
+    sol_pop(L, 2);
+    sol_getfield(L, -1, "position");
+    sol_getfield(L, -1, "line");
+    Inteiro cursorLine = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_getfield(L, -2, "character");
+    Inteiro cursorChar = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_pop(L, 3);
+    
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Caractere varName[256] = "", tableName[64] = "";
+    Inteiro isDot = 0;
+    lsp_get_cursor_context(doc, cursorLine, cursorChar, varName, 256, &isDot, tableName, 64);
+    
+    sol_newtable(L);
+    sol_pushinteger(L, id);
+    sol_setfield(L, -2, "id");
+    
+    Se (doc && varName[0]) {
+        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+            LSPVariable *v = &doc->variables[i];
+            Se (strcmp(v->name, varName) == 0 && cursorLine >= v->scopeStartLine && cursorLine <= v->scopeEndLine) {
+                sol_newtable(L);
+                sol_newtable(L);
+                Imutável Caractere *typeStr = "variável";
+                Se (v->type == LSP_TYPE_TABLE) typeStr = "tabela";
+                Senão Se (v->type == LSP_TYPE_FUNCTION) typeStr = "função";
+                sol_pushfstring(L, "**%s** (%s)", varName, typeStr);
+                sol_rawseti(L, -2, 1);
+                sol_pushfstring(L, "Linha: %d", v->line + 1);
+                sol_rawseti(L, -2, 2);
+                sol_setfield(L, -2, "contents");
+                sol_setfield(L, -2, "resultado");
+                lsp_send_nds(L, -1);
+                sol_pop(L, 1);
+                Retorne;
+            }
+        }
+        Para (Inteiro i = 0; i < lsp->builtinCount; i++) {
+            LSPVariable *v = &lsp->builtins[i];
+            Se (strcmp(v->name, varName) == 0) {
+                sol_newtable(L);
+                sol_newtable(L);
+                sol_pushfstring(L, "**%s** (stdlib)", varName);
+                sol_rawseti(L, -2, 1);
+                sol_setfield(L, -2, "contents");
+                sol_setfield(L, -2, "resultado");
+                lsp_send_nds(L, -1);
+                sol_pop(L, 1);
+                Retorne;
+            }
+        }
+    }
+    
+    sol_pushnil(L);
+    sol_setfield(L, -2, "resultado");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+Vazio lsp_handle_definition(LSPState *lsp, sol_State *L, Inteiro id) {
+    Se (!sol_istable(L, -1)) {
+        sol_newtable(L);
+        sol_pushinteger(L, id);
+        sol_setfield(L, -2, "id");
+        sol_newtable(L);
+        sol_setfield(L, -2, "resultado");
+        lsp_send_nds(L, -1);
+        sol_pop(L, 1);
+        Retorne;
+    }
+    
+    sol_getfield(L, -1, "textDocument");
+    sol_getfield(L, -1, "uri");
+    Imutável Caractere *uri = sol_tostring(L, -1);
+    sol_pop(L, 2);
+    sol_getfield(L, -1, "position");
+    sol_getfield(L, -1, "line");
+    Inteiro cursorLine = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_getfield(L, -2, "character");
+    Inteiro cursorChar = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_pop(L, 3);
+    
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Caractere varName[256] = "", tableName[64] = "";
+    Inteiro isDot = 0;
+    lsp_get_cursor_context(doc, cursorLine, cursorChar, varName, 256, &isDot, tableName, 64);
+    
+    sol_newtable(L);
+    sol_pushinteger(L, id);
+    sol_setfield(L, -2, "id");
+    
+    Se (doc && varName[0]) {
+        Para (Inteiro i = 0; i < doc->variableCount; i++) {
+            LSPVariable *v = &doc->variables[i];
+            Se (strcmp(v->name, varName) == 0) {
+                sol_newtable(L);
+                sol_pushstring(L, uri);
+                sol_setfield(L, -2, "uri");
+                sol_newtable(L);
+                sol_newtable(L);
+                sol_pushinteger(L, v->line);
+                sol_setfield(L, -2, "line");
+                sol_pushinteger(L, 0);
+                sol_setfield(L, -2, "character");
+                sol_setfield(L, -2, "start");
+                sol_newtable(L);
+                sol_pushinteger(L, v->line);
+                sol_setfield(L, -2, "line");
+                sol_pushinteger(L, strlen(v->name));
+                sol_setfield(L, -2, "character");
+                sol_setfield(L, -2, "fim");
+                sol_setfield(L, -2, "range");
+                sol_setfield(L, -2, "resultado");
+                lsp_send_nds(L, -1);
+                sol_pop(L, 1);
+                Retorne;
+            }
+        }
+    }
+    
+    sol_newtable(L);
+    sol_setfield(L, -2, "resultado");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+Vazio lsp_handle_completion(LSPState *lsp, sol_State *L, Inteiro id) {
+    Se (!sol_istable(L, -1)) {
+        sol_newtable(L);
+        sol_pushinteger(L, id);
+        sol_setfield(L, -2, "id");
+        sol_newtable(L);
+        sol_setfield(L, -2, "resultado");
+        lsp_send_nds(L, -1);
+        sol_pop(L, 1);
+        Retorne;
+    }
+    
+    sol_getfield(L, -1, "textDocument");
+    sol_getfield(L, -1, "uri");
+    Imutável Caractere *uri = sol_tostring(L, -1);
+    sol_pop(L, 2);
+    sol_getfield(L, -1, "position");
+    sol_getfield(L, -1, "line");
+    Inteiro cursorLine = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_getfield(L, -2, "character");
+    Inteiro cursorChar = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+    sol_pop(L, 3);
+    
+    LSPDocument *doc = lsp_get_document(lsp, uri);
+    Caractere wordName[256] = "", tableName[64] = "";
+    Inteiro isDot = 0;
+    lsp_get_cursor_context(doc, cursorLine, cursorChar, wordName, 256, &isDot, tableName, 64);
+    
+    sol_newtable(L);
+    sol_pushinteger(L, id);
+    sol_setfield(L, -2, "id");
+    sol_newtable(L);
+    Inteiro itemIdx = 1;
+    
+    Se (isDot && tableName[0]) {
+        Se (doc) {
+            Para (Inteiro i = 0; i < doc->variableCount; i++) {
+                LSPVariable *v = &doc->variables[i];
+                Se (strcmp(v->name, tableName) == 0 && cursorLine >= v->scopeStartLine && cursorLine <= v->scopeEndLine) {
+                    Para (Inteiro j = 0; j < v->fieldCount && itemIdx < 100; j++) {
+                        sol_newtable(L);
+                        sol_pushstring(L, v->fields[j].name);
+                        sol_setfield(L, -2, "label");
+                        sol_pushinteger(L, v->fields[j].type == LSP_TYPE_FUNCTION ? 3 : 5);
+                        sol_setfield(L, -2, "kind");
+                        sol_rawseti(L, -2, itemIdx++);
+                    }
+                    Interrompa;
+                }
+            }
+        }
+        Para (Inteiro i = 0; i < lsp->builtinCount; i++) {
+            LSPVariable *v = &lsp->builtins[i];
+            Se (strcmp(v->name, tableName) == 0) {
+                Para (Inteiro j = 0; j < v->fieldCount && itemIdx < 100; j++) {
+                    sol_newtable(L);
+                    sol_pushstring(L, v->fields[j].name);
+                    sol_setfield(L, -2, "label");
+                    sol_pushinteger(L, 3);
+                    sol_setfield(L, -2, "kind");
+                    sol_pushstring(L, "StdLib");
+                    sol_setfield(L, -2, "detail");
+                    sol_rawseti(L, -2, itemIdx++);
+                }
+                Interrompa;
+            }
+        }
+    } Senão {
+        /* Filtra baseado no prefixo digitado */
+        Inteiro wordLen = (Inteiro)strlen(wordName);
+        
+        Se (doc) {
+            Para (Inteiro i = 0; i < doc->variableCount && itemIdx < 100; i++) {
+                LSPVariable *v = &doc->variables[i];
+                Se (cursorLine >= v->scopeStartLine && cursorLine <= v->scopeEndLine) {
+                    /* Filtra: se há prefixo, deve começar com ele (case-insensitive) */
+                    Se (wordLen > 0) {
+                        Inteiro match = 1;
+                        Para (Inteiro k = 0; k < wordLen; k++) {
+                            Caractere c1 = wordName[k] >= 'A' && wordName[k] <= 'Z' ? wordName[k] + 32 : wordName[k];
+                            Caractere c2 = v->name[k] >= 'A' && v->name[k] <= 'Z' ? v->name[k] + 32 : v->name[k];
+                            Se (c1 != c2) { match = 0; Interrompa; }
+                        }
+                        Se (!match) Continue;
+                    }
+                    
+                    sol_newtable(L);
+                    sol_pushstring(L, v->name);
+                    sol_setfield(L, -2, "label");
+                    sol_pushinteger(L, v->type == LSP_TYPE_FUNCTION ? 3 : (v->type == LSP_TYPE_TABLE ? 6 : 6));
+                    sol_setfield(L, -2, "kind");
+                    sol_pushfstring(L, "linha %d", v->line + 1);
+                    sol_setfield(L, -2, "detail");
+                    sol_pushfstring(L, "1_%s", v->name);
+                    sol_setfield(L, -2, "sortText");
+                    sol_rawseti(L, -2, itemIdx++);
+                }
+            }
+        }
+        
+        /* Adiciona palavras-chave básicas para completar o que o VS Code já mostra */
+        Imutável Caractere *kws[] = {"se", "então", "senão", "fim", "para", "em", "enquanto", "faça", "repita", "até", "retorne", "local", "global", "função", "nulo", "verdadeiro", "falso", "interrompa", "execute", NULL};
+        Para (Inteiro i = 0; kws[i]; i++) {
+            Se (wordLen > 0 && strncmp(kws[i], wordName, wordLen) != 0) Continue;
+            sol_newtable(L);
+            sol_pushstring(L, kws[i]);
+            sol_setfield(L, -2, "label");
+            sol_pushinteger(L, 14); /* Keyword */
+            sol_setfield(L, -2, "kind");
+            sol_rawseti(L, -2, itemIdx++);
+        }
+        
+        Para (Inteiro i = 0; i < lsp->builtinCount && itemIdx < 100; i++) {
+            LSPVariable *v = &lsp->builtins[i];
+            
+            /* Filtra: se há prefixo, deve começar com ele (case-insensitive) */
+            Se (wordLen > 0) {
+                Inteiro match = 1;
+                Para (Inteiro k = 0; k < wordLen; k++) {
+                    Caractere c1 = wordName[k] >= 'A' && wordName[k] <= 'Z' ? wordName[k] + 32 : wordName[k];
+                    Caractere c2 = v->name[k] >= 'A' && v->name[k] <= 'Z' ? v->name[k] + 32 : v->name[k];
+                    Se (c1 != c2) { match = 0; Interrompa; }
+                }
+                Se (!match) Continue;
+            }
+            
+            sol_newtable(L);
+            sol_pushstring(L, v->name);
+            sol_setfield(L, -2, "label");
+            sol_pushinteger(L, v->type == LSP_TYPE_FUNCTION ? 12 : (v->type == LSP_TYPE_LIBRARY ? 9 : 6));
+            sol_setfield(L, -2, "kind");
+            sol_pushstring(L, "StdLib");
+            sol_setfield(L, -2, "detail");
+            sol_pushfstring(L, "3_%s", v->name);
+            sol_setfield(L, -2, "sortText");
+            sol_rawseti(L, -2, itemIdx++);
+        }
+    }
+    
+    sol_setfield(L, -2, "resultado");
+    lsp_send_nds(L, -1);
+    sol_pop(L, 1);
+}
+
+Vazio lsp_add_builtin(LSPState *lsp, Imutável Caractere *name, Inteiro type) {
+    Se (lsp->builtinCount >= LSP_MAX_SYMBOLS) Retorne;
+    LSPVariable *v = &lsp->builtins[lsp->builtinCount++];
+    v->name = lsp_strdup(name);
+    v->type = type;
+    v->isLocal = 0;
+    v->scopeStartLine = 0;
+    v->scopeEndLine = 999999;
+}
+
+Fixo Vazio lsp_add_builtin_field(LSPState *lsp, Imutável Caractere *libName, Imutável Caractere *fieldName, Inteiro fieldType) {
+    Para (Inteiro i = 0; i < lsp->builtinCount; i++) {
+        LSPVariable *v = &lsp->builtins[i];
+        Se (strcmp(v->name, libName) == 0 && v->fieldCount < LSP_MAX_FIELDS) {
+            LSPField *f = &v->fields[v->fieldCount++];
+            f->name = lsp_strdup(fieldName);
+            f->kind = 0;
+            f->type = fieldType;
+            Interrompa;
+        }
+    }
+}
+
+Vazio lsp_load_std_lib(LSPState *lsp) {
+    /* Funções globais */
+    lsp_add_builtin(lsp, "importe", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "afirme", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "chame_protegido", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "colete_lixo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "lance_erro", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_metatabela", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "defina_metatabela", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_pares", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_pares_indexados", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_próximo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "carregue", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "exiba", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_tipo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "converta_para_numero", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "converta_para_texto", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "obtenha_tamanho_bruto", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "selecione", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "execute_arquivo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin(lsp, "carregue_arquivo", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca terminal (io) */
+    lsp_add_builtin(lsp, "terminal", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "terminal", "abra", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "terminal", "feche", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "terminal", "leia", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "terminal", "escreva", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "terminal", "linhas", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "terminal", "entrada", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "terminal", "saída", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "terminal", "erro", LSP_TYPE_UNKNOWN);
+    
+    /* Biblioteca matemática */
+    lsp_add_builtin(lsp, "matemática", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "matemática", "absoluto", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "arredonde", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "teto", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "piso", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "raiz", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "potencia", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "seno", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "cosseno", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "tangente", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "aleatorio", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "semente_aleatoria", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "maximo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "minimo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "matemática", "pi", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "matemática", "infinito", LSP_TYPE_UNKNOWN);
+    
+    /* Biblioteca tabela */
+    lsp_add_builtin(lsp, "tabela", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "tabela", "concatene", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "crie", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "insira", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "empacote", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "desempacote", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "remova", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "mova", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "tabela", "ordene", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca texto (string) */
+    lsp_add_builtin(lsp, "texto", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "texto", "obtenha_comprimento", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "maiusculas", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "minusculas", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "sub", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "encontre", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "substitua", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "formate", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "byte", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "caractere", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "repita", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "texto", "inverta", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca sistema_operacional (os) */
+    lsp_add_builtin(lsp, "sistema_operacional", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "tempo", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "data", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "relogio", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "execute", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "saia", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "obtenha_ambiente", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "remova", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "sistema_operacional", "renomeie", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca pacote (package) */
+    lsp_add_builtin(lsp, "pacote", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "pacote", "caminho", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "pacote", "caminho_c", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "pacote", "carregados", LSP_TYPE_TABLE);
+    lsp_add_builtin_field(lsp, "pacote", "precarga", LSP_TYPE_TABLE);
+    lsp_add_builtin_field(lsp, "pacote", "buscadores", LSP_TYPE_TABLE);
+    lsp_add_builtin_field(lsp, "pacote", "config", LSP_TYPE_UNKNOWN);
+    lsp_add_builtin_field(lsp, "pacote", "pesquise_caminho", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "pacote", "carregue_biblioteca", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca debug */
+    lsp_add_builtin(lsp, "debug", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "debug", "obtenha_info", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "debug", "obtenha_local", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "debug", "defina_local", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "debug", "obtenha_registro", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "debug", "rastreie", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca corrotina */
+    lsp_add_builtin(lsp, "corrotina", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "corrotina", "crie", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "corrotina", "retome", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "corrotina", "ceda", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "corrotina", "status", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "corrotina", "rodando", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "corrotina", "embrulhe", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca teste */
+    lsp_add_builtin(lsp, "teste", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "teste", "igual", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "teste", "diferente", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "teste", "verdade", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "teste", "falha", LSP_TYPE_FUNCTION);
+    
+    /* Biblioteca nds */
+    lsp_add_builtin(lsp, "nds", LSP_TYPE_LIBRARY);
+    lsp_add_builtin_field(lsp, "nds", "carregue", LSP_TYPE_FUNCTION);
+    lsp_add_builtin_field(lsp, "nds", "serialize", LSP_TYPE_FUNCTION);
+}
+
+SOL_API LSPState* lsp_init(sol_State *L) {
+    Se (!L) Retorne NULL;
+    LSPState *lsp = (LSPState*)calloc(1, Meça(LSPState));
+    Se (!lsp) Retorne NULL;
+    lsp->L = L;
+    lsp_load_std_lib(lsp);
+    Retorne lsp;
+}
+
+SOL_API Vazio lsp_shutdown(LSPState *lsp) {
+    Se (!lsp) Retorne;
+    Para (Inteiro i = 0; i < lsp->docCount; i++) {
+        free(lsp->docs[i].uri);
+        free(lsp->docs[i].content);
+        lsp_free_document_symbols(&lsp->docs[i]);
+        lsp_free_document_variables(&lsp->docs[i]);
+    }
+    free(lsp);
+}
+
+SOL_API Vazio lsp_loop(LSPState *lsp) {
+    sol_State *L = lsp->L;
+    
+#Se Definido(_WIN32)
+    _setmode(_fileno(stdin), _O_BINARY);
+    _setmode(_fileno(stdout), _O_BINARY);
+#FimSe
+    
+    Caractere buffer[65536];
+    size_t bufferPos = 0;
+    
+    Enquanto (!lsp->shutdown) {
+        Inteiro c = fgetc(stdin);
+        Se (c == EOF) Interrompa;
+        
+        Se (c == '\0') {
+            buffer[bufferPos] = '\0';
+            Se (bufferPos == 0) Continue;
+            
+            sol_getglobal(L, "nds");
+            sol_getfield(L, -1, "carregue");
+            sol_pushlstring(L, buffer, bufferPos);
+            
+            Se (sol_pcall(L, 1, 1, 0) != SOL_OK) {
+                lsp_send_error(L, 0, LSP_ERR_PARSE, "Erro ao parsear NDS");
+                sol_pop(L, 2);
+                bufferPos = 0;
+                Continue;
+            }
+            
+            Se (!sol_istable(L, -1)) {
+                lsp_send_error(L, 0, LSP_ERR_INVALID_REQ, "Mensagem não é tabela");
+                sol_pop(L, 2);
+                bufferPos = 0;
+                Continue;
+            }
+
+            sol_rawgeti(L, -1, 1);
+            Se (sol_istable(L, -1)) {
+                sol_remove(L, -2);
+            } Senão {
+                sol_pop(L, 1);
+            }
+        
+            sol_getfield(L, -1, "metodo");
+            Imutável Caractere *method = sol_tostring(L, -1);
+            sol_getfield(L, -2, "id");
+            Inteiro id = sol_isinteger(L, -1) ? sol_tointeger(L, -1) : 0;
+            
+            sol_getfield(L, -3, "parametros");
+            Se (!sol_istable(L, -1)) {
+                sol_pop(L, 1);
+                sol_getfield(L, -3, "params");
+            }
+            
+            Se (!method) {
+                lsp_send_error(L, id, LSP_ERR_INVALID_REQ, "Método não especificado");
+            } Senão Se (strcmp(method, "initialize") == 0 || strcmp(method, "inicializar") == 0) {
+                lsp_handle_initialize(lsp, L, id);
+            } Senão Se (strcmp(method, "shutdown") == 0) {
+                lsp->shutdown = 1;
+                sol_newtable(L);
+                sol_pushinteger(L, id);
+                sol_setfield(L, -2, "id");
+                sol_pushnil(L);
+                sol_setfield(L, -2, "resultado");
+                lsp_send_nds(L, -1);
+                sol_pop(L, 1);
+            } Senão Se (strcmp(method, "textDocument/didOpen") == 0) {
+                lsp_handle_did_open(lsp, L);
+            } Senão Se (strcmp(method, "textDocument/didChange") == 0) {
+                lsp_handle_did_change(lsp, L);
+            } Senão Se (strcmp(method, "textDocument/hover") == 0) {
+                lsp_handle_hover(lsp, L, id);
+            } Senão Se (strcmp(method, "textDocument/definition") == 0) {
+                lsp_handle_definition(lsp, L, id);
+            } Senão Se (strcmp(method, "textDocument/completion") == 0) {
+                lsp_handle_completion(lsp, L, id);
+            } Senão Se (id > 0) {
+                /* Método desconhecido com id - envia erro */
+                lsp_send_error(L, id, LSP_ERR_METHOD, "Método não suportado");
+            }
+            /* Notificações desconhecidas são ignoradas silenciosamente */
+            
+            sol_pop(L, 5);
+            bufferPos = 0;
+        } Senão {
+            Se (bufferPos < Meça(buffer) - 1) {
+                buffer[bufferPos++] = (Caractere)c;
+            } Senão {
+                /* Buffer overflow - envia erro e reseta */
+                lsp_send_error(L, 0, LSP_ERR_INTERNAL, "Mensagem muito grande");
+                bufferPos = 0;
+            }
+        }
+    }
+}
+
+#SeNãoDefinido LSP_TEST_MODE
+SOL_API Vazio lsp_main(sol_State *L) {
+    LSPState *lsp = lsp_init(L);
+    lsp_loop(lsp);
+    lsp_shutdown(lsp);
+}
+#FimSe

@@ -27,7 +27,7 @@
 <div class="code-block">
 <pre><code class="language-sol">exiba("Início")
 
-execute ::fim::
+execute fim
 
 exiba("Isso nunca aparece")  -- Pulado!
 
@@ -52,7 +52,7 @@ Fim</pre>
     exiba(contador)
     
     se contador < 5 então
-        execute ::loop::
+        execute loop
     fim
 
 exiba("Fim!")</code></pre>
@@ -73,12 +73,12 @@ local escolha = 2  -- Simulando entrada
 
 se escolha == 1 então
     exiba("Iniciando jogo...")
-    execute ::menu::
+    execute menu
 fim
 
 se escolha == 2 então
     exiba("Abrindo opções...")
-    execute ::menu::
+    execute menu
 fim
 
 se escolha == 3 então
@@ -93,7 +93,7 @@ fim</code></pre>
 
 se não sucesso então
     exiba("Algo deu errado!")
-    execute ::limpar::
+    execute limpar
 fim
 
 exiba("Processamento normal...")

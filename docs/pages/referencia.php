@@ -18,9 +18,9 @@
         <tr><td><code>retorne</code></td><td>Retornar valor</td><td><code>retorne x + 1</code></td></tr>
         <tr><td><code>se...então...fim</code></td><td>Condicional</td><td><code>se x > 0 então ... fim</code></td></tr>
         <tr><td><code>para...faça...fim</code></td><td>Loop</td><td><code>para i=1,10 faça ... fim</code></td></tr>
-        <tr><td><code>em</code></td><td>Iterador</td><td><code>para k,v em pares(t) faça</code></td></tr>
+        <tr><td><code>em</code></td><td>Iterador</td><td><code>para k,v em obtenha_pares(t) faça</code></td></tr>
         <tr><td><code>interrompa</code></td><td>Sair do loop</td><td><code>interrompa</code></td></tr>
-        <tr><td><code>execute</code></td><td>Goto</td><td><code>execute ::label::</code></td></tr>
+        <tr><td><code>execute</code></td><td>Execute</td><td><code>execute rótulo</code></td></tr>
         <tr><td><code>e</code>, <code>ou</code>, <code>não</code></td><td>Operadores lógicos</td><td><code>x > 0 e x < 10</code></td></tr>
         <tr><td><code>verdadeiro</code>, <code>falso</code>, <code>nulo</code></td><td>Literais</td><td><code>local ok = verdadeiro</code></td></tr>
     </tbody>

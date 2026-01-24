@@ -256,7 +256,7 @@ local hex = converta_para_número("FF", 16) -- 255</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>tabela</code>: Tabela - A tabela alvo.</li>
@@ -267,7 +267,7 @@ local hex = converta_para_número("FF", 16) -- 255</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>A prÃ³pria tabela.</p>
+                        <p>A própria tabela.</p>
                     </div>
                 </div>
                 <div class="api-detail-group">
@@ -309,7 +309,7 @@ local hex = converta_para_número("FF", 16) -- 255</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>valores</code>: Qualquer - Lista de valores para exibir.</li>
@@ -356,7 +356,7 @@ local hex = converta_para_número("FF", 16) -- 255</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>valor</code>: Qualquer - O valor para consultar.</li>
@@ -385,7 +385,7 @@ local hex = converta_para_número("FF", 16) -- 255</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>tabela</code>: Tabela - A tabela a iterar.</li>
@@ -410,7 +410,7 @@ fim</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>tabela</code>: Tabela - A tabela a iterar.</li>
@@ -496,14 +496,14 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
         <div class="api-item">
             <h3 class="api-signature">arredonde_para_piso (x)</h3>
             <div class="api-description">
-                <p>Arredonda um nÃºmero para baixo (floor).</p>
+                <p>Arredonda um número para baixo (floor).</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>x</code>: NÃºmero - O valor a arredondar.</li>
+                            <li><code>x</code>: Número - O valor a arredondar.</li>
                         </ul>
                     </div>
                 </div>
@@ -525,14 +525,14 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
         <div class="api-item">
             <h3 class="api-signature">arredonde_para_teto (x)</h3>
             <div class="api-description">
-                <p>Arredonda um nÃºmero para cima (ceil).</p>
+                <p>Arredonda um número para cima (ceil).</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>x</code>: NÃºmero - O valor a arredondar.</li>
+                            <li><code>x</code>: Número - O valor a arredondar.</li>
                         </ul>
                     </div>
                 </div>
@@ -554,21 +554,21 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
         <div class="api-item">
             <h3 class="api-signature">converta_para_graus (rad)</h3>
             <div class="api-description">
-                <p>Converte um Ã¢ngulo de radianos para graus.</p>
+                <p>Converte um ângulo de radianos para graus.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>rad</code>: NÃºmero - Ã‚ngulo em radianos.</li>
+                            <li><code>rad</code>: Número - ângulo em radianos.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>NÃºmero (graus).</p>
+                        <p>Número (graus).</p>
                     </div>
                 </div>
                 <div class="api-detail-group">
@@ -587,7 +587,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>x</code>: NÃºmero/Texto - O valor a converter.</li>
@@ -616,7 +616,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>graus</code>: NÃºmero - Ã‚ngulo em graus.</li>
@@ -696,7 +696,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_cosseno (rad)</h3>
             <div class="api-description"><p>Retorna o cosseno de um Ã¢ngulo.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>rad</code>: NÃºmero (radianos).</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>rad</code>: Número (radianos).</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -705,7 +705,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_seno (rad)</h3>
             <div class="api-description"><p>Retorna o seno de um Ã¢ngulo.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>rad</code>: NÃºmero (radianos).</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>rad</code>: Número (radianos).</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -714,7 +714,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_tangente (rad)</h3>
             <div class="api-description"><p>Retorna a tangente de um Ã¢ngulo.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>rad</code>: NÃºmero (radianos).</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>rad</code>: Número (radianos).</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -723,7 +723,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_exponencial (x)</h3>
             <div class="api-description"><p>Calcula a exponencial e^x.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>x</code>: NÃºmero.</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>x</code>: Número.</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -732,7 +732,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_logaritmo (x, [base])</h3>
             <div class="api-description"><p>Calcula o logaritmo de x.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>x</code>: NÃºmero.</li><li><code>base</code>: NÃºmero (opcional) - Padrão Ã© <i>e</i> (log natural).</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>x</code>: Número.</li><li><code>base</code>: Número (opcional) - Padrão é <i>e</i> (log natural).</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -741,7 +741,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_mÃ¡ximo (x, ...)</h3>
             <div class="api-description"><p>Retorna o maior valor entre os argumentos.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>x, ...</code>: NÃºmeros.</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>x, ...</code>: Números.</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -750,7 +750,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_mÃ­nimo (x, ...)</h3>
             <div class="api-description"><p>Retorna o menor valor entre os argumentos.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>x, ...</code>: NÃºmeros.</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>x, ...</code>: Números.</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>
@@ -759,7 +759,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
             <h3 class="api-signature">obtenha_raiz_quadrada (x)</h3>
             <div class="api-description"><p>Calcula a raiz quadrada de x.</p></div>
             <div class="api-details">
-                <div class="api-detail-group"><span class="api-label">ParÃ¢metros</span><div class="api-content"><ul><li><code>x</code>: NÃºmero nÃ£o-negativo.</li></ul></div></div>
+                <div class="api-detail-group"><span class="api-label">Parâmetros</span><div class="api-content"><ul><li><code>x</code>: Número não-negativo.</li></ul></div></div>
                 <div class="api-detail-group"><span class="api-label">Retorno</span><div class="api-content"><p>NÃºmero.</p></div></div>
             </div>
         </div>

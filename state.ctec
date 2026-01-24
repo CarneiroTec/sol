@@ -1,7 +1,7 @@
 /*
 ** $Id: lstate.c $
 ** Global State
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina state_c

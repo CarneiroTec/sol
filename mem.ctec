@@ -1,7 +1,7 @@
 /*
 ** $Id: lmem.c $
 ** Interface to Memory Manager
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina mem_c

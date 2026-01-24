@@ -1,7 +1,7 @@
 /*
 ** $Id: lfunc.c $
 ** Auxiliary functions to manipulate prototypes and closures
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina func_c

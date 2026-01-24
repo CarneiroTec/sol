@@ -1,7 +1,7 @@
 /*
 ** $Id: vm.h $
 ** Sol virtual machine
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #SeNãoDefinido vm_h

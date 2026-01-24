@@ -1,7 +1,7 @@
 /*
 ** $Id: limits.h $
 ** Limits, basic types, and some other 'installation-dependent' definitions
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #SeNãoDefinido limits_h
@@ -349,7 +349,11 @@ Pseudônimo Natural Longo l_uint32;
 
 /* print a newline and flush the output */
 #Se !Definido(sol_writeline)
+#Se Definido(_WIN32)
+#Defina sol_writeline()        (sol_writestring("\r\n", 2), fflush(stdout))
+#Senão
 #Defina sol_writeline()        (sol_writestring("\n", 1), fflush(stdout))
+#FimSe
 #FimSe
 
 /* print an Erro message */

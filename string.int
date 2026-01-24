@@ -1,7 +1,7 @@
 /*
 ** $Id: string.h $
 ** String table (keep all strings handled by Sol)
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #SeNãoDefinido string_h

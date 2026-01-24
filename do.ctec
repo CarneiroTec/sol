@@ -1,7 +1,7 @@
 /*
 ** $Id: ldo.c $
 ** Stack and Call structure of Sol
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina do_c

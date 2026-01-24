@@ -1,7 +1,7 @@
 /*
 ** $Id: undump.h $
 ** load precompiled Sol chunks
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #SeNãoDefinido undump_h

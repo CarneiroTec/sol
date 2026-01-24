@@ -1,9 +1,0 @@
-
-#Defina teste_c
-
-#Inclua <stdio.h>
-
-Inteiro main() {
-    printf("Ola CTEC\n");
-    Retorne 0;
-}

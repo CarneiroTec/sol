@@ -1,7 +1,7 @@
 /*
 ** $Id: lstring.c $
 ** String table (keeps all strings handled by Sol)
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina string_c

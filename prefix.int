@@ -1,7 +1,7 @@
 /*
 ** $Id: prefix.h $
 ** Definitions Para Sol code that must come before any other header file
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #SeNãoDefinido lprefix_h

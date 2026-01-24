@@ -1,50 +1,50 @@
-﻿<h1>ðŸ“š Biblioteca Padrão</h1>
+﻿<h1>📚 Biblioteca Padrão</h1>
 <p class="lead">Documentação completa de todas as funções e bibliotecas nativas da linguagem Sol.</p>
 
 <div class="row">
     <div class="col-md-3">
         <div class="list-group sticky-top" style="top: 80px;">
-            <a href="#base" class="list-group-item list-group-item-action">🌐 Global (Base)</a>
+            <a href="#base" class="list-group-item list-group-item-action">🌐 Global (Base)</a>
             <a href="#matematica" class="list-group-item list-group-item-action">➗ Matemática</a>
-            <a href="#texto" class="list-group-item list-group-item-action">ðŸ“ Texto</a>
-            <a href="#tabela" class="list-group-item list-group-item-action">ðŸ“Š Tabela</a>
-            <a href="#terminal" class="list-group-item list-group-item-action">ðŸ’¾ Terminal</a>
-            <a href="#sistema_operacional" class="list-group-item list-group-item-action">âš™ï¸ Sistema Operacional</a>
-            <a href="#corrotina" class="list-group-item list-group-item-action">ðŸ§µ Corrotina</a>
-            <a href="#pacote" class="list-group-item list-group-item-action">ðŸ“¦ Pacote</a>
-            <a href="#utf8" class="list-group-item list-group-item-action">ðŸ”¤ UTF-8</a>
-            <a href="#depuracao" class="list-group-item list-group-item-action">ðŸž DepuraÃ§Ã£o</a>
-            <a href="#filamento" class="list-group-item list-group-item-action">âš¡ Filamento</a>
-            <a href="#paralelo" class="list-group-item list-group-item-action">ðŸš€ Paralelismo</a>
-            <a href="#teste" class="list-group-item list-group-item-action">ðŸ§ª Teste</a>
-            <a href="#nds" class="list-group-item list-group-item-action">ðŸ“„ NDS</a>
+            <a href="#texto" class="list-group-item list-group-item-action">📘 Texto</a>
+            <a href="#tabela" class="list-group-item list-group-item-action">📊 Tabela</a>
+            <a href="#terminal" class="list-group-item list-group-item-action">🖥️ Terminal</a>
+            <a href="#sistema_operacional" class="list-group-item list-group-item-action">⚙️ Sistema Operacional</a>
+            <a href="#corrotina" class="list-group-item list-group-item-action">🧶 Corrotina</a>
+            <a href="#pacote" class="list-group-item list-group-item-action">📦 Pacote</a>
+            <a href="#utf8" class="list-group-item list-group-item-action">🔤 UTF-8</a>
+            <a href="#depuracao" class="list-group-item list-group-item-action">🐞 Depuração</a>
+            <a href="#filamento" class="list-group-item list-group-item-action">☑️ Filamento</a>
+            <a href="#paralelo" class="list-group-item list-group-item-action">⚡ Paralelismo</a>
+            <a href="#teste" class="list-group-item list-group-item-action">🧪 Teste</a>
+            <a href="#nds" class="list-group-item list-group-item-action">📄 NDS</a>
         </div>
     </div>
     
     <div class="col-md-9">
         <!-- BASE LIB -->
-        <h2 id="base" class="mt-4 mb-3 border-bottom pb-2">🌐 Biblioteca Global (Base)</h2>
-        <p>funções bÃ¡sicas disponÃ­veis globalmente em qualquer script.</p>
+        <h2 id="base" class="mt-4 mb-3 border-bottom pb-2">🌐 Biblioteca Global (Base)</h2>
+        <p>funções básicas disponíveis globalmente em qualquer script.</p>
 
         <div class="api-item">
-            <h3 class="api-signature">afirme (condiÃ§Ã£o, [mensagem])</h3>
+            <h3 class="api-signature">afirme (condição, [mensagem])</h3>
             <div class="api-description">
-                <p>Verifica se uma condiÃ§Ã£o Ã© verdadeira. Se for falsa, lanÃ§a um erro com a mensagem fornecida.</p>
+                <p>Verifica se uma condição é verdadeira. Se for falsa, lança um erro com a mensagem fornecida.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>condiÃ§Ã£o</code>: Qualquer - A expressÃ£o a ser testada.</li>
-                            <li><code>mensagem</code>: Texto (opcional) - Mensagem de erro caso a condiÃ§Ã£o falhe.</li>
+                            <li><code>condição</code>: Qualquer - A expressão a ser testada.</li>
+                            <li><code>mensagem</code>: Texto (opcional) - Mensagem de erro caso a condição falhe.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">afirme(10 > 5, "Erro impossÃ­vel") -- Passa
+                        <pre><code class="language-sol">afirme(10 > 5, "Erro impossível") -- Passa
 afirme(falso, "Isso vai parar o programa") -- Erro</code></pre>
                     </div>
                 </div>
@@ -58,7 +58,7 @@ afirme(falso, "Isso vai parar o programa") -- Erro</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>mensagem</code>: Texto - O aviso a ser exibido.</li>
@@ -68,7 +68,7 @@ afirme(falso, "Isso vai parar o programa") -- Erro</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">avise("Isso Ã© apenas um aviso.")</code></pre>
+                        <pre><code class="language-sol">avise("Isso é apenas um aviso.")</code></pre>
                     </div>
                 </div>
             </div>
@@ -108,11 +108,11 @@ exiba(f()) -- 30</code></pre>
         <div class="api-item">
             <h3 class="api-signature">carregue_arquivo (caminho)</h3>
             <div class="api-description">
-                <p>Carrega um arquivo Sol e retorna seu conteÃºdo como uma funÃ§Ã£o executÃ¡vel.</p>
+                <p>Carrega um arquivo Sol e retorna seu conteúdo como uma função executável.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>caminho</code>: Texto - Caminho para o arquivo.</li>
@@ -122,7 +122,7 @@ exiba(f()) -- 30</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>FunÃ§Ã£o (se sucesso) ou nulo e mensagem de erro.</p>
+                        <p>Função (se sucesso) ou nulo e mensagem de erro.</p>
                     </div>
                 </div>
                 <div class="api-detail-group">
@@ -136,47 +136,47 @@ script() -- Executa o arquivo</code></pre>
         </div>
 
         <div class="api-item">
-            <h3 class="api-signature">chame_protegido (funÃ§Ã£o, [args...])</h3>
+            <h3 class="api-signature">chame_protegido (função, [args...])</h3>
             <div class="api-description">
-                <p>Executa uma funÃ§Ã£o em modo protegido (pcall). Se houver erro, retorna <code>falso</code> e a mensagem.</p>
+                <p>Executa uma função em modo protegido (pcall). Se houver erro, retorna <code>falso</code> e a mensagem.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>funÃ§Ã£o</code>: FunÃ§Ã£o - A funÃ§Ã£o a ser chamada.</li>
-                            <li><code>args</code>: VariÃ¡vel - Argumentos para a funÃ§Ã£o.</li>
+                            <li><code>função</code>: Função - A função a ser chamada.</li>
+                            <li><code>args</code>: Variável - Argumentos para a função.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>LÃ³gico (sucesso/falha) e resultados da funÃ§Ã£o ou mensagem de erro.</p>
+                        <p>Lógico (sucesso/falha) e resultados da função ou mensagem de erro.</p>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
                         <pre><code class="language-sol">local ok, erro = chame_protegido(function() error("Boom!") end)
-se nÃ£o ok entÃ£o exiba("Erro capturado:", erro) fim</code></pre>
+se não ok então exiba("Erro capturado:", erro) fim</code></pre>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="api-item">
-            <h3 class="api-signature">colete_lixo ([opÃ§Ã£o], [arg])</h3>
+            <h3 class="api-signature">colete_lixo ([opção], [arg])</h3>
             <div class="api-description">
                 <p>Interage com o Coletor de Lixo (Garbage Collector).</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>opÃ§Ã£o</code>: Texto - "collect", "count", "stop", "restart".</li>
+                            <li><code>opção</code>: Texto - "collect", "count", "stop", "restart".</li>
                         </ul>
                     </div>
                 </div>
@@ -904,7 +904,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
         </div>
 
         <!-- STRING LIB -->
-        <h2 id="texto" class="mt-5 mb-3 border-bottom pb-2">ðŸ“ Texto (texto)</h2>
+        <h2 id="texto" class="mt-5 mb-3 border-bottom pb-2">📘 Texto (texto)</h2>
         <p>ManipulaÃ§Ã£o de strings. MÃ©todos tambÃ©m disponÃ­veis via <code>:</code> em strings. Importe com <code>local txt = importe("texto")</code>.</p>
 
         <div class="api-item">
@@ -1363,7 +1363,7 @@ exiba(selecione("#", "a", "b", "c")) -- 3</code></pre>
         </div>
 
         <!-- TABLE LIB -->
-        <h2 id="tabela" class="mt-5 mb-3 border-bottom pb-2">ðŸ“Š Tabela (tabela)</h2>
+        <h2 id="tabela" class="mt-5 mb-3 border-bottom pb-2">📊 Tabela (tabela)</h2>
         <p>ManipulaÃ§Ã£o de tabelas. Importe com <code>local tab = importe("tabela")</code>.</p>
 
         <div class="api-item">
@@ -1578,7 +1578,7 @@ tab.ordene(t, function(a,b) retorne a > b fim) -- Decrescente</code></pre>
         </div>
 
         <!-- TERMINAL LIB -->
-        <h2 id="terminal" class="mt-5 mb-3 border-bottom pb-2">ðŸ’¾ Terminal (terminal)</h2>
+        <h2 id="terminal" class="mt-5 mb-3 border-bottom pb-2">🖥️ Terminal (terminal)</h2>
         <p>Acesso a arquivos e terminal. Importe com <code>local term = importe("terminal")</code>.</p>
 
         <div class="api-item">
@@ -1626,8 +1626,8 @@ f:feche()</code></pre>
 
         <div class="api-item">
             <h3>itere_linhas ([arquivo])</h3>
-            <p>Iterador que lÃª o arquivo linha por linha.</p>
-            <pre><code class="language-sol">para linha em term.itere_linhas("texto.txt") faÃ§a ... fim</code></pre>
+            <p>Iterador que lê o arquivo linha por linha.</p>
+            <pre><code class="language-sol">para linha em term.itere_linhas("texto.txt") faça ... fim</code></pre>
         </div>
 
         <div class="api-item">
@@ -1641,12 +1641,12 @@ f:feche()</code></pre>
         </div>
 
         <!-- OS LIB -->
-        <h2 id="sistema_operacional" class="mt-5 mb-3 border-bottom pb-2">âš™ï¸ Sistema Operacional (sistema_operacional)</h2>
-        <p>InteraÃ§Ã£o com o sistema operacional. Importe com <code>local so = importe("sistema_operacional")</code>.</p>
+        <h2 id="sistema_operacional" class="mt-5 mb-3 border-bottom pb-2">⚙️ Sistema Operacional (sistema_operacional)</h2>
+        <p>Interação com o sistema operacional. Importe com <code>local so = importe("sistema_operacional")</code>.</p>
 
         <div class="api-item">
-            <h3>calcule_diferenÃ§a_tempo (t2, t1)</h3>
-            <p>Retorna a diferenÃ§a em segundos entre dois tempos.</p>
+            <h3>calcule_diferença_tempo (t2, t1)</h3>
+            <p>Retorna a diferença em segundos entre dois tempos.</p>
         </div>
 
         <div class="api-item">
@@ -1708,7 +1708,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- COROUTINE LIB -->
-        <h2 id="corrotina" class="mt-5 mb-3 border-bottom pb-2">ðŸ§µ Corrotina (corrotina)</h2>
+        <h2 id="corrotina" class="mt-5 mb-3 border-bottom pb-2">🧶 Corrotina (corrotina)</h2>
         <p>ProgramaÃ§Ã£o cooperativa. Importe com <code>local co = importe("corrotina")</code>.</p>
 
         <div class="api-item">
@@ -1755,7 +1755,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- PACKAGE LIB -->
-        <h2 id="pacote" class="mt-5 mb-3 border-bottom pb-2">ðŸ“¦ Pacote (pacote)</h2>
+        <h2 id="pacote" class="mt-5 mb-3 border-bottom pb-2">📦 Pacote (pacote)</h2>
         <p>Gerenciamento de mÃ³dulos. Importe com <code>local pac = importe("pacote")</code>.</p>
 
         <div class="api-item">
@@ -1775,7 +1775,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- UTF8 LIB -->
-        <h2 id="utf8" class="mt-5 mb-3 border-bottom pb-2">ðŸ”¤ UTF-8 (utf8)</h2>
+        <h2 id="utf8" class="mt-5 mb-3 border-bottom pb-2">🔤 UTF-8 (utf8)</h2>
         <p>ManipulaÃ§Ã£o de strings UTF-8. Importe com <code>local u8 = importe("utf8")</code>.</p>
 
         <div class="api-item">
@@ -1810,7 +1810,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- DEBUG LIB -->
-        <h2 id="depuracao" class="mt-5 mb-3 border-bottom pb-2">ðŸž DepuraÃ§Ã£o (depuracao)</h2>
+        <h2 id="depuracao" class="mt-5 mb-3 border-bottom pb-2">🐞 Depuração (depuracao)</h2>
         <p>Ferramentas de depuraÃ§Ã£o. Importe com <code>local dep = importe("depuracao")</code>.</p>
 
         <div class="api-item">
@@ -1916,7 +1916,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- PARALLEL LIB -->
-        <h2 id="paralelo" class="mt-5 mb-3 border-bottom pb-2">ðŸš€ Paralelismo (paralelo)</h2>
+        <h2 id="paralelo" class="mt-5 mb-3 border-bottom pb-2">⚡ Paralelismo (paralelo)</h2>
         <p>ExecuÃ§Ã£o em threads do SO. Importe com <code>local par = importe("paralelo")</code>.</p>
 
         <div class="api-item">
@@ -1943,7 +1943,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- TEST LIB -->
-        <h2 id="teste" class="mt-5 mb-3 border-bottom pb-2">ðŸ§ª Teste (teste)</h2>
+        <h2 id="teste" class="mt-5 mb-3 border-bottom pb-2">🧪 Teste (teste)</h2>
         <p>Framework de testes unitÃ¡rios. Importe com <code>local t = importe("teste")</code>.</p>
 
         <div class="api-item">
@@ -2092,7 +2092,7 @@ f:feche()</code></pre>
         </div>
 
         <!-- NDS LIB -->
-        <h2 id="nds" class="mt-5 mb-3 border-bottom pb-2">ðŸ“„ NDS (NotaÃ§Ã£o de Dados Sol)</h2>
+        <h2 id="nds" class="mt-5 mb-3 border-bottom pb-2">📄 NDS (Notação de Dados Sol)</h2>
         <p>Biblioteca para serializaÃ§Ã£o e deserializaÃ§Ã£o de dados no formato Sol nativo.</p>
         <p>O formato NDS Ã© uma alternativa ao JSON que usa sintaxe Sol/Lua, tornando-o mais natural para desenvolvedores Sol.</p>
 

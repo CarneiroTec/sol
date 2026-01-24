@@ -1,7 +1,7 @@
 /*
 ** $Id: sol.c $
 ** Sol stand-alone interpreter
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina sol_c
@@ -433,7 +433,9 @@ Fixo Inteiro handle_luainit (sol_State *L) {
 #Inclua <unistd.h>
 #Defina sol_stdin_is_tty()	isatty(0)
 
-#Exceto Definido(SOL_USE_WINDOWS)	/* }{ */
+#Senão				/* }{ */
+
+#Se Definido(SOL_USE_WINDOWS)	/* { */
 
 #Inclua <io.h>
 #Inclua <windows.h>
@@ -448,8 +450,7 @@ Fixo Inteiro handle_luainit (sol_State *L) {
 #FimSe				/* } */
 
 #FimSe				/* } */
-
-
+#FimSe				/* } */
 /*
 ** * sol_initreadline initializes the readline system.
 ** * sol_readline defines how to show a prompt and then read a Linha from
@@ -590,8 +591,9 @@ Fixo Inteiro pushline (sol_State *L, Inteiro firstline) {
   Se (b == NULL)
     Retorne 0;  /* no input */
   l = strlen(b);
-  Se (l > 0 && b[l-1] == '\n')  /* Linha ends with newline? */
-    b[--l] = '\0';  /* remove it */
+  /* remove trailing newline and carriage return (handles Windows CRLF) */
+  Enquanto (l > 0 && (b[l-1] == '\n' || b[l-1] == '\r'))
+    b[--l] = '\0';
   sol_pushlstring(L, b, l);
   sol_freeline(b);
   Retorne 1;
@@ -633,7 +635,7 @@ Fixo Vazio checklocal (Imutável Caractere *Linha) {
 */
 Fixo Inteiro multiline (sol_State *L) {
   size_t len;
-  Imutável Caractere *Linha = solL_tolstring(L, 1, &len);  /* get first Linha */
+  Imutável Caractere *Linha = sol_tolstring(L, 1, &len);  /* get first Linha */
   checklocal(Linha);
   Para (;;) {  /* repeat until gets a complete statement */
     Inteiro status = sol_loadbuffer(L, Linha, len, "=stdin");  /* try it */
@@ -643,7 +645,7 @@ Fixo Inteiro multiline (sol_State *L) {
     sol_pushliteral(L, "\n");  /* add newline... */
     sol_insert(L, -2);  /* ...between the two lines */
     sol_concat(L, 3);  /* join them */
-    Linha = solL_tolstring(L, 1, &len);  /* get what is has */
+    Linha = sol_tolstring(L, 1, &len);  /* get what is has */
   }
 }
 

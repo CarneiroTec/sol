@@ -1,7 +1,7 @@
 /*
 ** $Id: lopcodes.c $
 ** Opcodes Para Sol virtual machine
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina opcodes_c

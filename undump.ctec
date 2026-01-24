@@ -1,7 +1,7 @@
 /*
 ** $Id: lundump.c $
 ** load precompiled Sol chunks
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina undump_c

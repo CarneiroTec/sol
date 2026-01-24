@@ -1,7 +1,7 @@
 /*
 ** $Id: lutf8lib.c $
 ** Standard library Para UTF-8 manipulation
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina utf8lib_c

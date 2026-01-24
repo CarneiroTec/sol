@@ -1,7 +1,7 @@
 /*
 ** $Id: lapi.c $
 ** Sol API
-** See Copyright Notice in lua.h
+** See Direitos Autorais Notice in lua.h
 */
 
 #Defina lapi_c

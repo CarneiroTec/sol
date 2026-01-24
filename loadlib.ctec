@@ -1,7 +1,7 @@
 /*
 ** $Id: loadlib.c $
 ** Dynamic library loader Para Sol
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 **
 ** This module contains an implementation of loadlib Para Unix systems
 ** that have dlfcn, an implementation Para Windows, and a stub Para other

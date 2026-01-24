@@ -1,7 +1,7 @@
 /*
 ** $Id: lvm.c $
 ** Sol virtual machine
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina vm_c

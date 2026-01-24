@@ -1,7 +1,7 @@
 /*
 ** $Id: llex.c $
 ** Lexical Analyzer com suporte UTF-8
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina lex_c

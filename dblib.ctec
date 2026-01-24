@@ -1,7 +1,7 @@
 /*
 ** $Id: ldblib.c $
 ** Interface from Sol to its debug API
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina dblib_c

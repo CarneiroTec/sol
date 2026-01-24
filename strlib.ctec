@@ -1,7 +1,7 @@
 /*
 ** $Id: lstrlib.c $
 ** Standard library Para string operations and pattern-matching
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina strlib_c

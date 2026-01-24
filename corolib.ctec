@@ -1,7 +1,7 @@
 /*
 ** $Id: lcorolib.c $
 ** Coroutine Library
-** See Copyright Notice in sol.h
+** See Direitos Autorais Notice in sol.h
 */
 
 #Defina corolib_c

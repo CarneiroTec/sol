@@ -1,8 +1,7 @@
 /*
 ** $Id: sol.h $
-** Sol - A Scripting Language
-** Sol.org, PUC-Rio, Brazil (www.sol.org)
-** See Copyright Notice at the end of this file
+** Sol - Uma Linguagem de Programação
+** Sol.org, Carneiro Tecnologia, Brasil (www.sol.org)
 */
 
 
@@ -13,12 +12,12 @@
 #Inclua <stddef.h>
 
 
-#Defina SOL_COPYRIGHT	SOL_RELEASE "  Copyright (C) 1994-2025 Sol.org, PUC-Rio"
-#Defina SOL_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
+#Defina SOL_COPYRIGHT	SOL_RELEASE "  Direitos Autorais 2026 Sol.org, Carneiro Tecnologia"
+#Defina SOL_AUTHORS	"Anildo Junior Carneiro"
 
 
-#Defina SOL_VERSION_MAJOR_N	5
-#Defina SOL_VERSION_MINOR_N	5
+#Defina SOL_VERSION_MAJOR_N	1
+#Defina SOL_VERSION_MINOR_N	0
 #Defina SOL_VERSION_RELEASE_N	0
 
 #Defina SOL_VERSION_NUM  (SOL_VERSION_MAJOR_N * 100 + SOL_VERSION_MINOR_N)
@@ -525,7 +524,7 @@ Estrutura sol_Debug {
 
 
 /******************************************************************************
-* Copyright (C) 1994-2025 Sol.org, PUC-Rio.
+* Direitos Autorais 2026 Sol.org, Carneiro Tecnologia.
 *
 * Permission is hereby granted, free of charge, to any person obtaining
 * a copy of this software and associated documentation files (the

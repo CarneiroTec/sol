@@ -183,38 +183,38 @@ se não ok então exiba("Erro capturado:", erro) fim</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">colete_lixo("collect") -- ForÃ§a uma coleta completa</code></pre>
+                        <pre><code class="language-sol">colete_lixo("collect") -- Força uma coleta completa</code></pre>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="api-item">
-            <h3 class="api-signature">converta_para_nÃºmero (valor, [base])</h3>
+            <h3 class="api-signature">converta_para_número (valor, [base])</h3>
             <div class="api-description">
-                <p>Tenta converter o valor para nÃºmero.</p>
+                <p>Tenta converter o valor para número.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>valor</code>: Texto/NÃºmero - Valor a converter.</li>
-                            <li><code>base</code>: Inteiro (opcional) - Base numÃ©rica (2-36). Padrão 10.</li>
+                            <li><code>valor</code>: Texto/Número - Valor a converter.</li>
+                            <li><code>base</code>: Inteiro (opcional) - Base numérica (2-36). Padrão 10.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>NÃºmero ou nulo se falhar.</p>
+                        <p>Número ou nulo se falhar.</p>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">local n = converta_para_nÃºmero("123") -- 123
-local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
+                        <pre><code class="language-sol">local n = converta_para_número("123") -- 123
+local hex = converta_para_número("FF", 16) -- 255</code></pre>
                     </div>
                 </div>
             </div>
@@ -223,11 +223,11 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
         <div class="api-item">
             <h3 class="api-signature">converta_para_texto (valor)</h3>
             <div class="api-description">
-                <p>Converte qualquer valor para sua representaÃ§Ã£o em texto.</p>
+                <p>Converte qualquer valor para sua representação em texto.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>valor</code>: Qualquer - Valor a converter.</li>
@@ -273,7 +273,7 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">defina_metatabela(obj, {__Ã­ndice = Classe})</code></pre>
+                        <pre><code class="language-sol">defina_metatabela(obj, {__índice = Classe})</code></pre>
                     </div>
                 </div>
             </div>
@@ -286,7 +286,7 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>caminho</code>: Texto - Caminho do arquivo.</li>
@@ -305,7 +305,7 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
         <div class="api-item">
             <h3 class="api-signature">exiba (valores...)</h3>
             <div class="api-description">
-                <p>Mostra valores na saÃ­da Padrão (console).</p>
+                <p>Mostra valores na saída Padrão (console).</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
@@ -319,24 +319,24 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">exiba("OlÃ¡", "Mundo", 2026)</code></pre>
+                        <pre><code class="language-sol">exiba("Olá", "Mundo", 2026)</code></pre>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="api-item">
-            <h3 class="api-signature">lance_erro (mensagem, [nÃ­vel])</h3>
+            <h3 class="api-signature">lance_erro (mensagem, [nível])</h3>
             <div class="api-description">
-                <p>Interrompe a execuÃ§Ã£o com uma mensagem de erro.</p>
+                <p>Interrompe a execução com uma mensagem de erro.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>mensagem</code>: Texto - A mensagem de erro.</li>
-                            <li><code>nÃ­vel</code>: Inteiro (opcional) - NÃ­vel da pilha onde ocorreu o erro.</li>
+                            <li><code>nível</code>: Inteiro (opcional) - Nível da pilha onde ocorreu o erro.</li>
                         </ul>
                     </div>
                 </div>
@@ -395,7 +395,7 @@ local hex = converta_para_nÃºmero("FF", 16) -- 255</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">para k, v em obtenha_pares(tab) faÃ§a
+                        <pre><code class="language-sol">para k, v em obtenha_pares(tab) faça
     exiba(k, v)
 fim</code></pre>
                     </div>
@@ -406,7 +406,7 @@ fim</code></pre>
         <div class="api-item">
             <h3 class="api-signature">obtenha_pares_indexados (tabela)</h3>
             <div class="api-description">
-                <p>Iterador para percorrer apenas Ã­ndices numÃ©ricos sequenciais (array).</p>
+                <p>Iterador para percorrer apenas índices numéricos sequenciais (array).</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
@@ -420,7 +420,7 @@ fim</code></pre>
                 <div class="api-detail-group">
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
-                        <pre><code class="language-sol">para i, v em obtenha_pares_indexados(lista) faÃ§a
+                        <pre><code class="language-sol">para i, v em obtenha_pares_indexados(lista) faça
     exiba(i, v) 
 fim</code></pre>
                     </div>
@@ -435,7 +435,7 @@ fim</code></pre>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
                             <li><code>valor</code>: Qualquer - O valor a inspecionar.</li>
@@ -452,31 +452,31 @@ fim</code></pre>
                     <span class="api-label">Exemplo</span>
                     <div class="api-content">
                         <pre><code class="language-sol">exiba(obtenha_tipo(10)) -- "numero"
-exiba(obtenha_tipo("OlÃ¡")) -- "texto"</code></pre>
+exiba(obtenha_tipo("Olá")) -- "texto"</code></pre>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="api-item">
-            <h3 class="api-signature">selecione (Ã­ndice, ...)</h3>
+            <h3 class="api-signature">selecione (índice, ...)</h3>
             <div class="api-description">
-                <p>Retorna todos os argumentos apÃ³s o Ã­ndice especificado. Se Ã­ndice for "#", retorna o nÃºmero total de argumentos.</p>
+                <p>Retorna todos os argumentos após o índice especificado. Se índice for "#", retorna o número total de argumentos.</p>
             </div>
             <div class="api-details">
                 <div class="api-detail-group">
-                    <span class="api-label">ParÃ¢metros</span>
+                    <span class="api-label">Parâmetros</span>
                     <div class="api-content">
                         <ul>
-                            <li><code>Ã­ndice</code>: Inteiro/Texto - PosiÃ§Ã£o inicial ou "#".</li>
-                            <li><code>...</code>: VariÃ¡vel - Argumentos.</li>
+                            <li><code>índice</code>: Inteiro/Texto - Posição inicial ou "#".</li>
+                            <li><code>...</code>: Variável - Argumentos.</li>
                         </ul>
                     </div>
                 </div>
                 <div class="api-detail-group">
                     <span class="api-label">Retorno</span>
                     <div class="api-content">
-                        <p>MÃºltiplos valores.</p>
+                        <p>Múltiplos valores.</p>
                     </div>
                 </div>
                 <div class="api-detail-group">

@@ -1,1 +1,7 @@
+# TODO: criar .gitignore seguro para linguagem sol (fork de lua)
+
 *.o
+*.out
+*.exe
+*.bin
+*.obj

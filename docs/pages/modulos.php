@@ -102,6 +102,47 @@
 -- O Sol procura a função C exportada: solopen_minha_lib(sol_State *L)</code></pre>
 </div>
 
+<h3>Criando Módulos Nativos (CTEC) — Passo a Passo</h3>
+<p>Resumo rápido: o módulo nativo deve exportar a função <code>solopen_<em>nome</em></code> (visível no export table). Use <code>Atributo((Exporte))</code> ou um <code>.def</code> e linke contra <code>libsol.a</code> quando usar APIs do runtime.</p>
+
+<ol>
+    <li><strong>Escreva o código CTEC</strong>
+        <div class="code-block">
+        <pre><code class="language-c">/* Exemplo mínimo (CTEC) */
+#Inclua "sol.int"
+Fixo Inteiro minha_saudacao(sol_State *L) { (Vazio)L; printf("hello world\n"); Retorne 0; }
+
+Atributo((Exporte)) SOLMOD_API Inteiro solopen_minha_lib(sol_State *L) {
+    sol_newlib(L, (sol_Reg[]){ {"saudacao", minha_saudacao}, {NULL,NULL} });
+    Retorne 1;
+}
+</code></pre>
+        </div>
+    </li>
+    <li><strong>Compilar/Linkar (Windows)</strong>
+        <div class="code-block">
+        <pre><code class="language-bash">cd teste_modulo
+ctec -I.. testemodulo.ctec ..\libsol.a -shared -o testemodulo.dll
+ctec -impdef testemodulo.dll -v   -- verifica exports (.def)</code></pre>
+        </div>
+    </li>
+    <li><strong>Teste em tempo de execução</strong>
+        <div class="code-block">
+        <pre><code class="language-sol">-- Rode a partir da pasta onde a DLL está localizada
+..\sol.exe run_testemodulo.sol
+-- ou ajuste pacote.caminho_c para incluir a pasta da DLL</code></pre>
+        </div>
+    </li>
+    <li><strong>Dicas rápidas</strong>
+        <ul>
+            <li><strong>Atributo de export:</strong> use <code>Atributo((Exporte))</code> em <code>solopen_*</code> para garantir que o símbolo apareça em Windows.</li>
+            <li><strong>Linkagem:</strong> linkar <code>..\libsol.a</code> evita símbolos indefinidos (ex.: <code>sol_newlib</code>).</li>
+            <li><strong>Verificação:</strong> rode <code>ctec -impdef sua.dll -v</code> ou use <code>dumpbin /EXPORTS</code> para checar o export table.</li>
+            <li><strong>Execução:</strong> se <code>importe()</code> não encontrar o módulo, execute <code>sol.exe</code> a partir do diretório da DLL ou copie a DLL para um dos caminhos de busca.</li>
+        </ul>
+    </li>
+</ol>
+
 <h3>Configurando Caminhos Nativos</h3>
 <p>Para o Sol encontrar suas DLLs, configure <code>pacote.caminho_c</code> (note o <code>_c</code>):</p>
 

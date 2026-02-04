@@ -1,0 +1,39 @@
+Guia LSP — baseado no código-fonte
+
+1) Como iniciar
+- Execute o binário principal com a opção `--lsp`. O código chama `lsp_main()` quando a flag `--lsp` está presente (veja `sol.ctec`).
+- Exemplo (Windows/tests):
+  `type testes\\testes_ctec\\request_completion.nds | sol.exe --lsp`
+
+2) Transporte e framing
+- Comunicação via stdin/stdout (modo binário no Windows). Não usa TCP/porta.
+- Cada mensagem é o conteúdo NDS serializado seguido por um byte NUL (`\0`). O servidor lê até `\0` e processa a mensagem.
+- Respostas e notifications são escritas em stdout também como NDS + `\0`, com `fflush` imediato.
+
+3) Formato de mensagem (esperado)
+- Mensagem: tabela NDS contendo ao menos `metodo` (string). Opcionalmente `id` (inteiro) e `parametros` ou `params` (tabela).
+- O servidor aceita wrappers onde a primeira posição do array é a tabela de pedido (os testes suportam esse caso).
+- Campos observados no código: `metodo`, `id`, `parametros` / `params`.
+
+4) Métodos suportados (implementados)
+- `initialize` / `inicializar` — responde com `capabilities` (ex.: `textDocumentSync`, `completionProvider.triggerCharacters` etc.).
+- `shutdown` — encerra o loop após responder.
+- `textDocument/didOpen`, `textDocument/didChange` — atualizam documento e publicam diagnostics (`textDocument/publishDiagnostics`).
+- `textDocument/hover`, `textDocument/definition`, `textDocument/completion` — implementados no servidor.
+- Requests desconhecidos com `id` recebem erro; notificações desconhecidas são ignoradas.
+
+5) Erros e limites
+- Erros de parse/estrutura geram resposta via `lsp_send_error` com códigos (ex.: `LSP_ERR_PARSE = -32700`).
+- Buffer máximo ~65536 bytes — mensagens maiores geram erro "Mensagem muito grande".
+
+6) Exemplo mínimo (representação NDS)
+- Pedido (conceitual):
+  { metodo = "initialize", id = 1, parametros = {} }  followed by a NUL byte
+- Resposta: tabela NDS serializada seguida por NUL.
+
+7) Pontos importantes
+- O servidor usa NDS (não JSON/JSON-RPC). Não envie `Content-Length`/HTTP-style framing.
+- Use stdin/stdout e termine cada mensagem com `\0`.
+- Verifique testes em `testes/testes_ctec` para exemplos de requests/response NDS.
+
+FIM

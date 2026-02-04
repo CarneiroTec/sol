@@ -121,6 +121,96 @@ $(CORE_T): $(CORE_O) $(AUX_O) $(LIB_O)
 $(SOL_T): $(SOL_O) $(CORE_T)
 	$(CC) -o $@ $(SOL_O) $(CORE_T) $(LIBS)
 
+# =============================================================================
+# Build com suporte a extensoes nativas (DLL)
+# Uso: make dll
+# =============================================================================
+
+SOL_DLL= sol.dll
+SOL_DLL_EXE= sold$(EXE)
+SOL_DEF= sol_exports.def
+
+# Gera sol.dll + sold.exe (versao que suporta extensoes)
+dll: $(SOL_DLL) $(SOL_DLL_EXE)
+	@echo Build DLL completo: $(SOL_DLL) e $(SOL_DLL_EXE)
+
+# Gera arquivo .def com exports da API
+$(SOL_DEF):
+	@echo LIBRARY sol.dll > $(SOL_DEF)
+	@echo EXPORTS >> $(SOL_DEF)
+	@echo     sol_newstate >> $(SOL_DEF)
+	@echo     sol_close >> $(SOL_DEF)
+	@echo     sol_gettop >> $(SOL_DEF)
+	@echo     sol_settop >> $(SOL_DEF)
+	@echo     sol_pushvalue >> $(SOL_DEF)
+	@echo     sol_rotate >> $(SOL_DEF)
+	@echo     sol_type >> $(SOL_DEF)
+	@echo     sol_typename >> $(SOL_DEF)
+	@echo     sol_tonumberx >> $(SOL_DEF)
+	@echo     sol_tointegerx >> $(SOL_DEF)
+	@echo     sol_toboolean >> $(SOL_DEF)
+	@echo     sol_tolstring >> $(SOL_DEF)
+	@echo     sol_touserdata >> $(SOL_DEF)
+	@echo     sol_pushnil >> $(SOL_DEF)
+	@echo     sol_pushnumber >> $(SOL_DEF)
+	@echo     sol_pushinteger >> $(SOL_DEF)
+	@echo     sol_pushlstring >> $(SOL_DEF)
+	@echo     sol_pushstring >> $(SOL_DEF)
+	@echo     sol_pushfstring >> $(SOL_DEF)
+	@echo     sol_pushcclosure >> $(SOL_DEF)
+	@echo     sol_pushboolean >> $(SOL_DEF)
+	@echo     sol_pushlightuserdata >> $(SOL_DEF)
+	@echo     sol_createtable >> $(SOL_DEF)
+	@echo     sol_newuserdatauv >> $(SOL_DEF)
+	@echo     sol_getfield >> $(SOL_DEF)
+	@echo     sol_setfield >> $(SOL_DEF)
+	@echo     sol_getglobal >> $(SOL_DEF)
+	@echo     sol_setglobal >> $(SOL_DEF)
+	@echo     sol_rawget >> $(SOL_DEF)
+	@echo     sol_rawset >> $(SOL_DEF)
+	@echo     sol_rawgeti >> $(SOL_DEF)
+	@echo     sol_rawseti >> $(SOL_DEF)
+	@echo     sol_setmetatable >> $(SOL_DEF)
+	@echo     sol_getmetatable >> $(SOL_DEF)
+	@echo     sol_callk >> $(SOL_DEF)
+	@echo     sol_pcallk >> $(SOL_DEF)
+	@echo     sol_concat >> $(SOL_DEF)
+	@echo     sol_gc >> $(SOL_DEF)
+	@echo     sol_warning >> $(SOL_DEF)
+	@echo     sol_sethook >> $(SOL_DEF)
+	@echo     sol_newmetatable >> $(SOL_DEF)
+	@echo     sol_checkudata >> $(SOL_DEF)
+	@echo     sol_checklstring >> $(SOL_DEF)
+	@echo     sol_checkinteger >> $(SOL_DEF)
+	@echo     sol_optinteger >> $(SOL_DEF)
+	@echo     sol_checknumber >> $(SOL_DEF)
+	@echo     sol_setfuncs >> $(SOL_DEF)
+	@echo     sol_loadfilex >> $(SOL_DEF)
+	@echo     sol_loadbufferx >> $(SOL_DEF)
+	@echo     sol_traceback >> $(SOL_DEF)
+	@echo     sol_callmeta >> $(SOL_DEF)
+	@echo     sol_checkversion_ >> $(SOL_DEF)
+	@echo     sol_openselectedlibs >> $(SOL_DEF)
+	@echo     solL_newstate >> $(SOL_DEF)
+	@echo     solL_setmetatable >> $(SOL_DEF)
+	@echo     solL_error >> $(SOL_DEF)
+	@echo     solL_len >> $(SOL_DEF)
+	@echo     solL_checkstack >> $(SOL_DEF)
+	@echo     solL_tolstring >> $(SOL_DEF)
+	@echo     lsp_main >> $(SOL_DEF)
+
+$(SOL_DLL): $(CORE_O) $(AUX_O) $(LIB_O) $(SOL_O) $(SOL_DEF)
+	$(CC) -shared -o $@ $(CORE_O) $(AUX_O) $(LIB_O) $(SOL_O) $(SOL_DEF) $(LIBS)
+
+# sold.exe é apenas um wrapper que carrega sol.dll
+$(SOL_DLL_EXE): $(SOL_DLL)
+	@echo sold.exe usa sol.dll diretamente
+
+clean-dll:
+	-$(RM) $(SOL_DLL) $(SOL_DLL_EXE) $(SOL_DEF) 2>nul
+
+# =============================================================================
+
 
 clean:
 	-$(RM) $(ALL_T) $(ALL_O) 2>nul

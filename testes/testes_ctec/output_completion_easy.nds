@@ -1,5 +1,0 @@
-﻿id = 1
-metodo = "textDocument/completion"
-parametros_textDocument_uri = "file:///completion.sol"
-parametros_position_line = 3
-parametros_position_character = 0

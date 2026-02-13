@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="active">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Bibliotecas</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Sistema                        </li>
+                    </ol>
+                </nav>
+
+            <h1>🚀 Biblioteca: Sistema Operacional</h1>
+<p class="lead">Controle o computador e interaja com o sistema operacional!</p>
+
+<span class="emoji-big">🚀?</span>
+
+<h2>Data e Hora</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Obter data/hora atual formatada</span>
+<span class="function">exiba</span>(<span class="function">sistema_operacional.obtenha_data</span>())
+<span class="comment">-- Mostra algo como: Fri Jan 10 11:36:00 2026</span>
+
+<span class="comment">-- Formatos personalizados</span>
+<span class="function">exiba</span>(<span class="function">sistema_operacional.obtenha_data</span>(<span class="string">"%Y"</span>))        <span class="comment">-- 2026</span>
+<span class="function">exiba</span>(<span class="function">sistema_operacional.obtenha_data</span>(<span class="string">"%d/%m/%Y"</span>))  <span class="comment">-- 10/01/2026</span>
+<span class="function">exiba</span>(<span class="function">sistema_operacional.obtenha_data</span>(<span class="string">"%H:%M:%S"</span>))  <span class="comment">-- 11:36:42</span>
+
+<span class="comment">-- Obter tabela com componentes da data</span>
+<span class="keyword">local</span> agora = <span class="function">sistema_operacional.obtenha_data</span>(<span class="string">"*t"</span>)
+<span class="function">exiba</span>(agora.year, agora.month, agora.day)
+<span class="function">exiba</span>(agora.hour, agora.min, agora.sec)</pre>
+</div>
+
+<h2>Tempo em Segundos</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Obter timestamp atual (segundos desde 1970)</span>
+<span class="keyword">local</span> agora = <span class="function">sistema_operacional.obtenha_tempo</span>()
+<span class="function">exiba</span>(agora)  <span class="comment">-- Ex: 1736518602</span>
+
+<span class="comment">-- Criar timestamp de data específica</span>
+<span class="keyword">local</span> natal = <span class="function">sistema_operacional.obtenha_tempo</span>({
+    year = 2026,
+    month = 12,
+    day = 25,
+    hour = 0
+})
+
+<span class="comment">-- Calcular diferença entre tempos</span>
+<span class="keyword">local</span> t1 = <span class="function">sistema_operacional.obtenha_tempo</span>()
+<span class="comment">-- ... fazer algo ...</span>
+<span class="keyword">local</span> t2 = <span class="function">sistema_operacional.obtenha_tempo</span>()
+<span class="keyword">local</span> diferenca = <span class="function">sistema_operacional.calcule_diferença_tempo</span>(t2, t1)
+<span class="function">exiba</span>(<span class="string">"Demorou "</span> .. diferenca .. <span class="string">" segundos"</span>)</pre>
+</div>
+
+<h2>Relógio de CPU</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Medir tempo de CPU usado</span>
+<span class="keyword">local</span> inicio = <span class="function">sistema_operacional.obtenha_relêgio</span>()
+
+<span class="keyword">para</span> i = 1, 1000000 <span class="keyword">faça</span>
+    <span class="keyword">local</span> x = i * 2
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> fim = <span class="function">sistema_operacional.obtenha_relêgio</span>()
+<span class="function">exiba</span>(<span class="string">"Tempo de CPU: "</span> .. (fim - inicio) .. <span class="string">" segundos"</span>)</pre>
+</div>
+
+<h2>Executar Comandos</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Executar comando do sistema</span>
+<span class="keyword">local</span> sucesso, tipo, codigo = <span class="function">sistema_operacional.execute</span>(<span class="string">"dir"</span>)
+<span class="function">exiba</span>(sucesso, tipo, codigo)
+
+<span class="comment">-- Verificar se shell está disponÚvel</span>
+<span class="keyword">se</span> <span class="function">sistema_operacional.execute</span>() <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Shell disponível"</span>)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Gerenciar Arquivos e Pastas</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Remover arquivo</span>
+<span class="keyword">local</span> sucesso, erro = <span class="function">sistema_operacional.remova</span>(<span class="string">"temp.txt"</span>)
+<span class="keyword">se</span> <span class="keyword">não</span> sucesso <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Erro: "</span> .. erro)
+<span class="keyword">fim</span>
+
+<span class="comment">-- Renomear arquivo</span>
+<span class="function">sistema_operacional.renomeie</span>(<span class="string">"antigo.txt"</span>, <span class="string">"novo.txt"</span>)
+
+<span class="comment">-- Criar pasta</span>
+<span class="keyword">local</span> sucesso = <span class="function">sistema_operacional.crie_pasta</span>(<span class="string">"minha_pasta"</span>)
+<span class="keyword">se</span> sucesso <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Pasta criada!"</span>)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Variáveis de Ambiente</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Obter variável de ambiente</span>
+<span class="keyword">local</span> usuario = <span class="function">sistema_operacional.obtenha_variável_ambiente</span>(<span class="string">"USERNAME"</span>)
+<span class="function">exiba</span>(<span class="string">"Usuário: "</span> .. usuario)
+
+<span class="keyword">local</span> home = <span class="function">sistema_operacional.obtenha_variável_ambiente</span>(<span class="string">"HOME"</span>)
+<span class="keyword">local</span> path = <span class="function">sistema_operacional.obtenha_variável_ambiente</span>(<span class="string">"PATH"</span>)</pre>
+</div>
+
+<h2>Arquivos Temporários</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Gerar nome de arquivo temporário</span>
+<span class="keyword">local</span> nome_temp = <span class="function">sistema_operacional.gere_nome_temporário</span>()
+<span class="function">exiba</span>(<span class="string">"Arquivo temporário: "</span> .. nome_temp)
+
+<span class="comment">-- Usar para criar arquivo temporário</span>
+<span class="keyword">local</span> arquivo = <span class="function">terminal.abra</span>(nome_temp, <span class="string">"w"</span>)
+arquivo:escreva(<span class="string">"dados temporários"</span>)
+arquivo:feche()</pre>
+</div>
+
+<h2>Localização</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Definir localização</span>
+<span class="function">sistema_operacional.defina_localidade</span>(<span class="string">"pt_BR"</span>)
+
+<span class="comment">-- Categorias específicas</span>
+<span class="function">sistema_operacional.defina_localidade</span>(<span class="string">"C"</span>, <span class="string">"numeric"</span>)  <span class="comment">-- Números</span>
+<span class="function">sistema_operacional.defina_localidade</span>(<span class="string">"pt_BR"</span>, <span class="string">"time"</span>)    <span class="comment">-- Data/hora</span>
+
+<span class="comment">-- Obter localização atual</span>
+<span class="keyword">local</span> loc = <span class="function">sistema_operacional.defina_localidade</span>()
+<span class="function">exiba</span>(<span class="string">"Localização: "</span> .. loc)</pre>
+</div>
+
+<h2>Sair do Programa</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Sair com código de sucesso</span>
+<span class="function">sistema_operacional.saia</span>()
+<span class="function">sistema_operacional.saia</span>(0)
+
+<span class="comment">-- Sair com código de erro</span>
+<span class="function">sistema_operacional.saia</span>(1)
+
+<span class="comment">-- Sair com booleano</span>
+<span class="function">sistema_operacional.saia</span>(<span class="keyword">verdadeiro</span>)   <span class="comment">-- sucesso</span>
+<span class="function">sistema_operacional.saia</span>(<span class="keyword">falso</span>)       <span class="comment">-- falha</span>
+
+<span class="comment">-- Sair e fechar estado Lua</span>
+<span class="function">sistema_operacional.saia</span>(0, <span class="keyword">verdadeiro</span>)</pre>
+</div>
+
+<h2>Exemplo: Backup Automático</h2>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">crie_backup</span>(arquivo_origem)
+    <span class="comment">-- Gerar nome com timestamp</span>
+    <span class="keyword">local</span> timestamp = <span class="function">sistema_operacional.obtenha_data</span>(<span class="string">"%Y%m%d_%H%M%S"</span>)
+    <span class="keyword">local</span> nome_backup = arquivo_origem .. <span class="string">".backup_"</span> .. timestamp
+
+    <span class="comment">-- Copiar arquivo (renomear cópia)</span>
+    <span class="keyword">local</span> sucesso = <span class="function">sistema_operacional.execute</span>(<span class="string">"copy "</span> .. arquivo_origem .. <span class="string">" "</span> .. nome_backup)
+
+    <span class="keyword">se</span> sucesso <span class="keyword">então</span>
+        <span class="function">exiba</span>(<span class="string">"Backup criado: "</span> .. nome_backup)
+    <span class="keyword">fim</span>
+
+    <span class="keyword">se</span> <span class="keyword">não</span> sucesso <span class="keyword">então</span>
+        <span class="function">exiba</span>(<span class="string">"Erro ao criar backup"</span>)
+    <span class="keyword">fim</span>
+<span class="keyword">fim</span>
+
+<span class="function">crie_backup</span>(<span class="string">"importante.txt"</span>)</pre>
+</div>
+
+<h2>Exemplo: Monitor de Tempo</h2>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">cronometro</span>(funcao, ...)
+    <span class="keyword">local</span> inicio = <span class="function">sistema_operacional.obtenha_relêgio</span>()
+    <span class="keyword">local</span> resultados = {funcao(...)}
+    <span class="keyword">local</span> fim = <span class="function">sistema_operacional.obtenha_relêgio</span>()
+
+    <span class="function">exiba</span>(<span class="string">"Tempo de execução: "</span> .. (fim - inicio) .. <span class="string">"s"</span>)
+    <span class="keyword">retorne</span> <span class="function">tabela.desempacote</span>(resultados)
+<span class="keyword">fim</span>
+
+<span class="comment">-- Usar</span>
+<span class="keyword">função</span> <span class="function">tarefa_demorada</span>()
+    <span class="keyword">local</span> soma = 0
+    <span class="keyword">para</span> i = 1, 10000000 <span class="keyword">faça</span>
+        soma = soma + i
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> soma
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> resultado = <span class="function">cronometro</span>(tarefa_demorada)</pre>
+</div>
+
+<div class="warning-box">
+    Cuidado ao usar <code>execute</code>, <code>remova</code> e <code>saia</code>! Estas funções podem afetar o sistema.
+</div>
+
+<div class="success-box">
+    A biblioteca Sistema Operacional oferece controle completo sobre data/hora, arquivos e execução de comandos!
+</div>
+
+<div class="mt-4">
+    <a href="lib-corrotinas.html" class="btn btn-sol">
+        Próximo: Biblioteca de Corrotinas <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="lib-entrada-saida.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Terminal</small></a></div><div class="col-6 text-end"><a href="lib-package.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Pacote</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="active">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Bibliotecas</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Filamento                        </li>
+                    </ol>
+                </nav>
+
+            <h1>⚡ Biblioteca: Filamento</h1>
+<p class="lead">Execute tarefas em paralelo sem bloquear o programa principal!</p>
+
+<span class="emoji-big">🔄</span>
+
+<h2>O que é programação assíncrona?</h2>
+<p>
+    Normalmente, seu programa executa uma linha de cada vez. Com assíncrono, você pode iniciar tarefas que rodam "ao mesmo tempo" sem esperar elas terminarem.
+    Perfeito para operações que demoram, como baixar arquivos ou processar dados grandes.
+</p>
+<p>
+    <strong>Diferença de tarefas:</strong> "Tarefas" é um conceito geral de operações assíncronas (como promises em outras linguagens).
+    Esta biblioteca implementa tarefas assíncronas usando corrotinas leves, permitindo execução concorrente sem threads pesadas.
+</p>
+
+<h2>Iniciando uma tarefa assíncrona</h2>
+
+<div class="code-block">
+<pre><span class="function">filamento.tarefa</span>(<span class="keyword">função</span>()
+    <span class="function">exiba</span>(<span class="string">"Esta tarefa roda em paralelo!"</span>)
+    <span class="function">filamento.durma</span>(<span class="number">1000</span>)  <span class="comment">-- Espera 1 segundo</span>
+    <span class="function">exiba</span>(<span class="string">"Tarefa terminou!"</span>)
+<span class="keyword">fim</span>)
+
+<span class="function">exiba</span>(<span class="string">"Programa principal continua..."</span>)</pre>
+</div>
+
+<h2>Iniciando o loop de eventos</h2>
+<p>
+    Para que as tarefas assíncronas sejam executadas, você precisa iniciar o loop de eventos:
+</p>
+
+<div class="code-block">
+<pre><span class="function">filamento.inicie_loop</span>()</pre>
+</div>
+
+<div class="tip-box">
+    O loop de eventos é como um "gerente" que coordena todas as tarefas assíncronas. Ele roda até todas as tarefas terminarem.
+</div>
+
+<h2>Exemplo: Download simulado</h2>
+
+<div class="code-block">
+<pre><span class="function">exiba</span>(<span class="string">"Iniciando downloads..."</span>)
+
+<span class="function">filamento.tarefa</span>(<span class="keyword">função</span>()
+    <span class="function">exiba</span>(<span class="string">"📥 Baixando arquivo 1..."</span>)
+    <span class="function">filamento.durma</span>(<span class="number">2000</span>)
+    <span class="function">exiba</span>(<span class="string">"✅ Arquivo 1 baixado!"</span>)
+<span class="keyword">fim</span>)
+
+<span class="function">filamento.tarefa</span>(<span class="keyword">função</span>()
+    <span class="function">exiba</span>(<span class="string">"📥 Baixando arquivo 2..."</span>)
+    <span class="function">filamento.durma</span>(<span class="number">1500</span>)
+    <span class="function">exiba</span>(<span class="string">"✅ Arquivo 2 baixado!"</span>)
+<span class="keyword">fim</span>)
+
+<span class="function">exiba</span>(<span class="string">"Aguardando downloads..."</span>)
+<span class="function">filamento.inicie_loop</span>()
+<span class="function">exiba</span>(<span class="string">"Todos os downloads terminaram!"</span>)</pre>
+</div>
+
+<div class="warning-box">
+    Lembre-se de chamar <code>filamento.inicie_loop()</code> no final para executar as tarefas!
+</div>
+
+<h2>Exemplo: Simulando tarefas com callbacks</h2>
+<p>
+    Embora não haja uma biblioteca "tarefa" separada, você pode simular tarefas assíncronas usando corrotinas e callbacks:
+</p>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">tarefa_simulada</span>(acao, callback)
+    <span class="function">filamento.tarefa</span>(<span class="keyword">função</span>()
+        <span class="keyword">local</span> resultado = acao()  <span class="comment">-- Executa a ação</span>
+        <span class="keyword">se</span> callback <span class="keyword">então</span>
+            callback(resultado)  <span class="comment">-- Chama o callback com o resultado</span>
+        <span class="keyword">fim</span>
+    <span class="keyword">fim</span>)
+<span class="keyword">fim</span>
+
+<span class="comment">-- Usando</span>
+<span class="function">tarefa_simulada</span>(
+    <span class="keyword">função</span>()
+        <span class="function">filamento.durma</span>(<span class="number">1000</span>)
+        <span class="keyword">retorne</span> <span class="string">"Download concluído!"</span>
+    <span class="keyword">fim</span>,
+    <span class="keyword">função</span>(resultado)
+        <span class="function">exiba</span>(resultado)
+    <span class="keyword">fim</span>
+)
+
+<span class="function">filamento.inicie_loop</span>()</pre>
+</div>
+
+<div class="tip-box">
+    Esta biblioteca fornece as ferramentas básicas. Para APIs mais avançadas como promises, você pode construir sobre ela!
+</div>
+
+<div class="success-box">
+    Com assíncrono, seus programas podem fazer múltiplas coisas ao mesmo tempo!
+</div>
+
+<div class="mt-4">
+    <a href="corrotinas.html" class="btn btn-sol">
+        Próximo: Corrotinas <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div><nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="lib-corrotinas.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Corrotinas</small></a></div><div class="col-6 text-end"><a href="lib-paralelismo.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Paralelismo</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

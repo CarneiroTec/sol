@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="active">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Paradigmas</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Procedural                        </li>
+                    </ol>
+                </nav>
+
+            <h1>📦 Programação Procedural</h1>
+<p class="lead">Organize código em procedimentos reutilizáveis!</p>
+
+<span class="emoji-big">🔨</span>
+
+<h2>O que é programação procedural?</h2>
+<p>
+    Programação procedural organiza código em <strong>funções</strong> (procedimentos) que podem ser chamadas
+    múltiplas vezes. É uma evolução da programação imperativa, adicionando modularidade e reutilização.
+</p>
+
+<h2>Características</h2>
+<ul>
+    <li>Código organizado em funções</li>
+    <li>Reutilização através de chamadas de função</li>
+    <li>Parâmetros e valores de retorno</li>
+    <li>Escopo local de variáveis</li>
+</ul>
+
+<h2>Exemplo básico: Funções utilitárias</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Procedimento simples</span>
+<span class="keyword">função</span> <span class="function">saudacao</span>(nome)
+    <span class="function">exiba</span>(<span class="string">"Olá, "</span> .. nome .. <span class="string">"!"</span>)
+<span class="keyword">fim</span>
+
+<span class="comment">-- Função com retorno</span>
+<span class="keyword">função</span> <span class="function">soma</span>(a, b)
+    <span class="keyword">retorne</span> a + b
+<span class="keyword">fim</span>
+
+<span class="comment">-- Usando as funções</span>
+<span class="function">saudacao</span>(<span class="string">"Maria"</span>)
+<span class="keyword">local</span> resultado = <span class="function">soma</span>(<span class="number">10</span>, <span class="number">20</span>)
+<span class="function">exiba</span>(resultado)  <span class="comment">-- 30</span></pre>
+</div>
+
+<h2>Exemplo: Calculadora modular</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Operações básicas</span>
+<span class="keyword">função</span> <span class="function">adicione</span>(a, b)
+    <span class="keyword">retorne</span> a + b
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">subtraia</span>(a, b)
+    <span class="keyword">retorne</span> a - b
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">multiplique</span>(a, b)
+    <span class="keyword">retorne</span> a * b
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">divida</span>(a, b)
+    <span class="keyword">se</span> b == <span class="number">0</span> <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="keyword">nulo</span>, <span class="string">"Divisão por zero!"</span>
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> a / b
+<span class="keyword">fim</span>
+
+<span class="comment">-- Função de alto nível</span>
+<span class="keyword">função</span> <span class="function">calcule</span>(operacao, a, b)
+    <span class="keyword">se</span> operacao == <span class="string">"+"</span> <span class="keyword">então</span> <span class="keyword">retorne</span> <span class="function">adicione</span>(a, b) <span class="keyword">fim</span>
+    <span class="keyword">se</span> operacao == <span class="string">"-"</span> <span class="keyword">então</span> <span class="keyword">retorne</span> <span class="function">subtraia</span>(a, b) <span class="keyword">fim</span>
+    <span class="keyword">se</span> operacao == <span class="string">"*"</span> <span class="keyword">então</span> <span class="keyword">retorne</span> <span class="function">multiplique</span>(a, b) <span class="keyword">fim</span>
+    <span class="keyword">se</span> operacao == <span class="string">"/"</span> <span class="keyword">então</span> <span class="keyword">retorne</span> <span class="function">divida</span>(a, b) <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> <span class="keyword">nulo</span>, <span class="string">"Operação inválida"</span>
+<span class="keyword">fim</span>
+
+<span class="comment">-- Usando</span>
+<span class="function">exiba</span>(<span class="function">calcule</span>(<span class="string">"+"</span>, <span class="number">10</span>, <span class="number">5</span>))   <span class="comment">-- 15</span>
+<span class="function">exiba</span>(<span class="function">calcule</span>(<span class="string">"*"</span>, <span class="number">3</span>, <span class="number">7</span>))    <span class="comment">-- 21</span></pre>
+</div>
+
+<h2>Exemplo: Processamento de lista</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Função para filtrar números pares</span>
+<span class="keyword">função</span> <span class="function">filtre_pares</span>(lista)
+    <span class="keyword">local</span> resultado = {}
+    <span class="keyword">para</span> i, valor <span class="keyword">em</span> <span class="function">obtenha_pares_indexados</span>(lista) <span class="keyword">faça</span>
+        <span class="keyword">se</span> valor % <span class="number">2</span> == <span class="number">0</span> <span class="keyword">então</span>
+            <span class="function">tabela.insira</span>(resultado, valor)
+        <span class="keyword">fim</span>
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> resultado
+<span class="keyword">fim</span>
+
+<span class="comment">-- Função para somar lista</span>
+<span class="keyword">função</span> <span class="function">some_lista</span>(lista)
+    <span class="keyword">local</span> soma = <span class="number">0</span>
+    <span class="keyword">para</span> i, valor <span class="keyword">em</span> <span class="function">obtenha_pares_indexados</span>(lista) <span class="keyword">faça</span>
+        soma = soma + valor
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> soma
+<span class="keyword">fim</span>
+
+<span class="comment">-- Função para exibir lista</span>
+<span class="keyword">função</span> <span class="function">exiba_lista</span>(lista)
+    <span class="function">exiba</span>(<span class="function">tabela.concatene</span>(lista, <span class="string">", "</span>))
+<span class="keyword">fim</span>
+
+<span class="comment">-- Pipeline de processamento</span>
+<span class="keyword">local</span> numeros = {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>}
+<span class="keyword">local</span> pares = <span class="function">filtre_pares</span>(numeros)
+<span class="keyword">local</span> soma = <span class="function">some_lista</span>(pares)
+
+<span class="function">exiba</span>(<span class="string">"Números pares:"</span>)
+<span class="function">exiba_lista</span>(pares)  <span class="comment">-- 2, 4, 6, 8, 10</span>
+<span class="function">exiba</span>(<span class="string">"Soma: "</span> .. soma)  <span class="comment">-- 30</span></pre>
+</div>
+
+<h2>Exemplo: Sistema de validação</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Validadores</span>
+<span class="keyword">função</span> <span class="function">valide_email</span>(email)
+    <span class="keyword">retorne</span> <span class="function">texto.encontre</span>(email, <span class="string">"@"</span>) <span class="keyword">e</span> <span class="function">texto.encontre</span>(email, <span class="string">"%."</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">valide_idade</span>(idade)
+    <span class="keyword">retorne</span> idade >= <span class="number">0</span> <span class="keyword">e</span> idade <= <span class="number">150</span>
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">valide_nome</span>(nome)
+    <span class="keyword">retorne</span> <span class="function">texto.obtenha_comprimento</span>(nome) >= <span class="number">2</span>
+<span class="keyword">fim</span>
+
+<span class="comment">-- Função principal de validação</span>
+<span class="keyword">função</span> <span class="function">valide_usuario</span>(nome, idade, email)
+    <span class="keyword">se</span> <span class="keyword">não</span> <span class="function">valide_nome</span>(nome) <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="keyword">falso</span>, <span class="string">"Nome inválido"</span>
+    <span class="keyword">fim</span>
+
+    <span class="keyword">se</span> <span class="keyword">não</span> <span class="function">valide_idade</span>(idade) <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="keyword">falso</span>, <span class="string">"Idade inválida"</span>
+    <span class="keyword">fim</span>
+
+    <span class="keyword">se</span> <span class="keyword">não</span> <span class="function">valide_email</span>(email) <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="keyword">falso</span>, <span class="string">"Email inválido"</span>
+    <span class="keyword">fim</span>
+
+    <span class="keyword">retorne</span> <span class="keyword">verdadeiro</span>, <span class="string">"Válido"</span>
+<span class="keyword">fim</span>
+
+<span class="comment">-- Testando</span>
+<span class="keyword">local</span> ok, msg = <span class="function">valide_usuario</span>(<span class="string">"Ana"</span>, <span class="number">25</span>, <span class="string">"ana@exemplo.com"</span>)
+<span class="function">exiba</span>(ok, msg)  <span class="comment">-- verdadeiro, "Válido"</span></pre>
+</div>
+
+<h2>Vantagens da programação procedural</h2>
+
+<ul>
+    <li>✅ Código reutilizável</li>
+    <li>✅ Mais fácil de testar (funções isoladas)</li>
+    <li>✅ Mais fácil de manter</li>
+    <li>✅ Reduz duplicação de código</li>
+    <li>✅ Facilita trabalho em equipe</li>
+</ul>
+
+<div class="success-box">
+    Programação procedural é a base para código organizado e manutenível!
+</div>
+
+<div class="mt-4">
+    <a href="paradigma-oo.html" class="btn btn-sol">
+        Próximo: Orientação a Objetos <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="paradigma-imperativo.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Imperativo</small></a></div><div class="col-6 text-end"><a href="paradigma-oo.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Orientação a Objetos</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

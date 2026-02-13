@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="active">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Bibliotecas</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            NDS                        </li>
+                    </ol>
+                </nav>
+
+            <h1>📄 NDS (Notação de Dados Sol)</h1>
+<p class="lead">Biblioteca para serialização e deserialização de dados no formato Sol nativo.</p>
+
+<div class="alert alert-info">
+    <strong>O que é NDS?</strong> NDS é uma alternativa ao JSON que usa sintaxe Sol/Lua, tornando-o mais natural para desenvolvedores Sol.
+    É ideal para arquivos de configuração, persistência de dados e comunicação entre processos Sol.
+</div>
+
+<h2 class="mt-4">📝 Formato NDS</h2>
+<p>O formato NDS é similar a tabelas Sol, sem necessidade de <code>retorne {}</code>:</p>
+
+<pre><code class="language-lua">-- config.nds
+servidor = "localhost"
+porta = 8080
+debug = verdadeiro
+
+banco_dados = {
+    host = "127.0.0.1",
+    usuario = "admin",
+    senha = "secreto"
+}
+
+usuarios = {
+    {nome = "João", nivel = 10},
+    {nome = "Maria", nivel = 5}
+}</code></pre>
+
+<h2 class="mt-5">📚 Funções</h2>
+
+<div class="api-item">
+    <h3 class="api-signature">nds.carregue (texto)</h3>
+    <div class="api-description">
+        <p>Converte uma string no formato NDS para uma tabela Sol.</p>
+    </div>
+    <div class="api-details">
+        <div class="api-detail-group">
+            <span class="api-label">Parâmetros</span>
+            <div class="api-content">
+                <ul>
+                    <li><code>texto</code>: Texto - Conteúdo NDS a ser parseado.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Retorno</span>
+            <div class="api-content">
+                <p>Tabela ou (nulo, mensagem de erro).</p>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Exemplo</span>
+            <div class="api-content">
+                <pre><code class="language-lua">local dados = nds.carregue([[
+    nome = "Maria",
+    ativo = verdadeiro
+]])
+exiba(dados.nome) -- "Maria"</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="api-item">
+    <h3 class="api-signature">nds.carregue_arquivo (caminho)</h3>
+    <div class="api-description">
+        <p>Lê um arquivo NDS e retorna seu conteúdo como tabela.</p>
+    </div>
+    <div class="api-details">
+        <div class="api-detail-group">
+            <span class="api-label">Parâmetros</span>
+            <div class="api-content">
+                <ul>
+                    <li><code>caminho</code>: Texto - Caminho para o arquivo .nds.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Retorno</span>
+            <div class="api-content">
+                <p>Tabela ou (nulo, mensagem de erro).</p>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Exemplo</span>
+            <div class="api-content">
+                <pre><code class="language-lua">local config = nds.carregue_arquivo("config.nds")
+exiba(config.servidor)</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="api-item">
+    <h3 class="api-signature">nds.converta (tabela)</h3>
+    <div class="api-description">
+        <p>Converte uma tabela Sol para string no formato NDS.</p>
+    </div>
+    <div class="api-details">
+        <div class="api-detail-group">
+            <span class="api-label">Parâmetros</span>
+            <div class="api-content">
+                <ul>
+                    <li><code>tabela</code>: Tabela - A tabela a serializar.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Retorno</span>
+            <div class="api-content">
+                <p>Texto no formato NDS.</p>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Exemplo</span>
+            <div class="api-content">
+                <pre><code class="language-lua">local dados = {nome = "João", idade = 25}
+local texto = nds.converta(dados)
+exiba(texto)
+-- {
+--     nome = "João",
+--     idade = 25
+-- }</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="api-item">
+    <h3 class="api-signature">nds.salve (caminho, tabela)</h3>
+    <div class="api-description">
+        <p>Salva uma tabela em um arquivo no formato NDS.</p>
+    </div>
+    <div class="api-details">
+        <div class="api-detail-group">
+            <span class="api-label">Parâmetros</span>
+            <div class="api-content">
+                <ul>
+                    <li><code>caminho</code>: Texto - Caminho do arquivo de destino.</li>
+                    <li><code>tabela</code>: Tabela - Dados a salvar.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Retorno</span>
+            <div class="api-content">
+                <p>verdadeiro ou (falso, mensagem de erro).</p>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Exemplo</span>
+            <div class="api-content">
+                <pre><code class="language-lua">local dados = {usuario = "admin", nivel = 10}
+nds.salve("usuario.nds", dados)</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="api-item">
+    <h3 class="api-signature">nds.converta_arquivo (tabela)</h3>
+    <div class="api-description">
+        <p>Converte uma tabela para string no formato de arquivo NDS (sem o wrapper de tabela).</p>
+    </div>
+    <div class="api-details">
+        <div class="api-detail-group">
+            <span class="api-label">Parâmetros</span>
+            <div class="api-content">
+                <ul>
+                    <li><code>tabela</code>: Tabela - A tabela a serializar.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Retorno</span>
+            <div class="api-content">
+                <p>Texto pronto para salvar em arquivo .nds.</p>
+            </div>
+        </div>
+        <div class="api-detail-group">
+            <span class="api-label">Exemplo</span>
+            <div class="api-content">
+                <pre><code class="language-lua">local dados = {nome = "João", idade = 25}
+local conteudo = nds.converta_arquivo(dados)
+-- nome = "João"
+--
+-- idade = 25</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="mt-5">🔄 NDS vs JSON</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>NDS</h4>
+        <pre><code class="language-lua">nome = "João"
+idade = 30
+ativo = verdadeiro
+endereco = {
+    cidade = "São Paulo",
+    cep = "01234-567"
+}</code></pre>
+    </div>
+    <div class="col-md-6">
+        <h4>JSON</h4>
+        <pre><code class="language-json">{
+    "nome": "João",
+    "idade": 30,
+    "ativo": true,
+    "endereco": {
+        "cidade": "São Paulo",
+        "cep": "01234-567"
+    }
+}</code></pre>
+    </div>
+</div>
+
+<div class="alert alert-success mt-4">
+    <strong>Vantagens do NDS:</strong>
+    <ul class="mb-0">
+        <li>Sintaxe familiar para desenvolvedores Sol/Lua</li>
+        <li>Suporta comentários (<code>-- comentário</code>)</li>
+        <li>Chaves sem aspas quando são identificadores válidos</li>
+        <li>Usa <code>verdadeiro/falso/nulo</code> em vez de <code>true/false/null</code></li>
+    </ul>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="lib-debug.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Depuração</small></a></div><div class="col-6 text-end"><a href="referencia.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Referência Rápida</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

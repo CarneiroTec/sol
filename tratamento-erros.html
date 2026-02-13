@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="active">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Tratamento de Erros                        </li>
+                    </ol>
+                </nav>
+
+            <h1>🛡️ Tratamento de Erros</h1>
+<p class="lead">Proteja seu programa contra falhas inesperadas!</p>
+
+<span class="emoji-big">🛡️</span>
+
+<h2>Por que tratar erros?</h2>
+<p>
+    Erros acontecem: arquivos não existem, divisões por zero, valores inválidos...
+    Em vez de deixar seu programa quebrar, você pode <strong>capturar</strong> e <strong>tratar</strong> esses erros!
+</p>
+
+<h2>Tabela de Referência</h2>
+
+<table class="table table-dark table-striped">
+    <thead>
+        <tr><th>Função</th><th>Descrição</th><th>Uso</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>lance_erro(mensagem)</code></td>
+            <td>Lança um erro</td>
+            <td>Interromper execução quando algo está errado</td>
+        </tr>
+        <tr>
+            <td><code>afirme(condição, mensagem)</code></td>
+            <td>Verifica uma condição</td>
+            <td>Validar pré-condições</td>
+        </tr>
+        <tr>
+            <td><code>chame_protegido(função, ...)</code></td>
+            <td>Chama função capturando erros</td>
+            <td>Executar código que pode falhar</td>
+        </tr>
+        <tr>
+            <td><code>chame_protegido_estendido(função, tratador, ...)</code></td>
+            <td>Como acima, com tratador de erro</td>
+            <td>Capturar erros com stack trace</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Lançando Erros</h2>
+
+<h3>lance_erro(mensagem [, nível])</h3>
+<p>Interrompe a execução e lança um erro com a mensagem especificada:</p>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">divida</span>(a, b)
+    <span class="keyword">se</span> b == <span class="number">0</span> <span class="keyword">então</span>
+        <span class="function">lance_erro</span>(<span class="string">"Divisão por zero não é permitida!"</span>)
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> a / b
+<span class="keyword">fim</span>
+
+<span class="function">divida</span>(<span class="number">10</span>, <span class="number">0</span>)  <span class="comment">-- Erro: Divisão por zero não é permitida!</span></pre>
+</div>
+
+<div class="tip-box">
+    💡 O parâmetro <code>nível</code> (opcional) indica onde reportar o erro:
+    <ul>
+        <li><code>1</code> (padrão): Reporta na linha que chamou <code>lance_erro</code></li>
+        <li><code>2</code>: Reporta na função que chamou a função atual</li>
+        <li><code>0</code>: Não adiciona informação de posição</li>
+    </ul>
+</div>
+
+<h2>Validando Condições</h2>
+
+<h3>afirme(condição [, mensagem])</h3>
+<p>Verifica se uma condição é verdadeira. Se for falsa, lança um erro:</p>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">calcule_raiz</span>(n)
+    <span class="function">afirme</span>(n >= <span class="number">0</span>, <span class="string">"Número deve ser não-negativo!"</span>)
+    <span class="keyword">retorne</span> <span class="function">matemática.obtenha_raiz_quadrada</span>(n)
+<span class="keyword">fim</span>
+
+<span class="function">calcule_raiz</span>(-<span class="number">5</span>)  <span class="comment">-- Erro: Número deve ser não-negativo!</span></pre>
+</div>
+
+<p>Se a condição for verdadeira, <code>afirme</code> retorna todos os argumentos:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> arquivo = <span class="function">afirme</span>(<span class="function">terminal.abra</span>(<span class="string">"dados.txt"</span>), <span class="string">"Arquivo não encontrado!"</span>)
+<span class="comment">-- Se abrir com sucesso, 'arquivo' recebe o manipulador</span>
+<span class="comment">-- Se falhar, lança erro com a mensagem</span></pre>
+</div>
+
+<h2>Capturando Erros</h2>
+
+<h3>chame_protegido(função, ...)</h3>
+<p>Executa uma função em modo protegido. Se ocorrer um erro, ele é capturado em vez de parar o programa:</p>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">funcao_perigosa</span>()
+    <span class="function">lance_erro</span>(<span class="string">"Algo deu errado!"</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> sucesso, erro = <span class="function">chame_protegido</span>(funcao_perigosa)
+
+<span class="keyword">se</span> sucesso <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Tudo certo!"</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">se</span> <span class="keyword">não</span> sucesso <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Erro capturado: "</span> .. erro)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h4>Retorno de chame_protegido</h4>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Situação</th><th>Primeiro retorno</th><th>Demais retornos</th></tr></thead>
+    <tbody>
+        <tr><td>Sucesso</td><td><code>verdadeiro</code></td><td>Valores retornados pela função</td></tr>
+        <tr><td>Erro</td><td><code>falso</code></td><td>Mensagem de erro</td></tr>
+    </tbody>
+</table>
+
+<h3>Passando argumentos</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">divida</span>(a, b)
+    <span class="keyword">se</span> b == <span class="number">0</span> <span class="keyword">então</span>
+        <span class="function">lance_erro</span>(<span class="string">"Divisão por zero!"</span>)
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> a / b
+<span class="keyword">fim</span>
+
+<span class="comment">-- Passando argumentos para a função</span>
+<span class="keyword">local</span> ok, resultado = <span class="function">chame_protegido</span>(divida, <span class="number">10</span>, <span class="number">2</span>)
+<span class="keyword">se</span> ok <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Resultado: "</span> .. resultado)  <span class="comment">-- 5</span>
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> ok, erro = <span class="function">chame_protegido</span>(divida, <span class="number">10</span>, <span class="number">0</span>)
+<span class="keyword">se</span> <span class="keyword">não</span> ok <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Erro: "</span> .. erro)  <span class="comment">-- Divisão por zero!</span>
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Tratamento Avançado</h2>
+
+<h3>chame_protegido_estendido(função, tratador, ...)</h3>
+<p>Como <code>chame_protegido</code>, mas permite especificar uma função para tratar o erro (útil para obter stack trace):</p>
+
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">meu_tratador</span>(erro)
+    <span class="keyword">retorne</span> <span class="string">"ERRO TRATADO: "</span> .. erro
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">funcao_problematica</span>()
+    <span class="function">lance_erro</span>(<span class="string">"Falha crítica!"</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> ok, msg = <span class="function">chame_protegido_estendido</span>(funcao_problematica, meu_tratador)
+<span class="function">exiba</span>(msg)  <span class="comment">-- ERRO TRATADO: Falha crítica!</span></pre>
+</div>
+
+<h3>Obtendo informações de depuração</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">tratador_com_rastreamento</span>(erro)
+    <span class="keyword">retorne</span> depuração.obtenha_rastreamento(erro, <span class="number">2</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> ok, erro = <span class="function">chame_protegido_estendido</span>(funcao_perigosa, tratador_com_rastreamento)
+<span class="keyword">se</span> <span class="keyword">não</span> ok <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Stack trace:"</span>)
+    <span class="function">exiba</span>(erro)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Padrões Comuns</h2>
+
+<h3>Função que retorna erro como valor</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">abra_arquivo_seguro</span>(nome)
+    <span class="keyword">local</span> ok, resultado = <span class="function">chame_protegido</span>(<span class="keyword">função</span>()
+        <span class="keyword">retorne</span> <span class="function">afirme</span>(<span class="function">terminal.abra</span>(nome))
+    <span class="keyword">fim</span>)
+
+    <span class="keyword">se</span> ok <span class="keyword">então</span>
+        <span class="keyword">retorne</span> resultado, <span class="keyword">nulo</span>
+    <span class="keyword">fim</span>
+
+    <span class="keyword">se</span> <span class="keyword">não</span> ok <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="keyword">nulo</span>, resultado
+    <span class="keyword">fim</span>
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> arquivo, erro = <span class="function">abra_arquivo_seguro</span>(<span class="string">"dados.txt"</span>)
+<span class="keyword">se</span> erro <span class="keyword">então</span>
+    <span class="function">exiba</span>(<span class="string">"Não foi possível abrir: "</span> .. erro)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h3>Validação de parâmetros</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">processe_usuario</span>(dados)
+    <span class="function">afirme</span>(<span class="function">obtenha_tipo</span>(dados) == <span class="string">"tabela"</span>, <span class="string">"dados deve ser uma tabela"</span>)
+    <span class="function">afirme</span>(dados.nome, <span class="string">"dados.nome é obrigatório"</span>)
+    <span class="function">afirme</span>(dados.idade, <span class="string">"dados.idade é obrigatório"</span>)
+    <span class="function">afirme</span>(dados.idade > <span class="number">0</span>, <span class="string">"dados.idade deve ser positivo"</span>)
+
+    <span class="comment">-- Prosseguir com processamento...</span>
+    <span class="function">exiba</span>(<span class="string">"Processando: "</span> .. dados.nome)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h3>Try-finally (limpeza garantida)</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">processe_arquivo</span>(nome)
+    <span class="keyword">local</span> arquivo = <span class="function">afirme</span>(<span class="function">terminal.abra</span>(nome))
+
+    <span class="keyword">local</span> ok, resultado = <span class="function">chame_protegido</span>(<span class="keyword">função</span>()
+        <span class="comment">-- Código que pode falhar</span>
+        <span class="keyword">local</span> conteudo = arquivo:<span class="function">leia</span>(<span class="string">"*tudo"</span>)
+        <span class="keyword">retorne</span> conteudo
+    <span class="keyword">fim</span>)
+
+    <span class="comment">-- Sempre fecha o arquivo (como finally)</span>
+    arquivo:<span class="function">feche</span>()
+
+    <span class="keyword">se</span> <span class="keyword">não</span> ok <span class="keyword">então</span>
+        <span class="function">lance_erro</span>(resultado)  <span class="comment">-- Re-lança o erro</span>
+    <span class="keyword">fim</span>
+
+    <span class="keyword">retorne</span> resultado
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Erros Comuns</h2>
+
+<table class="table table-dark table-bordered">
+    <thead><tr><th>❌ Problema</th><th>✅ Solução</th></tr></thead>
+    <tbody>
+        <tr>
+            <td>Esquecer de verificar retorno de <code>chame_protegido</code></td>
+            <td>Sempre verifique o primeiro valor retornado</td>
+        </tr>
+        <tr>
+            <td>Usar <code>afirme</code> para controle de fluxo normal</td>
+            <td>Use <code>se</code> para lógica normal, <code>afirme</code> para validações</td>
+        </tr>
+        <tr>
+            <td>Engolir erros sem tratar</td>
+            <td>Log ou trate adequadamente todos os erros capturados</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="success-box">
+    🎉 Agora você sabe proteger seu código contra falhas! Use <code>chame_protegido</code> para código crítico e <code>afirme</code> para validações.
+</div>
+
+<div class="mt-4">
+    <a href="corrotinas.html" class="btn btn-sol">
+        Próximo: Corrotinas <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="metamethods.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Metamétodos</small></a></div><div class="col-6 text-end"><a href="lib-matematica.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Matemática</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

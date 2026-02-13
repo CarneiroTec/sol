@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="active">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Metamétodos                        </li>
+                    </ol>
+                </nav>
+
+            <h1>🚀 Metamétodos</h1>
+<p class="lead">Personalize como suas tabelas se comportam com operadores e funções!</p>
+
+<span class="emoji-big">🚀</span>
+
+<h2>O que são metamétodos?</h2>
+<p>
+    Metamétodos são funções "mágicas" que mudam como uma tabela funciona.
+    Por exemplo: e se você pudesse somar duas tabelas com <code>+</code>?
+</p>
+<p>
+    A "metatabela" é uma tabela especial que contém esses poderes mágicos.
+</p>
+
+<h2>Configurando uma metatabela</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> minha_tabela = {}
+<span class="keyword">local</span> minha_meta = {}
+
+<span class="comment">-- Associa a metatabela</span>
+<span class="function">defina_metatabela</span>(minha_tabela, minha_meta)</pre>
+</div>
+
+<h2>__soma: Adição (+)</h2>
+<p>Permite usar <code>+</code> entre duas tabelas:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __soma = <span class="keyword">função</span>(a, b)
+        <span class="keyword">retorne</span> {x = a.x + b.x, y = a.y + b.y}
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> v1 = {x = <span class="number">10</span>, y = <span class="number">20</span>}
+<span class="keyword">local</span> v2 = {x = <span class="number">5</span>, y = <span class="number">5</span>}
+
+<span class="function">defina_metatabela</span>(v1, mt)
+<span class="function">defina_metatabela</span>(v2, mt)
+
+<span class="keyword">local</span> v3 = v1 + v2
+<span class="function">exiba</span>(v3.x, v3.y)   <span class="comment">-- 15, 25</span></pre>
+</div>
+
+<h2>__subtração: Subtração (-)</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __subtração = <span class="keyword">função</span>(a, b)
+        <span class="keyword">retorne</span> {x = a.x - b.x, y = a.y - b.y}
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> resultado = v1 - v2</pre>
+</div>
+
+<h2>__índice: Acessando campos que não existem</h2>
+<p>É chamado quando você tenta acessar algo que não está na tabela:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> padrao = {cor = <span class="string">"azul"</span>, tamanho = <span class="string">"médio"</span>}
+
+<span class="keyword">local</span> mt = {
+    __índice = padrao  <span class="comment">-- Busca aqui se não encontrar</span>
+}
+
+<span class="keyword">local</span> camisa = {tamanho = <span class="string">"grande"</span>}
+<span class="function">defina_metatabela</span>(camisa, mt)
+
+<span class="function">exiba</span>(camisa.tamanho)  <span class="comment">-- "grande" (está na tabela)</span>
+<span class="function">exiba</span>(camisa.cor)      <span class="comment">-- "azul" (buscou no padrão!)</span></pre>
+</div>
+
+<div class="tip-box">
+    O <code>__índice</code> é a base da herança em Sol! Permite criar "classes" e objetos.
+</div>
+
+<h2>__novo_índice: Controlando atribuições</h2>
+<p>É chamado quando você tenta criar um campo novo:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __novo_índice = <span class="keyword">função</span>(tabela, chave, valor)
+        <span class="function">exiba</span>(<span class="string">"Tentou criar: "</span> .. chave .. <span class="string">" = "</span> .. <span class="function">converta_para_texto</span>(valor))
+        <span class="comment">-- Não faz nada! Campo não é criado.</span>
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> bloqueada = {}
+<span class="function">defina_metatabela</span>(bloqueada, mt)
+
+bloqueada.novo = <span class="number">123</span>  <span class="comment">-- Mostra mensagem, mas não cria!</span>
+<span class="function">exiba</span>(bloqueada.novo)  <span class="comment">-- nulo</span></pre>
+</div>
+
+<h2>__chame: Chamando tabela como função</h2>
+<p>Permite usar <code>tabela()</code> como se fosse uma função:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __chame = <span class="keyword">função</span>(ego, x)
+        <span class="keyword">retorne</span> x * ego.fator
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> multiplicador = {fator = <span class="number">3</span>}
+<span class="function">defina_metatabela</span>(multiplicador, mt)
+
+<span class="function">exiba</span>(<span class="function">multiplicador</span>(<span class="number">10</span>))  <span class="comment">-- 30</span></pre>
+</div>
+
+<h2>__converta_para_texto: Conversão para texto</h2>
+<p>Controla o que aparece quando você converte para texto:</p>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __converta_para_texto = <span class="keyword">função</span>(p)
+        <span class="keyword">retorne</span> <span class="string">"Pessoa: "</span> .. p.nome .. <span class="string">" ("</span> .. p.idade .. <span class="string">" anos)"</span>
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> pessoa = {nome = <span class="string">"Ana"</span>, idade = <span class="number">12</span>}
+<span class="function">defina_metatabela</span>(pessoa, mt)
+
+<span class="function">exiba</span>(pessoa)  <span class="comment">-- Pessoa: Ana (12 anos)</span></pre>
+</div>
+
+<h2>Tabela completa de metamétodos</h2>
+
+<h3>Operadores Aritméticos</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Operação</th><th>Descrição</th></tr></thead>
+    <tbody>
+        <tr><td><code>__soma</code></td><td><code>a + b</code></td><td>Adição</td></tr>
+        <tr><td><code>__subtração</code></td><td><code>a - b</code></td><td>Subtração</td></tr>
+        <tr><td><code>__multiplicação</code></td><td><code>a * b</code></td><td>Multiplicação</td></tr>
+        <tr><td><code>__divisão</code></td><td><code>a / b</code></td><td>Divisão</td></tr>
+        <tr><td><code>__divisão_inteira</code></td><td><code>a // b</code></td><td>Divisão inteira</td></tr>
+        <tr><td><code>__módulo</code></td><td><code>a % b</code></td><td>Resto da divisão</td></tr>
+        <tr><td><code>__potência</code></td><td><code>a ^ b</code></td><td>Exponenciação</td></tr>
+        <tr><td><code>__negação</code></td><td><code>-a</code></td><td>Negativo unário</td></tr>
+    </tbody>
+</table>
+
+<h3>Operadores Binários (Bitwise)</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Operação</th><th>Descrição</th></tr></thead>
+    <tbody>
+        <tr><td><code>__e_binário</code></td><td><code>a & b</code></td><td>E binário (AND)</td></tr>
+        <tr><td><code>__ou_binário</code></td><td><code>a | b</code></td><td>OU binário (OR)</td></tr>
+        <tr><td><code>__ou_exclusivo</code></td><td><code>a ~ b</code></td><td>OU exclusivo (XOR)</td></tr>
+        <tr><td><code>__não_binário</code></td><td><code>~a</code></td><td>NÃO binário (complemento)</td></tr>
+        <tr><td><code>__desloque_esquerda</code></td><td><code>a << b</code></td><td>Deslocamento à esquerda</td></tr>
+        <tr><td><code>__desloque_direita</code></td><td><code>a >> b</code></td><td>Deslocamento à direita</td></tr>
+    </tbody>
+</table>
+
+<h3>Operadores de Comparação</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Operação</th><th>Descrição</th></tr></thead>
+    <tbody>
+        <tr><td><code>__igual</code></td><td><code>a == b</code></td><td>Igualdade</td></tr>
+        <tr><td><code>__menor_que</code></td><td><code>a < b</code></td><td>Menor que</td></tr>
+        <tr><td><code>__menor_ou_igual</code></td><td><code>a <= b</code></td><td>Menor ou igual</td></tr>
+    </tbody>
+</table>
+
+<div class="tip-box">
+    Os operadores <code>></code> e <code>>=</code> são derivados de <code>__menor_que</code> e <code>__menor_ou_igual</code>. Não precisam de metamétodos próprios!
+</div>
+
+<h3>Outros Operadores</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Operação</th><th>Descrição</th></tr></thead>
+    <tbody>
+        <tr><td><code>__concatene</code></td><td><code>a .. b</code></td><td>Concatenação</td></tr>
+        <tr><td><code>__comprimento</code></td><td><code>#a</code></td><td>Operador de tamanho</td></tr>
+    </tbody>
+</table>
+
+<h3>Acesso e Controle</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Quando É chamado</th></tr></thead>
+    <tbody>
+        <tr><td><code>__índice</code></td><td>Ler campo inexistente</td></tr>
+        <tr><td><code>__novo_índice</code></td><td>Criar/modificar campo inexistente</td></tr>
+        <tr><td><code>__chame</code></td><td>Chamar tabela como função</td></tr>
+        <tr><td><code>__converta_para_texto</code></td><td>Converter para texto</td></tr>
+    </tbody>
+</table>
+
+<h3>Gerenciamento de Memária e Ciclo de Vida</h3>
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Nome</th><th>Quando É chamado</th></tr></thead>
+    <tbody>
+        <tr><td><code>__coletor_lixo</code></td><td>Quando objeto é coletado pelo GC (finalizador)</td></tr>
+        <tr><td><code>__feche</code></td><td>Quando variável to-be-closed sai de escopo</td></tr>
+        <tr><td><code>__modo</code></td><td>Define se tabela tem chaves/valores fracos ("k", "v", "kv")</td></tr>
+    </tbody>
+</table>
+
+<h2>Exemplo: Operadores Binários</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __e_binário = <span class="keyword">função</span>(a, b)
+        <span class="keyword">retorne</span> a.bits & b.bits
+    <span class="keyword">fim</span>,
+    __ou_binário = <span class="keyword">função</span>(a, b)
+        <span class="keyword">retorne</span> a.bits | b.bits
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> flags1 = {bits = <span class="number">0b1010</span>}
+<span class="keyword">local</span> flags2 = {bits = <span class="number">0b1100</span>}
+
+<span class="function">defina_metatabela</span>(flags1, mt)
+<span class="function">defina_metatabela</span>(flags2, mt)
+
+<span class="function">exiba</span>(flags1 & flags2)  <span class="comment">-- 0b1000 (8)</span>
+<span class="function">exiba</span>(flags1 | flags2)  <span class="comment">-- 0b1110 (14)</span></pre>
+</div>
+
+<h2>Exemplo: Finalizador (__coletor_lixo)</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __coletor_lixo = <span class="keyword">função</span>(ego)
+        <span class="function">exiba</span>(<span class="string">"Limpando recurso: "</span> .. ego.nome)
+        <span class="comment">-- Fechar arquivo, conexão, etc.</span>
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">local</span> recurso = {nome = <span class="string">"arquivo.txt"</span>}
+<span class="function">defina_metatabela</span>(recurso, mt)
+
+recurso = <span class="keyword">nulo</span>  <span class="comment">-- Será coletado eventualmente</span>
+<span class="function">colete_lixo</span>()  <span class="comment">-- Força coleta</span></pre>
+</div>
+
+<h2>Exemplo: Variável To-Be-Closed (__feche)</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> mt = {
+    __feche = <span class="keyword">função</span>(ego)
+        <span class="function">exiba</span>(<span class="string">"Fechando: "</span> .. ego.nome)
+    <span class="keyword">fim</span>
+}
+
+<span class="keyword">função</span> <span class="function">use_recurso</span>()
+    <span class="keyword">local</span> arquivo <span class="keyword">a_fechar</span> = <span class="function">defina_metatabela</span>({nome = <span class="string">"dados.txt"</span>}, mt)
+    <span class="comment">-- Usa arquivo...</span>
+    <span class="comment">-- __feche É chamado automaticamente ao sair do escopo</span>
+<span class="keyword">fim</span>
+
+<span class="function">use_recurso</span>()  <span class="comment">-- Exibe: "Fechando: dados.txt"</span></pre>
+</div>
+
+<h2>Exemplo: Tabela Fraca (__modo)</h2>
+
+<div class="code-block">
+<pre><span class="comment">-- Tabela com chaves fracas (não impede coleta das chaves)</span>
+<span class="keyword">local</span> cache = {}
+<span class="function">defina_metatabela</span>(cache, {__modo = <span class="string">"k"</span>})
+
+<span class="keyword">local</span> chave = {id = <span class="number">1</span>}
+cache[chave] = <span class="string">"valor"</span>
+
+chave = <span class="keyword">nulo</span>  <span class="comment">-- Chave pode ser coletada</span>
+<span class="function">colete_lixo</span>()
+<span class="comment">-- cache agora está vazio</span></pre>
+</div>
+
+<h2>Exemplo: Criando uma "classe" Vetor</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> Vetor = {}
+Vetor.__índice = Vetor
+
+<span class="keyword">função</span> <span class="function">Vetor.novo</span>(x, y)
+    <span class="keyword">local</span> ego = {x = x, y = y}
+    <span class="function">defina_metatabela</span>(ego, Vetor)
+    <span class="keyword">retorne</span> ego
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">Vetor:magnitude</span>()
+    <span class="keyword">retorne</span> <span class="function">matemática.obtenha_raiz_quadrada</span>(ego.x^<span class="number">2</span> + ego.y^<span class="number">2</span>)
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">Vetor.__soma</span>(a, b)
+    <span class="keyword">retorne</span> <span class="function">Vetor.novo</span>(a.x + b.x, a.y + b.y)
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">Vetor.__multiplicação</span>(a, escalar)
+    <span class="keyword">se</span> <span class="function">obtenha_tipo</span>(escalar) == <span class="string">"número"</span> <span class="keyword">então</span>
+        <span class="keyword">retorne</span> <span class="function">Vetor.novo</span>(a.x * escalar, a.y * escalar)
+    <span class="keyword">fim</span>
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">Vetor.__converta_para_texto</span>(v)
+    <span class="keyword">retorne</span> <span class="string">"Vetor("</span> .. v.x .. <span class="string">", "</span> .. v.y .. <span class="string">")"</span>
+<span class="keyword">fim</span>
+
+<span class="comment">-- Usando</span>
+<span class="keyword">local</span> v1 = <span class="function">Vetor.novo</span>(<span class="number">3</span>, <span class="number">4</span>)
+<span class="keyword">local</span> v2 = <span class="function">Vetor.novo</span>(<span class="number">1</span>, <span class="number">2</span>)
+
+<span class="function">exiba</span>(v1)              <span class="comment">-- Vetor(3, 4)</span>
+<span class="function">exiba</span>(v1:<span class="function">magnitude</span>())  <span class="comment">-- 5</span>
+<span class="function">exiba</span>(v1 + v2)         <span class="comment">-- Vetor(4, 6)</span>
+<span class="function">exiba</span>(v1 * <span class="number">2</span>)          <span class="comment">-- Vetor(6, 8)</span></pre>
+</div>
+
+<div class="success-box">
+    Metamétodos são a chave para criar código flexível e elegante em Sol!
+</div>
+
+<div class="warning-box">
+    Cuidado: metamétodos podem tornar o código difácil de entender se usados em excesso. Use com moderação!
+</div>
+
+<div class="mt-4">
+    <a href="referencia-biblioteca.html" class="btn btn-sol">
+        Ir para Bibliotecas <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="paradigma-funcional.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Funcional</small></a></div><div class="col-6 text-end"><a href="tratamento-erros.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Tratamento de Erros</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

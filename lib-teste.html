@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="active">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Bibliotecas</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Testes                        </li>
+                    </ol>
+                </nav>
+
+            <h1>🧪 Biblioteca: Teste</h1>
+<p class="lead">Framework de testes unitários extraordinário integrado à linguagem!</p>
+
+<span class="emoji-big">✅</span>
+
+<h2>Por que testar?</h2>
+<p>
+    Testes são como redes de segurança: você escreve uma vez e eles protegem seu código para sempre.
+    Com a biblioteca <code>teste</code>, você pode validar que seu código funciona corretamente!
+</p>
+
+<h2>Seu primeiro teste</h2>
+
+<div class="code-block">
+<pre><span class="function">teste.grupo</span>(<span class="string">"Calculadora"</span>, <span class="keyword">função</span>()
+    <span class="function">teste.descreva</span>(<span class="string">"operações matemáticas básicas"</span>)
+
+    <span class="function">teste.caso</span>(<span class="string">"deve somar dois números"</span>, <span class="keyword">função</span>()
+        <span class="function">teste.afirme_igual</span>(<span class="number">5</span>, <span class="number">2</span> + <span class="number">3</span>)
+    <span class="keyword">fim</span>)
+<span class="keyword">fim</span>)
+
+<span class="function">teste.relatorio</span>()</pre>
+</div>
+
+<div class="tip-box">
+    O relatório mostra ✓ para testes que passaram e ✗ para falhos!
+</div>
+
+<h2>Estrutura de Grupos</h2>
+<p>Organize seus testes em grupos lógicos que podem ser aninhados:</p>
+
+<div class="code-block">
+<pre><span class="function">teste.grupo</span>(<span class="string">"Usuários"</span>, <span class="keyword">função</span>()
+    <span class="function">teste.descreva</span>(<span class="string">"gerencia usuários do sistema"</span>)
+
+    <span class="function">teste.grupo</span>(<span class="string">"Criação"</span>, <span class="keyword">função</span>()
+        <span class="function">teste.caso</span>(<span class="string">"cria usuário válido"</span>, <span class="keyword">função</span>()
+            <span class="comment">-- seu teste aqui</span>
+        <span class="keyword">fim</span>)
+    <span class="keyword">fim</span>)
+
+    <span class="function">teste.grupo</span>(<span class="string">"Exclusão"</span>, <span class="keyword">função</span>()
+        <span class="function">teste.caso</span>(<span class="string">"remove usuário"</span>, <span class="keyword">função</span>()
+            <span class="comment">-- seu teste aqui</span>
+        <span class="keyword">fim</span>)
+    <span class="keyword">fim</span>)
+<span class="keyword">fim</span>)</pre>
+</div>
+
+<h2>Hooks de Ciclo de Vida</h2>
+<p>Execute código antes e depois dos testes:</p>
+
+<div class="code-block">
+<pre><span class="function">teste.grupo</span>(<span class="string">"Banco de Dados"</span>, <span class="keyword">função</span>()
+    <span class="keyword">local</span> conexao
+
+    <span class="function">teste.antes_de_todos</span>(<span class="keyword">função</span>()
+        <span class="comment">-- Executado UMA vez antes de todos os testes</span>
+        conexao = banco.conecte()
+    <span class="keyword">fim</span>)
+
+    <span class="function">teste.antes_de_cada</span>(<span class="keyword">função</span>()
+        <span class="comment">-- Executado ANTES de cada teste</span>
+        conexao:limpe()
+    <span class="keyword">fim</span>)
+
+    <span class="function">teste.depois_de_cada</span>(<span class="keyword">função</span>()
+        <span class="comment">-- Executado DEPOIS de cada teste</span>
+    <span class="keyword">fim</span>)
+
+    <span class="function">teste.depois_de_todos</span>(<span class="keyword">função</span>()
+        <span class="comment">-- Executado UMA vez depois de todos os testes</span>
+        conexao:feche()
+    <span class="keyword">fim</span>)
+
+    <span class="function">teste.caso</span>(<span class="string">"insere registro"</span>, <span class="keyword">função</span>()
+        <span class="comment">-- A conexão já está pronta!</span>
+    <span class="keyword">fim</span>)
+<span class="keyword">fim</span>)</pre>
+</div>
+
+<h2>Asserções</h2>
+
+<h3>Igualdade e Diferença</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme_igual</span>(<span class="number">42</span>, resultado)       <span class="comment">-- esperado == atual</span>
+<span class="function">teste.afirme_diferente</span>(a, b)            <span class="comment">-- a != b</span></pre>
+</div>
+
+<h3>Valores Booleanos e Nulos</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme</span>(condicao)                  <span class="comment">-- condição é verdadeira</span>
+<span class="function">teste.afirme_verdadeiro</span>(valor)          <span class="comment">-- valor == verdadeiro</span>
+<span class="function">teste.afirme_falso</span>(valor)               <span class="comment">-- valor == falso</span>
+<span class="function">teste.afirme_nulo</span>(valor)                <span class="comment">-- valor == nulo</span>
+<span class="function">teste.afirme_não_nulo</span>(valor)            <span class="comment">-- valor != nulo</span></pre>
+</div>
+
+<h3>Tipos</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme_tipo</span>(<span class="string">"número"</span>, <span class="number">42</span>)          <span class="comment">-- valida tipo</span>
+<span class="function">teste.afirme_tipo</span>(<span class="string">"texto"</span>, <span class="string">"Sol"</span>)
+<span class="function">teste.afirme_tipo</span>(<span class="string">"tabela"</span>, {})
+<span class="function">teste.afirme_tipo</span>(<span class="string">"função"</span>, <span class="keyword">função</span>() <span class="keyword">fim</span>)</pre>
+</div>
+
+<h3>Comparações</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme_maior</span>(<span class="number">10</span>, <span class="number">5</span>)               <span class="comment">-- 10 > 5</span>
+<span class="function">teste.afirme_menor</span>(<span class="number">5</span>, <span class="number">10</span>)               <span class="comment">-- 5 < 10</span>
+<span class="function">teste.afirme_maior_igual</span>(<span class="number">10</span>, <span class="number">10</span>)        <span class="comment">-- 10 >= 10</span>
+<span class="function">teste.afirme_menor_igual</span>(<span class="number">5</span>, <span class="number">10</span>)         <span class="comment">-- 5 <= 10</span></pre>
+</div>
+
+<h3>Coleções</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme_contem</span>({<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>}, <span class="number">2</span>)      <span class="comment">-- tabela contém valor</span>
+<span class="function">teste.afirme_tamanho</span>(<span class="number">3</span>, {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>})     <span class="comment">-- tamanho == 3</span>
+<span class="function">teste.afirme_vazio</span>({})                  <span class="comment">-- tabela está vazia</span></pre>
+</div>
+
+<h3>Erros</h3>
+<div class="code-block">
+<pre><span class="function">teste.afirme_erro</span>(<span class="keyword">função</span>()
+    lance_erro(<span class="string">"boom!"</span>)
+<span class="keyword">fim</span>)  <span class="comment">-- deve lançar erro</span>
+
+<span class="function">teste.afirme_sem_erro</span>(<span class="keyword">função</span>()
+    <span class="keyword">local</span> x = <span class="number">1</span> + <span class="number">1</span>
+<span class="keyword">fim</span>)  <span class="comment">-- não deve lançar erro</span></pre>
+</div>
+
+<h3>Controle</h3>
+<div class="code-block">
+<pre><span class="function">teste.falhe</span>(<span class="string">"não deveria chegar aqui"</span>)  <span class="comment">-- força falha</span>
+<span class="function">teste.pule</span>(<span class="string">"funcionalidade pendente"</span>)   <span class="comment">-- pula teste</span></pre>
+</div>
+
+<h3>Execução e Controle</h3>
+<div class="code-block">
+<pre><span class="function">teste.execute</span>()                           <span class="comment">-- executa todos os testes pendentes</span>
+<span class="function">teste.reinicie</span>()                          <span class="comment">-- reinicia contadores de teste</span></pre>
+</div>
+
+<h2>Relatório</h2>
+<p>No final, chame <code>teste.relatorio()</code> para ver um resumo visual:</p>
+
+<div class="code-block">
+<pre>╔══════════════════════════════════════════════════════════╗
+║                    RELATÓRIO DE TESTES                   ║
+╠══════════════════════════════════════════════════════════╣
+║  Total: 11 | ✓ Passou: 10 | ✗ Falhou: 1 | ○ Pulados: 0   ║
+║  Tempo: 0.013s                                           ║
+╚══════════════════════════════════════════════════════════╝</pre>
+</div>
+
+<div class="success-box">
+    Testes são a base de um código confiável. Use a biblioteca <code>teste</code> em todos os seus projetos!
+</div>
+
+<div class="mt-4">
+    <a href="lib-matematica.html" class="btn btn-sol">
+        Próximo: Matemática <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="canais.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Canais</small></a></div><div class="col-6 text-end"><a href="lib-debug.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Depuração</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="active">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Módulos                        </li>
+                    </ol>
+                </nav>
+
+            <h1>📦 Sistema de Módulos (CTEC)</h1>
+<p class="lead">Como funciona a importação, carregamento de DLLs e ciclo de vida.</p>
+
+<span class="emoji-big">🔧</span>
+
+<h2>Arquitetura de Carregamento</h2>
+<p>
+    O sistema de módulos do Sol (implementado no kernel <code>loadlib.ctec</code>) gerencia como scripts (<code>.sol</code>)
+    e bibliotecas nativas (<code>.dll</code>/<code>.so</code>) são carregados e executados.
+</p>
+
+</p>
+
+<h2>Módulo vs Pacote: Qual a diferença?</h2>
+
+<p>É comum confundir os termos, mas em Sol eles têm significados específicos:</p>
+
+<table class="table table-dark table-bordered">
+    <thead><tr><th>Termo</th><th>Significado</th></tr></thead>
+    <tbody>
+        <tr>
+            <td><strong>Módulo</strong></td>
+            <td>É o <strong>código</strong> que você escreve e importa. Um arquivo <code>.sol</code> ou <code>.dll</code> é um módulo. <br>Ex: <code>"texto"</code>, <code>"meu_jogo.player"</code></td>
+        </tr>
+        <tr>
+            <td><strong>Pacote</strong></td>
+            <td>É a <strong>biblioteca</strong> (<code>pacote</code>) que gerencia o sistema de carregamento. Ela não é um "folder" de módulos, mas sim o gerenciador que sabe <em>onde</em> encontrar e <em>como</em> carregar os arquivos.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="tip-box">
+    💡 <strong>Resumo:</strong> Você cria <strong>módulos</strong> e usa a biblioteca <strong>pacote</strong> para configurar onde encontrá-los.
+</div>
+
+<h2>Ciclo de Vida da Importação</h2>
+
+<p>Quando você executa <code>importe("meu_modulo")</code>, o Sol segue estes passos exatos:</p>
+
+<ol>
+    <li>
+        <strong>Verificação de Cache:</strong>
+        Procura em <code>pacote.carregados</code>. Se encontrar, retorna o valor imediatamente (módulo não é reexecutado).
+    </li>
+    <li>
+        <strong>Busca (Searchers):</strong>
+        Percorre a lista <code>pacote.buscadores</code> para encontrar quem sabe carregar o módulo:
+        <ul>
+            <li><strong>1. Pré-carga:</strong> Verifica <code>pacote.precarga</code> (módulos embutidos).</li>
+            <li><strong>2. Sol Loader:</strong> Procura arquivos <code>.sol</code> nos caminhos de <code>pacote.caminho</code>.</li>
+            <li><strong>3. C Loader:</strong> Procura bibliotecas dinâmicas (<code>.dll</code>, <code>.so</code>) em <code>pacote.caminho_c</code>.</li>
+            <li><strong>4. C Root:</strong> Procura bibliotecas "root" (para módulos aninhados como <code>a.b.c</code>).</li>
+        </ul>
+    </li>
+    <li>
+        <strong>Carregamento e Execução:</strong>
+        <ul>
+            <li><strong>Para .sol:</strong> Compila e executa o script. O valor retornado (ex: tabela) é o resultado.</li>
+            <li><strong>Para .dll/.so:</strong> Carrega a binário na memória (via <code>LoadLibrary</code>/<code>dlopen</code>) e chama a função de inicialização (<code>solopen_nome</code>).</li>
+        </ul>
+    </li>
+    <li>
+        <strong>Cache:</strong>
+        O resultado é salvo em <code>pacote.carregados["meu_modulo"]</code>.
+    </li>
+</ol>
+
+<h2>Tipos de Módulos Suportados</h2>
+
+<table class="table table-dark table-striped">
+    <thead>
+        <tr><th>Extensão</th><th>Tipo</th><th>Como é carregado</th><th>Uso</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>.sol</code></td>
+            <td>Script Sol</td>
+            <td>Compilado e executado na VM</td>
+            <td>Lógica de negócio, aplicações normais</td>
+        </tr>
+        <tr>
+            <td><code>.dll</code> (Win)<br><code>.so</code> (Linux)</td>
+            <td>Biblioteca Dinâmica</td>
+            <td>Carregamento nativo (OS)</td>
+            <td>Bibliotecas de alta performance, acesso a hardware</td>
+        </tr>
+        <tr>
+            <td><code>.o</code> / <code>.a</code></td>
+            <td>Objeto Estático</td>
+            <td>❌ Não suportado dinamicamente</td>
+            <td>Devem ser linkados ao executável na compilação do interpretador</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Importando Bibliotecas Nativas (CTEC)</h2>
+
+<p>Bibliotecas escritas em C/C++ (CTEC) são compiladas para <code>.dll</code> ou <code>.so</code>. O Sol procura uma função de entrada específica:</p>
+
+<div class="code-block">
+<pre><code class="language-sol">-- Ao fazer: importe("minha_lib")
+-- O Sol procura a função C exportada: solopen_minha_lib(sol_State *L)</code></pre>
+</div>
+
+<h3>Criando Módulos Nativos (CTEC) — Passo a Passo</h3>
+<p>Resumo rápido: o módulo nativo deve exportar a função <code>solopen_<em>nome</em></code> (visível no export table). Use <code>Atributo((Exporte))</code> ou um <code>.def</code> e linke contra <code>libsol.a</code> quando usar APIs do runtime.</p>
+
+<ol>
+    <li><strong>Escreva o código CTEC</strong>
+        <div class="code-block">
+        <pre><code class="language-c">/* Exemplo mínimo (CTEC) */
+#Inclua "sol.int"
+Fixo Inteiro minha_saudacao(sol_State *L) { (Vazio)L; printf("hello world\n"); Retorne 0; }
+
+Atributo((Exporte)) SOLMOD_API Inteiro solopen_minha_lib(sol_State *L) {
+    sol_newlib(L, (sol_Reg[]){ {"saudacao", minha_saudacao}, {NULL,NULL} });
+    Retorne 1;
+}
+</code></pre>
+        </div>
+    </li>
+    <li><strong>Compilar/Linkar (Windows)</strong>
+        <div class="code-block">
+        <pre><code class="language-bash">cd teste_modulo
+ctec -I.. testemodulo.ctec ..\libsol.a -shared -o testemodulo.dll
+ctec -impdef testemodulo.dll -v   -- verifica exports (.def)</code></pre>
+        </div>
+    </li>
+    <li><strong>Teste em tempo de execução</strong>
+        <div class="code-block">
+        <pre><code class="language-sol">-- Rode a partir da pasta onde a DLL está localizada
+..\sol.exe run_testemodulo.sol
+-- ou ajuste pacote.caminho_c para incluir a pasta da DLL</code></pre>
+        </div>
+    </li>
+    <li><strong>Dicas rápidas</strong>
+        <ul>
+            <li><strong>Atributo de export:</strong> use <code>Atributo((Exporte))</code> em <code>solopen_*</code> para garantir que o símbolo apareça em Windows.</li>
+            <li><strong>Linkagem:</strong> linkar <code>..\libsol.a</code> evita símbolos indefinidos (ex.: <code>sol_newlib</code>).</li>
+            <li><strong>Verificação:</strong> rode <code>ctec -impdef sua.dll -v</code> ou use <code>dumpbin /EXPORTS</code> para checar o export table.</li>
+            <li><strong>Execução:</strong> se <code>importe()</code> não encontrar o módulo, execute <code>sol.exe</code> a partir do diretório da DLL ou copie a DLL para um dos caminhos de busca.</li>
+        </ul>
+    </li>
+</ol>
+
+<h3>Configurando Caminhos Nativos</h3>
+<p>Para o Sol encontrar suas DLLs, configure <code>pacote.caminho_c</code> (note o <code>_c</code>):</p>
+
+<div class="code-block">
+<pre><code class="language-sol">-- Adicionar pasta 'bin' para buscar DLLs
+pacote.caminho_c = pacote.caminho_c .. ";./bin/?.dll"</code></pre>
+</div>
+
+<h2>Variáveis de Controle</h2>
+
+<p>O pacote <code>pacote</code> expõe tabelas que controlam todo o processo:</p>
+
+<ul>
+    <li><code>pacote.carregados</code>: Tabela cache. Tocar aqui força recarregamento (<code>pacote.carregados["mod"] = nulo</code>).</li>
+    <li><code>pacote.precarga</code>: Tabela de funções para módulos que já estão na memória.</li>
+    <li><code>pacote.caminho</code>: String com paths para scripts (<code>.sol</code>).</li>
+    <li><code>pacote.caminho_c</code>: String com paths para binários (<code>.dll</code>).</li>
+    <li><code>pacote.buscadores</code>: Lista de funções que procuram módulos. Você pode adicionar a sua própria!</li>
+</ul>
+
+<h2>Diferenças Importantes</h2>
+
+<div class="warning-box">
+    <strong>⚠️ Atenção:</strong> Módulos <code>.o</code> e <code>.a</code> são estáticos. Eles não podem ser carregados com <code>importe()</code>.
+    Se você tem código nessas extensões, precisa compilá-los junto com o interpretador Sol ou transformá-los em uma DLL compartilhada.
+</div>
+
+<div class="success-box">
+    Entender este ciclo permite criar arquiteturas complexas e plugins misturando Sol e C!
+</div>
+
+<div class="mt-4">
+    <a href="como-comecar.html" class="btn btn-sol">
+        Voltar: Como Começar <i class="bi bi-arrow-left ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="tipo-tabelas.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Tabelas</small></a></div><div class="col-6 text-end"><a href="controle-fluxo.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Controle de Fluxo</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

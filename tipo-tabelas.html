@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link ">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="active">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+                                                    <li class="breadcrumb-item">Tipos de Dados</li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Tabelas                        </li>
+                    </ol>
+                </nav>
+
+            <h1>📋 Tabelas</h1>
+<p class="lead">Estruturas de dados versáteis - use como arrays, dicionários ou objetos!</p>
+
+<span class="emoji-big">📦</span>
+
+<h2>O que são tabelas?</h2>
+<p>
+    Tabelas são a ÚNICA estrutura de dados em Sol. Elas podem ser usadas como:
+</p>
+<ul>
+    <li><strong>Arrays</strong>: Listas ordenadas [1, 2, 3]</li>
+    <li><strong>Dicionários</strong>: Pares chave-valor {nome="Ana", idade=15}</li>
+    <li><strong>Objetos</strong>: Com métodos e propriedades</li>
+</ul>
+
+<h2>Criando tabelas</h2>
+
+<h3>Array (lista)</h3>
+<div class="code-block">
+<pre><span class="keyword">local</span> frutas = {<span class="string">"Maçã"</span>, <span class="string">"Banana"</span>, <span class="string">"Uva"</span>}
+<span class="function">exiba</span>(frutas[<span class="number">1</span>])  <span class="comment">-- "Maçã" (índices começam em 1!)</span>
+<span class="function">exiba</span>(frutas[<span class="number">2</span>])  <span class="comment">-- "Banana"</span></pre>
+</div>
+
+<h3>Dicionário (chave-valor)</h3>
+<div class="code-block">
+<pre><span class="keyword">local</span> pessoa = {
+    nome = <span class="string">"João"</span>,
+    idade = <span class="number">15</span>,
+    cidade = <span class="string">"São Paulo"</span>
+}
+<span class="function">exiba</span>(pessoa.nome)   <span class="comment">-- "João"</span>
+<span class="function">exiba</span>(pessoa[<span class="string">"idade"</span>])  <span class="comment">-- 15 (acesso alternativo)</span></pre>
+</div>
+
+<h3>Tabela mista</h3>
+<div class="code-block">
+<pre><span class="keyword">local</span> mista = {
+    <span class="string">"primeiro"</span>,  <span class="comment">-- índice 1</span>
+    <span class="string">"segundo"</span>,   <span class="comment">-- índice 2</span>
+    nome = <span class="string">"Tabela"</span>,
+    valor = <span class="number">42</span>
+}</pre>
+</div>
+
+<h2>Acessar e modificar</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> dados = {<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>}
+
+<span class="comment">-- Ler</span>
+<span class="function">exiba</span>(dados[<span class="number">1</span>])  <span class="comment">-- 10</span>
+
+<span class="comment">-- Modificar</span>
+dados[<span class="number">1</span>] = <span class="number">100</span>
+<span class="function">exiba</span>(dados[<span class="number">1</span>])  <span class="comment">-- 100</span>
+
+<span class="comment">-- Adicionar novo</span>
+dados[<span class="number">4</span>] = <span class="number">40</span>
+dados.novo = <span class="string">"valor"</span></pre>
+</div>
+
+<h2>Tamanho da tabela</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> lista = {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>}
+<span class="function">exiba</span>(#lista)  <span class="comment">-- 5</span></pre>
+</div>
+
+<h2>Biblioteca Tabela</h2>
+
+<h3>Criar tabela com tamanho pré-alocado</h3>
+
+<div class="code-block">
+<pre><span class="comment">-- Criar tabela otimizada (sequencial, hash)</span>
+<span class="keyword">local</span> t = <span class="function">tabela.crie</span>(<span class="number">100</span>, <span class="number">10</span>)  <span class="comment">-- 100 elementos array, 10 hash</span></pre>
+</div>
+
+<h3>Inserir elementos</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> lista = {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>}
+
+<span class="comment">-- Inserir no final</span>
+<span class="function">tabela.insira</span>(lista, <span class="number">4</span>)
+<span class="comment">-- lista = {1, 2, 3, 4}</span>
+
+<span class="comment">-- Inserir em posição específica</span>
+<span class="function">tabela.insira</span>(lista, <span class="number">2</span>, <span class="number">99</span>)
+<span class="comment">-- lista = {1, 99, 2, 3, 4}</span></pre>
+</div>
+
+<h3>Remover elementos</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> lista = {<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>}
+
+<span class="comment">-- Remover do final</span>
+<span class="keyword">local</span> removido = <span class="function">tabela.remova</span>(lista)
+<span class="function">exiba</span>(removido)  <span class="comment">-- 40</span>
+
+<span class="comment">-- Remover de posição específica</span>
+<span class="keyword">local</span> removido = <span class="function">tabela.remova</span>(lista, <span class="number">2</span>)
+<span class="function">exiba</span>(removido)  <span class="comment">-- 20</span></pre>
+</div>
+
+<h3>Concatenar elementos</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> palavras = {<span class="string">"Sol"</span>, <span class="string">"é"</span>, <span class="string">"legal"</span>}
+<span class="keyword">local</span> frase = <span class="function">tabela.concatene</span>(palavras, <span class="string">" "</span>)
+<span class="function">exiba</span>(frase)  <span class="comment">-- "Sol é legal"</span>
+
+<span class="keyword">local</span> numeros = {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>}
+<span class="function">exiba</span>(<span class="function">tabela.concatene</span>(numeros, <span class="string">", "</span>))  <span class="comment">-- "1, 2, 3"</span></pre>
+</div>
+
+<h3>Ordenar tabela</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> numeros = {<span class="number">5</span>, <span class="number">2</span>, <span class="number">8</span>, <span class="number">1</span>, <span class="number">9</span>}
+<span class="function">tabela.ordene</span>(numeros)
+<span class="comment">-- numeros = {1, 2, 5, 8, 9}</span>
+
+<span class="comment">-- Ordenar com função customizada (decrescente)</span>
+<span class="function">tabela.ordene</span>(numeros, <span class="keyword">função</span>(a, b) <span class="keyword">retorne</span> a > b <span class="keyword">fim</span>)
+<span class="comment">-- numeros = {9, 8, 5, 2, 1}</span></pre>
+</div>
+
+<h3>Empacotar e desempacotar</h3>
+
+<div class="code-block">
+<pre><span class="comment">-- Empacotar valores em tabela</span>
+<span class="keyword">local</span> t = <span class="function">tabela.empacote</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>)
+<span class="comment">-- t = {1, 2, 3, 4, n=4}</span>
+
+<span class="comment">-- Desempacotar tabela em valores</span>
+<span class="function">exiba</span>(<span class="function">tabela.desempacote</span>(t))  <span class="comment">-- 1, 2, 3, 4</span>
+<span class="function">exiba</span>(<span class="function">tabela.desempacote</span>(t, <span class="number">2</span>, <span class="number">3</span>))  <span class="comment">-- 2, 3 (intervalo)</span></pre>
+</div>
+
+<h3>Mover elementos</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> origem = {<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>}
+<span class="keyword">local</span> destino = {<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>}
+
+<span class="comment">-- Mover elementos 2-4 de origem para posição 2 de destino</span>
+<span class="function">tabela.mova</span>(origem, <span class="number">2</span>, <span class="number">4</span>, <span class="number">2</span>, destino)
+<span class="comment">-- destino = {10, 2, 3, 4, 30}</span></pre>
+</div>
+
+<h2>Iterar sobre tabelas</h2>
+
+<h3>Array (com índices numéricos)</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> frutas = {<span class="string">"Maçã"</span>, <span class="string">"Banana"</span>, <span class="string">"Uva"</span>}
+
+<span class="keyword">para</span> indice, fruta <span class="keyword">em</span> <span class="function">obtenha_pares_indexados</span>(frutas) <span class="keyword">faça</span>
+    <span class="function">exiba</span>(indice, fruta)
+<span class="keyword">fim</span>
+<span class="comment">-- 1 Maçã</span>
+<span class="comment">-- 2 Banana</span>
+<span class="comment">-- 3 Uva</span></pre>
+</div>
+
+<h3>Dicionário (todas as chaves)</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> pessoa = {nome=<span class="string">"Ana"</span>, idade=<span class="number">15</span>, cidade=<span class="string">"Rio"</span>}
+
+<span class="keyword">para</span> chave, valor <span class="keyword">em</span> <span class="function">obtenha_pares</span>(pessoa) <span class="keyword">faça</span>
+    <span class="function">exiba</span>(chave, valor)
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Metamétodos para Tabelas</h2>
+
+<p>Metamétodos permitem customizar o comportamento de tabelas:</p>
+
+<h3>__índice - Valores padrão</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> padroes = {cor = <span class="string">"azul"</span>, tamanho = <span class="string">"médio"</span>}
+<span class="keyword">local</span> config = {tamanho = <span class="string">"grande"</span>}
+
+<span class="function">defina_metatabela</span>(config, {__índice = padroes})
+
+<span class="function">exiba</span>(config.tamanho)  <span class="comment">-- "grande" (tem na tabela)</span>
+<span class="function">exiba</span>(config.cor)      <span class="comment">-- "azul" (busca no padrão)</span></pre>
+</div>
+
+<h3>__comprimento - Tamanho customizado</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> tabela_especial = {a=<span class="number">1</span>, b=<span class="number">2</span>, c=<span class="number">3</span>}
+
+<span class="function">defina_metatabela</span>(tabela_especial, {
+    __comprimento = <span class="keyword">função</span>(t)
+        <span class="keyword">local</span> count = <span class="number">0</span>
+        <span class="keyword">para</span> _ <span class="keyword">em</span> <span class="function">obtenha_pares</span>(t) <span class="keyword">faça</span>
+            count = count + <span class="number">1</span>
+        <span class="keyword">fim</span>
+        <span class="keyword">retorne</span> count
+    <span class="keyword">fim</span>
+})
+
+<span class="function">exiba</span>(#tabela_especial)  <span class="comment">-- 3</span></pre>
+</div>
+
+<h3>__soma - Somar tabelas</h3>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> Vetor = {}
+Vetor.__índice = Vetor
+
+<span class="keyword">função</span> <span class="function">Vetor.novo</span>(x, y)
+    <span class="keyword">retorne</span> <span class="function">defina_metatabela</span>({x=x, y=y}, Vetor)
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">Vetor.__soma</span>(a, b)
+    <span class="keyword">retorne</span> <span class="function">Vetor.novo</span>(a.x + b.x, a.y + b.y)
+<span class="keyword">fim</span>
+
+<span class="keyword">local</span> v1 = <span class="function">Vetor.novo</span>(<span class="number">3</span>, <span class="number">4</span>)
+<span class="keyword">local</span> v2 = <span class="function">Vetor.novo</span>(<span class="number">1</span>, <span class="number">2</span>)
+<span class="keyword">local</span> v3 = v1 + v2
+<span class="function">exiba</span>(v3.x, v3.y)  <span class="comment">-- 4, 6</span></pre>
+</div>
+
+<h2>Exemplo: Lista de tarefas</h2>
+
+<div class="code-block">
+<pre><span class="keyword">local</span> tarefas = {}
+
+<span class="keyword">função</span> <span class="function">adiciona_tarefa</span>(descricao)
+    <span class="function">tabela.insira</span>(tarefas, {
+        descricao = descricao,
+        concluida = <span class="keyword">falso</span>
+    })
+<span class="keyword">fim</span>
+
+<span class="keyword">função</span> <span class="function">lista_tarefas</span>()
+    <span class="keyword">para</span> i, tarefa <span class="keyword">em</span> <span class="function">obtenha_pares_indexados</span>(tarefas) <span class="keyword">faça</span>
+        <span class="keyword">local</span> status = tarefa.concluida <span class="keyword">e</span> <span class="string">"✓"</span> <span class="keyword">ou</span> <span class="string">" "</span>
+        <span class="function">exiba</span>(<span class="function">texto.formate</span>(<span class="string">"[%s] %d. %s"</span>, status, i, tarefa.descricao))
+    <span class="keyword">fim</span>
+<span class="keyword">fim</span>
+
+<span class="function">adiciona_tarefa</span>(<span class="string">"Estudar Sol"</span>)
+<span class="function">adiciona_tarefa</span>(<span class="string">"Fazer exercícios"</span>)
+tarefas[<span class="number">1</span>].concluida = <span class="keyword">verdadeiro</span>
+
+<span class="function">lista_tarefas</span>()
+<span class="comment">-- [✓] 1. Estudar Sol</span>
+<span class="comment">-- [ ] 2. Fazer exercícios</span></pre>
+</div>
+
+<div class="success-box">
+    Tabelas são a estrutura de dados mais poderosa do Sol! Use-as para tudo: listas, objetos, classes e muito mais.
+</div>
+
+<div class="mt-4">
+    <a href="tipo-logicos.html" class="btn btn-sol">
+        Próximo: Lógicos <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="funcoes.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">Funções</small></a></div><div class="col-6 text-end"><a href="modulos.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Módulos</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sol - Linguagem de Programação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+
+    <!-- Navbar Principal (Links Gerais) -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="inicio.html">
+                <i class="bi bi-sun-fill me-2"></i>Sol
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a href="referencia.html" class="nav-link active">
+                            <i class="bi bi-lightning-charge me-1"></i>Referência Rápida
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="referencia-biblioteca.html" class="nav-link ">
+                            <i class="bi bi-book me-1"></i>Biblioteca Padrão
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="inicio.html">
+                            <i class="bi bi-house-fill me-1"></i>Início
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="como-comecar.html">
+                            <i class="bi bi-rocket-takeoff me-1"></i>Como Começar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="instalacao.html">
+                            <i class="bi bi-download me-1"></i>Instalação
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/sol-lang" target="_blank">
+                            <i class="bi bi-github me-1"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="docs-wrapper">
+                <!-- Sidebar de Documentação -->
+        <aside class="docs-sidebar">
+            <div class="sidebar-header">
+                <i class="bi bi-book me-2"></i>Documentação
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🚀 Primeiros Passos</div>
+                <ul class="sidebar-nav">
+                    <li><a href="instalacao.html" class="">Instalação</a></li>
+                    <li><a href="como-comecar.html" class="">Como Começar</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📝 Básico</div>
+                <ul class="sidebar-nav">
+                    <li><a href="variaveis.html" class="">Variáveis</a></li>
+                    <li><a href="tipo-numeros.html" class="">Números</a></li>
+                    <li><a href="tipo-texto.html" class="">Texto</a></li>
+                    <li><a href="tipo-logicos.html" class="">Lógicos</a></li>
+                    <li><a href="condicionais.html" class="">Condicionais</a></li>
+                    <li><a href="repeticoes.html" class="">Repetições</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎯 Intermediário</div>
+                <ul class="sidebar-nav">
+                    <li><a href="funcoes.html" class="">Funções</a></li>
+                    <li><a href="tipo-tabelas.html" class="">Tabelas</a></li>
+                    <li><a href="modulos.html" class="">Módulos</a></li>
+                    <li><a href="controle-fluxo.html" class="">Controle de Fluxo</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🎨 Paradigmas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="paradigma-imperativo.html" class="">Imperativo</a></li>
+                    <li><a href="paradigma-procedural.html" class="">Procedural</a></li>
+                    <li><a href="paradigma-oo.html" class="">Orientação a Objetos</a></li>
+                    <li><a href="paradigma-funcional.html" class="">Funcional</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🔧 Avançado</div>
+                <ul class="sidebar-nav">
+                    <li><a href="metamethods.html" class="">Metamétodos</a></li>
+                    <li><a href="tratamento-erros.html" class="">Tratamento de Erros</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📚 Bibliotecas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-matematica.html" class="">Matemática</a></li>
+                    <li><a href="lib-texto.html" class="">Texto</a></li>
+                    <li><a href="lib-tabela.html" class="">Tabela</a></li>
+                    <li><a href="lib-utf8.html" class="">UTF-8</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🌐 Sistema</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-entrada-saida.html" class="">Terminal</a></li>
+                    <li><a href="lib-sistema.html" class="">Sistema Operacional</a></li>
+                    <li><a href="lib-package.html" class="">Pacote</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">⚡ Concorrência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-corrotinas.html" class="">Corrotinas</a></li>
+                    <li><a href="lib-assincrono.html" class="">Filamento</a></li>
+                    <li><a href="lib-paralelismo.html" class="">Paralelismo</a></li>
+                    <li><a href="canais.html" class="">Canais</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">🛠️ Ferramentas</div>
+                <ul class="sidebar-nav">
+                    <li><a href="lib-teste.html" class="">Testes</a></li>
+                    <li><a href="lib-debug.html" class="">Depuração</a></li>
+                    <li><a href="lib-nds.html" class="">NDS</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">📖 Referência</div>
+                <ul class="sidebar-nav">
+                    <li><a href="referencia.html" class="active">Referência Rápida</a></li>
+                    <li><a href="referencia-biblioteca.html" class="">Biblioteca Padrão</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="docs-content with-sidebar">
+                            <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="mb-4">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="inicio.html">Sol</a></li>
+
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Referência Rápida                        </li>
+                    </ol>
+                </nav>
+
+            <h1>📚 Referência Rápida</h1>
+<p class="lead">Documentação concisa para programadores experientes</p>
+
+<div class="alert alert-info">
+    <strong>💡 Dica:</strong> Esta é a documentação de referência. Para tutoriais detalhados, veja a <a href="como-comecar.html">documentação didática</a>.
+</div>
+
+<h2>Palavras-chave</h2>
+
+<table class="table table-dark table-striped">
+    <thead>
+        <tr><th>Palavra-chave</th><th>Uso</th><th>Exemplo</th></tr>
+    </thead>
+    <tbody>
+        <tr><td><code>local</code></td><td>Variável local</td><td><code>local x = 10</code></td></tr>
+        <tr><td><code>global</code></td><td>Variável global</td><td><code>global y = 20</code></td></tr>
+        <tr><td><code>função</code></td><td>Declarar função</td><td><code>função f() fim</code></td></tr>
+        <tr><td><code>retorne</code></td><td>Retornar valor</td><td><code>retorne x + 1</code></td></tr>
+        <tr><td><code>se...então...fim</code></td><td>Condicional</td><td><code>se x > 0 então ... fim</code></td></tr>
+        <tr><td><code>para...faça...fim</code></td><td>Loop</td><td><code>para i=1,10 faça ... fim</code></td></tr>
+        <tr><td><code>em</code></td><td>Iterador</td><td><code>para k,v em obtenha_pares(t) faça</code></td></tr>
+        <tr><td><code>interrompa</code></td><td>Sair do loop</td><td><code>interrompa</code></td></tr>
+        <tr><td><code>execute</code></td><td>Execute</td><td><code>execute rótulo</code></td></tr>
+        <tr><td><code>e</code>, <code>ou</code>, <code>não</code></td><td>Operadores lógicos</td><td><code>x > 0 e x < 10</code></td></tr>
+        <tr><td><code>verdadeiro</code>, <code>falso</code>, <code>nulo</code></td><td>Literais</td><td><code>local ok = verdadeiro</code></td></tr>
+    </tbody>
+</table>
+
+<div class="alert alert-warning">
+    <strong>⚠️ Não existem:</strong> <code>enquanto</code>, <code>faça...enquanto</code>, <code>repita...até</code> (Use <code>execute</code> e rótulos)
+</div>
+
+<h2>Bibliotecas Padrão</h2>
+
+<h3>matemática</h3>
+<code>pi, enorme, inteiro_máximo, inteiro_mínimo, obtenha_valor_absoluto, arredonde_para_piso, arredonde_para_teto, obtenha_máximo, obtenha_mínimo, obtenha_raiz_quadrada, obtenha_seno, obtenha_cosseno, obtenha_tangente, obtenha_arco_seno, obtenha_arco_cosseno, obtenha_arco_tangente, converta_para_radianos, converta_para_graus, obtenha_exponencial, obtenha_logaritmo, gere_aleatório, defina_semente_aleatória, converta_para_inteiro, obtenha_resto_flutuante, separe_fração_inteiro, obtenha_tipo</code>
+
+<h3>texto</h3>
+<code>obtenha_comprimento, converta_para_maiúscula, converta_para_minúscula, obtenha_subtexto, repita, inverta, encontre, substitua_globalmente, formate, obtenha_byte, crie_caractere, combine, combine_globalmente, empacote, desempacote, obtenha_tamanho_pacote</code>
+
+<h3>tabela</h3>
+<code>crie, insira, remova, concatene, ordene, empacote, desempacote, mova</code>
+
+<h3>terminal (E/S)</h3>
+<code>feche, despeje, defina_entrada, itere_linhas, abra, defina_saída, abra_processo, leia, crie_arquivo_temporário, obtenha_tipo, escreva</code>
+
+<h3>sistema_operacional</h3>
+<code>obtenha_relógio, obtenha_data, calcule_diferença_tempo, execute, saia, obtenha_variável_ambiente, remova, renomeie, crie_pasta, defina_localidade, obtenha_tempo, gere_nome_temporário</code>
+
+<h3>utf8</h3>
+<code>obtenha_deslocamento, obtenha_ponto_código, crie_caractere, obtenha_comprimento, itere_códigos, padrão_caractere</code>
+
+<h3>corrotina</h3>
+<code>crie, retome, obtenha_executando, obtenha_estado, envolva, ceda, verifique_pode_ceder, feche</code>
+
+<h3>filamento (Assíncrono)</h3>
+<code>tarefa, inicie_loop, durma</code>
+
+<h3>paralelismo</h3>
+<code>execute_paralelo, aguarde_todos</code>
+
+<h3>teste</h3>
+<code>afirme, afirme_igual, afirme_verdadeiro, afirme_falso</code>
+
+<h2>Metamétodos</h2>
+
+<table class="table table-dark table-striped">
+    <thead>
+        <tr><th>Metamétodo</th><th>Descrição</th></tr>
+    </thead>
+    <tbody>
+        <tr><td><code>__soma</code></td><td>Operador +</td></tr>
+        <tr><td><code>__subtração</code></td><td>Operador -</td></tr>
+        <tr><td><code>__multiplicação</code></td><td>Operador *</td></tr>
+        <tr><td><code>__divisão</code></td><td>Operador /</td></tr>
+        <tr><td><code>__divisão_inteira</code></td><td>Operador //</td></tr>
+        <tr><td><code>__módulo</code></td><td>Operador %</td></tr>
+        <tr><td><code>__potência</code></td><td>Operador ^</td></tr>
+        <tr><td><code>__negação_unária</code></td><td>Operador - unário</td></tr>
+        <tr><td><code>__e_bit_a_bit</code></td><td>Operador & (bitwise)</td></tr>
+        <tr><td><code>__ou_bit_a_bit</code></td><td>Operador | (bitwise)</td></tr>
+        <tr><td><code>__ou_exclusivo_bit_a_bit</code></td><td>Operador ~ (bitwise XOR)</td></tr>
+        <tr><td><code>__não_bit_a_bit</code></td><td>Operador ~ unário</td></tr>
+        <tr><td><code>__deslocamento_esquerda</code></td><td>Operador <<</td></tr>
+        <tr><td><code>__deslocamento_direita</code></td><td>Operador >></td></tr>
+        <tr><td><code>__concatenação</code></td><td>Operador ..</td></tr>
+        <tr><td><code>__comprimento</code></td><td>Operador #</td></tr>
+        <tr><td><code>__igualdade</code></td><td>Operador ==</td></tr>
+        <tr><td><code>__menor_que</code></td><td>Operador <</td></tr>
+        <tr><td><code>__menor_ou_igual</code></td><td>Operador <=</td></tr>
+        <tr><td><code>__índice</code></td><td>Acesso t[k]</td></tr>
+        <tr><td><code>__novo_índice</code></td><td>Atribuição t[k]=v</td></tr>
+        <tr><td><code>__chamada</code></td><td>Chamar como função</td></tr>
+        <tr><td><code>__coletor_de_lixo</code></td><td>Finalização (GC)</td></tr>
+        <tr><td><code>__modo</code></td><td>Tabelas fracas</td></tr>
+        <tr><td><code>__nome</code></td><td>Nome do tipo</td></tr>
+        <tr><td><code>__feche</code></td><td>Fechar recurso</td></tr>
+    </tbody>
+</table>
+
+<h2>Padrões Comuns</h2>
+
+<h3>Simular else</h3>
+<div class="code-block">
+<pre><span class="keyword">se</span> condicao <span class="keyword">então</span>
+    <span class="comment">-- código se verdadeiro</span>
+<span class="keyword">fim</span>
+
+<span class="keyword">se</span> <span class="keyword">não</span> condicao <span class="keyword">então</span>
+    <span class="comment">-- código se falso</span>
+<span class="keyword">fim</span></pre>
+</div>
+
+<h3>Classe/Construtor</h3>
+<div class="code-block">
+<pre><span class="keyword">local</span> Classe = {}
+Classe.__índice = Classe
+
+<span class="keyword">função</span> <span class="function">Classe.metodo</span>(ego)
+    <span class="keyword">retorne</span> ego.campo
+<span class="keyword">fim</span>
+
+<span class="comment">-- Construtor com __chame</span>
+<span class="function">defina_metatabela</span>(Classe, {
+    __chame = <span class="keyword">função</span>(classe, param)
+        <span class="keyword">local</span> ego = <span class="function">defina_metatabela</span>({}, classe)
+        ego.campo = param
+        <span class="keyword">retorne</span> ego
+    <span class="keyword">fim</span>
+})
+
+<span class="keyword">local</span> obj = <span class="function">Classe</span>(<span class="string">"valor"</span>)
+obj:<span class="function">metodo</span>()</pre>
+</div>
+
+<h3>Map/Filter/Reduce</h3>
+<div class="code-block">
+<pre><span class="keyword">função</span> <span class="function">map</span>(t, f)
+    <span class="keyword">local</span> r = {}
+    <span class="keyword">para</span> i, v <span class="keyword">em</span> <span class="function">obtenha_pares_indexados</span>(t) <span class="keyword">faça</span>
+        <span class="function">tabela.insira</span>(r, <span class="function">f</span>(v))
+    <span class="keyword">fim</span>
+    <span class="keyword">retorne</span> r
+<span class="keyword">fim</span></pre>
+</div>
+
+<h2>Links Rápidos</h2>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <a href="tipo-numeros.html" class="btn btn-outline-light w-100">Números</a>
+    </div>
+    <div class="col-md-6">
+        <a href="tipo-texto.html" class="btn btn-outline-light w-100">Texto</a>
+    </div>
+    <div class="col-md-6">
+        <a href="tipo-tabelas.html" class="btn btn-outline-light w-100">Tabelas</a>
+    </div>
+    <div class="col-md-6">
+        <a href="metamethods.html" class="btn btn-outline-light w-100">Metamétodos</a>
+    </div>
+    <div class="col-md-6">
+        <a href="paradigma-oo.html" class="btn btn-outline-light w-100">OO</a>
+    </div>
+    <div class="col-md-6">
+        <a href="paradigma-funcional.html" class="btn btn-outline-light w-100">Funcional</a>
+    </div>
+</div>
+<nav class="page-navigation mt-5 pt-4 border-top"><div class="row"><div class="col-6"><a href="lib-nds.html" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2"></i>Anterior<br><small class="text-muted">NDS</small></a></div><div class="col-6 text-end"><a href="referencia-biblioteca.html" class="btn btn-sol">Próximo<i class="bi bi-arrow-right ms-2"></i><br><small>Referência API</small></a></div></div></nav>        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-4">
+        <div class="container text-center text-muted">
+            <p class="mb-2">Sol - Linguagem de Programação Brasileira 🇧🇷</p>
+            <p class="small mb-0">Desenvolvido com ❤️ pela comunidade.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <!-- Custom Sol Language Definition -->
+    <script src="assets/js/prism-sol.js"></script>
+
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+
+    <a href="#" class="btn-back-to-top" title="Voltar ao Topo">
+        <i class="bi bi-arrow-up"></i>
+    </a>
+</body>
+</html>
+```

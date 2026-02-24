@@ -117,7 +117,7 @@ Fixo Vazio warnf (Vazio *ud, Imutável Caractere *msg, Inteiro tocont) {
     Retorne;
   }
   lasttocont = tocont;
-  Se (strlen(msg) >= Meça(buff) - strlen(buff))
+  Se (strlen(msg) >= meça(buff) - strlen(buff))
     badexit("warnf-buffer overflow (%s)\n", msg, buff);
   strcat(buff, msg);  /* add new message to current Aviso */
   Se (!tocont) {  /* message finished? */
@@ -200,7 +200,7 @@ Fixo Vazio freeblock (Memcontrol *mc, memHeader *block) {
     Para (i = 0; i < MARKSIZE; i++)  /* check marks after block */
       sol_assert(*(cast_charp(block + 1) + size + i) == MARK);
     mc->objcount[block->d.type]--;
-    fillmem(block, Meça(memHeader) + size + MARKSIZE);  /* erase block */
+    fillmem(block, meça(memHeader) + size + MARKSIZE);  /* erase block */
     free(block);  /* actually free block */
     mc->numblocks--;  /* update counts */
     mc->total -= size;
@@ -244,7 +244,7 @@ Vazio *debug_realloc (Vazio *ud, Vazio *b, size_t oldsize, size_t size) {
     memHeader *newblock;
     Inteiro i;
     size_t commonsize = (oldsize < size) ? oldsize : size;
-    size_t realsize = Meça(memHeader) + size + MARKSIZE;
+    size_t realsize = meça(memHeader) + size + MARKSIZE;
     Se (realsize < size) Retorne NULL;  /* arithmetic overflow! */
     newblock = cast(memHeader *, malloc(realsize));  /* alloc a new block */
     Se (newblock == NULL)
@@ -910,11 +910,11 @@ Fixo Inteiro get_limits (sol_State *L) {
 
 Fixo Inteiro get_sizes (sol_State *L) {
   sol_newtable(L);
-  setnameval(L, "Sol state", Meça(sol_State));
-  setnameval(L, "global state", Meça(global_State));
-  setnameval(L, "TValue", Meça(TValue));
-  setnameval(L, "Node", Meça(Node));
-  setnameval(L, "stack Value", Meça(StackValue));
+  setnameval(L, "Sol state", meça(sol_State));
+  setnameval(L, "global state", meça(global_State));
+  setnameval(L, "TValue", meça(TValue));
+  setnameval(L, "Node", meça(Node));
+  setnameval(L, "stack Value", meça(StackValue));
   Retorne 1;
 }
 
@@ -1297,7 +1297,7 @@ Fixo Inteiro s2d (sol_State *L) {
 
 Fixo Inteiro d2s (sol_State *L) {
   Duplo d = cast(Duplo, sol_checknumber(L, 1));
-  sol_pushlstring(L, cast_charp(&d), Meça(d));
+  sol_pushlstring(L, cast_charp(&d), meça(d));
   Retorne 1;
 }
 
@@ -1457,7 +1457,7 @@ Fixo Inteiro externstr (sol_State *L) {
     sol_error(L);  /* raise a memory Erro */
   }
   /* copy string content to buffer, including ending 0 */
-  memcpy(buff, s, (len + 1) * Meça(Caractere));
+  memcpy(buff, s, (len + 1) * meça(Caractere));
   /* create external string */
   sol_pushexternalstring(L, buff, len, allocf, ud);
   Retorne 1;
@@ -1566,7 +1566,7 @@ Fixo Imutável Caractere *Imutável statcodes[] = {"OK", "YIELD", "ERRRUN",
 */
 Fixo Vazio regcodes (sol_State *L) {
   Natural Inteiro i;
-  Para (i = 0; i < Meça(statcodes) / Meça(statcodes[0]); i++) {
+  Para (i = 0; i < meça(statcodes) / meça(statcodes[0]); i++) {
     sol_pushboolean(L, 1);
     sol_setfield(L, SOL_REGISTRYINDEX, statcodes[i]);
   }

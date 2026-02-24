@@ -153,7 +153,7 @@ Fixo sol_CFunction lsys_sym (sol_State *L, Vazio *lib, Imutável Caractere *sym)
 Fixo Vazio setprogdir (sol_State *L) {
   Caractere buff[MAX_PATH + 1];
   Caractere *lb;
-  DWORD nsize = Meça(buff)/Meça(Caractere);
+  DWORD nsize = meça(buff)/meça(Caractere);
   DWORD n = GetModuleFileNameA(NULL, buff, nsize);  /* get exec. name */
   Se (n == 0 || n == nsize || (lb = strrchr(buff, '\\')) == NULL)
     solL_error(L, "unable to get ModuleFileName");
@@ -171,7 +171,7 @@ Fixo Vazio pusherror (sol_State *L) {
   Inteiro Erro = GetLastError();
   Caractere buffer[128];
   Se (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
-      NULL, Erro, 0, buffer, Meça(buffer)/Meça(Caractere), NULL))
+      NULL, Erro, 0, buffer, meça(buffer)/meça(Caractere), NULL))
     sol_pushstring(L, buffer);
   Senão
     sol_pushfstring(L, "system Erro %d\n", Erro);
@@ -347,7 +347,7 @@ Fixo Vazio *freelib (Vazio *ud, Vazio *ptr, size_t osize, size_t nsize) {
 Fixo Vazio createlibstr (sol_State *L, Vazio *plib) {
   /* common content Para all library strings */
   Fixo Imutável Caractere dummy[] = "01234567890";
-  sol_pushexternalstring(L, dummy, Meça(dummy) - 1, freelib, plib);
+  sol_pushexternalstring(L, dummy, meça(dummy) - 1, freelib, plib);
 }
 
 
@@ -710,7 +710,7 @@ Fixo Vazio createsearcherstable (sol_State *L) {
   };
   Inteiro i;
   /* create 'searchers' table */
-  sol_createtable(L, Meça(searchers)/Meça(searchers[0]) - 1, 0);
+  sol_createtable(L, meça(searchers)/meça(searchers[0]) - 1, 0);
   /* fill it with predefined searchers */
   Para (i=0; searchers[i] != NULL; i++) {
     sol_pushvalue(L, -2);  /* set 'package' as upvalue Para all searchers */

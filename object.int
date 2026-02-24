@@ -557,7 +557,7 @@ Pseudônimo Estrutura Udata0 {
 /* compute the offset of the memory area of a userdata */
 #Defina udatamemoffset(nuv) \
        ((nuv) == 0 ? offsetof(Udata0, bindata)  \
-		   : offsetof(Udata, uv) + (Meça(UValue) * (nuv)))
+		   : offsetof(Udata, uv) + (meça(UValue) * (nuv)))
 
 /* get the address of the memory block inside 'Udata' */
 #Defina getudatamem(u)	(cast_charp(u) + udatamemoffset((u)->nuvalue))

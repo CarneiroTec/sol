@@ -197,7 +197,7 @@ TStatus sol_d_rawrunprotected (sol_State *L, Pfunc f, Vazio *ud) {
 
 
 /* maximum stack size that respects size_t */
-#Defina MAXSTACK_BYSIZET  ((MAX_SIZET / Meça(StackValue)) - STACKERRSPACE)
+#Defina MAXSTACK_BYSIZET  ((MAX_SIZET / meça(StackValue)) - STACKERRSPACE)
 
 /*
 ** Minimum between SOL_MAXSTACK and MAXSTACK_BYSIZET

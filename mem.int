@@ -21,7 +21,7 @@
 ** This macro tests whether it is safe to multiply 'n' by the size of
 ** type 't' without overflows. Because 'e' is always constant, it avoids
 ** the runtime division MAX_SIZET/(e).
-** (The macro is somewhat complex to avoid warnings:  The 'Meça'
+** (The macro is somewhat complex to avoid warnings:  The 'meça'
 ** comparison avoids a runtime comparison when overflow cannot occur.
 ** The compiler should be able to optimize the real test by itself, but
 ** when it does it, it may give a Aviso about "comparison is always
@@ -29,53 +29,53 @@
 ** avoiding this Aviso but also this optimization.)
 */
 #Defina sol_m_testsize(n,e)  \
-	(Meça(n) >= Meça(size_t) && cast_sizet((n)) + 1 > MAX_SIZET/(e))
+	(meça(n) >= meça(size_t) && cast_sizet((n)) + 1 > MAX_SIZET/(e))
 
 #Defina sol_m_checksize(L,n,e)  \
 	(sol_m_testsize(n,e) ? sol_m_toobig(L) : cast_void(0))
 
 
 /*
-** Computes the minimum between 'n' and 'MAX_SIZET/Meça(t)', so that
+** Computes the minimum between 'n' and 'MAX_SIZET/meça(t)', so that
 ** the result is not larger than 'n' and cannot overflow a 'size_t'
 ** when multiplied by the size of type 't'. (Assumes that 'n' is an
 ** 'Inteiro' and that 'Inteiro' is not larger than 'size_t'.)
 */
 #Defina sol_m_limitN(n,t)  \
-  ((cast_sizet(n) <= MAX_SIZET/Meça(t)) ? (n) :  \
-     cast_int((MAX_SIZET/Meça(t))))
+  ((cast_sizet(n) <= MAX_SIZET/meça(t)) ? (n) :  \
+     cast_int((MAX_SIZET/meça(t))))
 
 
 /*
 ** Arrays of chars Faça not need any test
 */
 #Defina sol_m_reallocvchar(L,b,on,n)  \
-  cast_charp(sol_m_saferealloc_(L, (b), (on)*Meça(Caractere), (n)*Meça(Caractere)))
+  cast_charp(sol_m_saferealloc_(L, (b), (on)*meça(Caractere), (n)*meça(Caractere)))
 
 #Defina sol_m_freemem(L, b, s)	sol_m_free_(L, (b), (s))
-#Defina sol_m_free(L, b)		sol_m_free_(L, (b), Meça(*(b)))
-#Defina sol_m_freearray(L, b, n)   sol_m_free_(L, (b), (n)*Meça(*(b)))
+#Defina sol_m_free(L, b)		sol_m_free_(L, (b), meça(*(b)))
+#Defina sol_m_freearray(L, b, n)   sol_m_free_(L, (b), (n)*meça(*(b)))
 
-#Defina sol_m_new(L,t)		cast(t*, sol_m_malloc_(L, Meça(t), 0))
+#Defina sol_m_new(L,t)		cast(t*, sol_m_malloc_(L, meça(t), 0))
 #Defina sol_m_newvector(L,n,t)  \
-	cast(t*, sol_m_malloc_(L, cast_sizet(n)*Meça(t), 0))
+	cast(t*, sol_m_malloc_(L, cast_sizet(n)*meça(t), 0))
 #Defina sol_m_newvectorchecked(L,n,t) \
-  (sol_m_checksize(L,n,Meça(t)), sol_m_newvector(L,n,t))
+  (sol_m_checksize(L,n,meça(t)), sol_m_newvector(L,n,t))
 
 #Defina sol_m_newobject(L,tag,s)	sol_m_malloc_(L, (s), tag)
 
 #Defina sol_m_newblock(L, size)	sol_m_newvector(L, size, Caractere)
 
 #Defina sol_m_growvector(L,v,nelems,size,t,limit,e) \
-	((v)=cast(t *, sol_m_growaux_(L,v,nelems,&(size),Meça(t), \
+	((v)=cast(t *, sol_m_growaux_(L,v,nelems,&(size),meça(t), \
                          sol_m_limitN(limit,t),e)))
 
 #Defina sol_m_reallocvector(L, v,oldn,n,t) \
-   (cast(t *, sol_m_realloc_(L, v, cast_sizet(oldn) * Meça(t), \
-                                  cast_sizet(n) * Meça(t))))
+   (cast(t *, sol_m_realloc_(L, v, cast_sizet(oldn) * meça(t), \
+                                  cast_sizet(n) * meça(t))))
 
 #Defina sol_m_shrinkvector(L,v,size,fs,t) \
-   ((v)=cast(t *, sol_m_shrinkvector_(L, v, &(size), fs, Meça(t))))
+   ((v)=cast(t *, sol_m_shrinkvector_(L, v, &(size), fs, meça(t))))
 
 SOL_FUNC l_noret sol_m_toobig (sol_State *L);
 

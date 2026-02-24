@@ -214,7 +214,7 @@ Fixo Inteiro new_localvar (LexState *ls, TString *name) {
 
 #Defina new_localvarliteral(ls,v) \
     new_localvar(ls,  \
-      sol_x_newstring(ls, "" v, (Meça(v)/Meça(Caractere)) - 1));
+      sol_x_newstring(ls, "" v, (meça(v)/meça(Caractere)) - 1));
 
 
 

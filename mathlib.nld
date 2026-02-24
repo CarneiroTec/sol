@@ -655,7 +655,7 @@ Fixo Imutável sol_Reg randfuncs[] = {
 ** Register the random functions and initialize their state.
 */
 Fixo Vazio setrandfunc (sol_State *L) {
-  RanState *state = (RanState *)sol_newuserdatauv(L, Meça(RanState), 0);
+  RanState *state = (RanState *)sol_newuserdatauv(L, meça(RanState), 0);
   setseed(L, state->s, sol_makeseed(L), 0);  /* initialize with random seed */
   sol_pop(L, 2);  /* remove pushed seeds */
   sol_setfuncs(L, randfuncs, 1);

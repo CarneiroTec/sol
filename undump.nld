@@ -52,7 +52,7 @@ Fixo l_noret Erro (LoadState *S, Imutável Caractere *why) {
 ** All high-level loads go through loadVector; you can change it to
 ** adapt to the endianness of the input
 */
-#Defina loadVector(S,b,n)	loadBlock(S,b,cast_sizet(n)*Meça((b)[0]))
+#Defina loadVector(S,b,n)	loadBlock(S,b,cast_sizet(n)*meça((b)[0]))
 
 Fixo Vazio loadBlock (LoadState *S, Vazio *b, size_t size) {
   Se (sol_z_read(S->Z, b, size) != 0)
@@ -71,7 +71,7 @@ Fixo Vazio loadAlign (LoadState *S, Natural align) {
 }
 
 
-#Defina getaddr(S,n,t)	cast(t *, getaddr_(S,cast_sizet(n) * Meça(t)))
+#Defina getaddr(S,n,t)	cast(t *, getaddr_(S,cast_sizet(n) * meça(t)))
 
 Fixo Imutável Vazio *getaddr_ (LoadState *S, size_t size) {
   Imutável Vazio *block = sol_z_getaddr(S->Z, size);
@@ -186,7 +186,7 @@ Fixo Vazio loadString (LoadState *S, Proto *p, TString **sl) {
 
 Fixo Vazio loadCode (LoadState *S, Proto *f) {
   Inteiro n = loadInt(S);
-  loadAlign(S, Meça(f->code[0]));
+  loadAlign(S, meça(f->code[0]));
   Se (S->fixed) {
     f->code = getaddr(S, n, Instruction);
     f->sizecode = n;
@@ -294,7 +294,7 @@ Fixo Vazio loadDebug (LoadState *S, Proto *f) {
   }
   n = loadInt(S);
   Se (n > 0) {
-    loadAlign(S, Meça(Inteiro));
+    loadAlign(S, meça(Inteiro));
     Se (S->fixed) {
       f->abslineinfo = getaddr(S, n, AbsLineInfo);
       f->sizeabslineinfo = n;
@@ -341,7 +341,7 @@ Fixo Vazio loadFunction (LoadState *S, Proto *f) {
 
 
 Fixo Vazio checkliteral (LoadState *S, Imutável Caractere *s, Imutável Caractere *msg) {
-  Caractere buff[Meça(SOL_SIGNATURE) + Meça(LUAC_DATA)]; /* larger than both */
+  Caractere buff[meça(SOL_SIGNATURE) + meça(LUAC_DATA)]; /* larger than both */
   size_t len = strlen(s);
   loadVector(S, buff, len);
   Se (memcmp(s, buff, len) != 0)
@@ -368,7 +368,7 @@ Fixo Vazio checknumformat (LoadState *S, Inteiro eq, Imutável Caractere *tname)
 
 
 #Defina checknum(S,tvar,value,tname)  \
-  { tvar i; checknumsize(S, Meça(i), tname); \
+  { tvar i; checknumsize(S, meça(i), tname); \
     loadVar(S, i); \
     checknumformat(S, i == value, tname); }
 

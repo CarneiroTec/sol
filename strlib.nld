@@ -151,12 +151,12 @@ Fixo Inteiro str_rep (sol_State *L) {
     sol_Buffer b;
     Caractere *p = sol_buffinitsize(L, &b, totallen);
     Enquanto (n-- > 1) {  /* first n-1 copies (followed by separator) */
-      memcpy(p, s, len * Meça(Caractere)); p += len;
+      memcpy(p, s, len * meça(Caractere)); p += len;
       Se (lsep > 0) {  /* empty 'memcpy' is not that cheap */
-        memcpy(p, sep, lsep * Meça(Caractere)); p += lsep;
+        memcpy(p, sep, lsep * meça(Caractere)); p += lsep;
       }
     }
-    memcpy(p, s, len * Meça(Caractere));  /* last copy without separator */
+    memcpy(p, s, len * meça(Caractere));  /* last copy without separator */
     sol_pushresultsize(&b, totallen);
   }
   Retorne 1;
@@ -854,7 +854,7 @@ Fixo Inteiro gmatch (sol_State *L) {
   size_t init = posrelatI(sol_optinteger(L, 3, 1), ls) - 1;
   GMatchState *gm;
   sol_settop(L, 2);  /* keep strings on closure to avoid being collected */
-  gm = (GMatchState *)sol_newuserdatauv(L, Meça(GMatchState), 0);
+  gm = (GMatchState *)sol_newuserdatauv(L, meça(GMatchState), 0);
   Se (init > ls)  /* start after string's end? */
     init = ls + 1;  /* avoid overflows in 's + init' */
   prepstate(&gm->ms, L, s, ls, p, lp);
@@ -995,7 +995,7 @@ Fixo Inteiro str_gsub (sol_State *L) {
 ** Hexadecimal floating-point formatter
 */
 
-#Defina SIZELENMOD	(Meça(SOL_NUMBER_FRMLEN)/Meça(Caractere))
+#Defina SIZELENMOD	(meça(SOL_NUMBER_FRMLEN)/meça(Caractere))
 
 
 /*
@@ -1126,9 +1126,9 @@ Fixo Vazio addquoted (sol_Buffer *b, Imutável Caractere *s, size_t len) {
     Senão Se (iscntrl(cast_uchar(*s))) {
       Caractere buff[10];
       Se (!isdigit(cast_uchar(*(s+1))))
-        l_sprintf(buff, Meça(buff), "\\%d", (Inteiro)cast_uchar(*s));
+        l_sprintf(buff, meça(buff), "\\%d", (Inteiro)cast_uchar(*s));
       Senão
-        l_sprintf(buff, Meça(buff), "\\%03d", (Inteiro)cast_uchar(*s));
+        l_sprintf(buff, meça(buff), "\\%03d", (Inteiro)cast_uchar(*s));
       sol_addstring(b, buff);
     }
     Senão
@@ -1248,7 +1248,7 @@ Fixo Imutável Caractere *getformat (sol_State *L, Imutável Caractere *strfrmt,
   Se (len >= MAX_FORMAT - 10)
     solL_error(L, "invalid format (too Longo)");
   *(form++) = '%';
-  memcpy(form, strfrmt, len * Meça(Caractere));
+  memcpy(form, strfrmt, len * meça(Caractere));
   *(form + len) = '\0';
   Retorne strfrmt + len - 1;
 }
@@ -1399,7 +1399,7 @@ Fixo Inteiro str_format (sol_State *L) {
 #Defina MC	((1 << NB) - 1)
 
 /* size of a sol_Integer */
-#Defina SZINT	((Inteiro)Meça(sol_Integer))
+#Defina SZINT	((Inteiro)meça(sol_Integer))
 
 
 /* dummy União to get native endianness */
@@ -1488,21 +1488,21 @@ Fixo KOption getoption (Header *h, Imutável Caractere **fmt, size_t *size) {
   Inteiro opt = *((*fmt)++);
   *size = 0;  /* Padrão */
   Troque (opt) {
-    Caso 'b': *size = Meça(Caractere); Retorne Kint;
-    Caso 'B': *size = Meça(Caractere); Retorne Kuint;
-    Caso 'h': *size = Meça(Curto); Retorne Kint;
-    Caso 'H': *size = Meça(Curto); Retorne Kuint;
-    Caso 'l': *size = Meça(Longo); Retorne Kint;
-    Caso 'L': *size = Meça(Longo); Retorne Kuint;
-    Caso 'j': *size = Meça(sol_Integer); Retorne Kint;
-    Caso 'J': *size = Meça(sol_Integer); Retorne Kuint;
-    Caso 'T': *size = Meça(size_t); Retorne Kuint;
-    Caso 'f': *size = Meça(Real); Retorne Kfloat;
-    Caso 'n': *size = Meça(sol_Number); Retorne Knumber;
-    Caso 'd': *size = Meça(Duplo); Retorne Kdouble;
-    Caso 'i': *size = getnumlimit(h, fmt, Meça(Inteiro)); Retorne Kint;
-    Caso 'I': *size = getnumlimit(h, fmt, Meça(Inteiro)); Retorne Kuint;
-    Caso 's': *size = getnumlimit(h, fmt, Meça(size_t)); Retorne Kstring;
+    Caso 'b': *size = meça(Caractere); Retorne Kint;
+    Caso 'B': *size = meça(Caractere); Retorne Kuint;
+    Caso 'h': *size = meça(Curto); Retorne Kint;
+    Caso 'H': *size = meça(Curto); Retorne Kuint;
+    Caso 'l': *size = meça(Longo); Retorne Kint;
+    Caso 'L': *size = meça(Longo); Retorne Kuint;
+    Caso 'j': *size = meça(sol_Integer); Retorne Kint;
+    Caso 'J': *size = meça(sol_Integer); Retorne Kuint;
+    Caso 'T': *size = meça(size_t); Retorne Kuint;
+    Caso 'f': *size = meça(Real); Retorne Kfloat;
+    Caso 'n': *size = meça(sol_Number); Retorne Knumber;
+    Caso 'd': *size = meça(Duplo); Retorne Kdouble;
+    Caso 'i': *size = getnumlimit(h, fmt, meça(Inteiro)); Retorne Kint;
+    Caso 'I': *size = getnumlimit(h, fmt, meça(Inteiro)); Retorne Kuint;
+    Caso 's': *size = getnumlimit(h, fmt, meça(size_t)); Retorne Kstring;
     Caso 'c':
       *size = getnum(fmt, cast_sizet(-1));
       Se (l_unlikely(*size == cast_sizet(-1)))
@@ -1640,25 +1640,25 @@ Fixo Inteiro str_pack (sol_State *L) {
       }
       Caso Kfloat: {  /* C Real */
         Real f = (Real)sol_checknumber(L, arg);  /* get argument */
-        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        Caractere *buff = sol_prepbuffsize(&b, meça(f));
         /* move 'f' to final result, correcting endianness Se needed */
-        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        copywithendian(buff, (Caractere *)&f, meça(f), h.islittle);
         sol_addsize(&b, size);
         Interrompa;
       }
       Caso Knumber: {  /* Sol Real */
         sol_Number f = sol_checknumber(L, arg);  /* get argument */
-        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        Caractere *buff = sol_prepbuffsize(&b, meça(f));
         /* move 'f' to final result, correcting endianness Se needed */
-        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        copywithendian(buff, (Caractere *)&f, meça(f), h.islittle);
         sol_addsize(&b, size);
         Interrompa;
       }
       Caso Kdouble: {  /* C Duplo */
         Duplo f = (Duplo)sol_checknumber(L, arg);  /* get argument */
-        Caractere *buff = sol_prepbuffsize(&b, Meça(f));
+        Caractere *buff = sol_prepbuffsize(&b, meça(f));
         /* move 'f' to final result, correcting endianness Se needed */
-        copywithendian(buff, (Caractere *)&f, Meça(f), h.islittle);
+        copywithendian(buff, (Caractere *)&f, meça(f), h.islittle);
         sol_addsize(&b, size);
         Interrompa;
       }
@@ -1678,7 +1678,7 @@ Fixo Inteiro str_pack (sol_State *L) {
       Caso Kstring: {  /* strings with length count */
         size_t len;
         Imutável Caractere *s = sol_checklstring(L, arg, &len);
-        sol_argcheck(L, size >= Meça(sol_Unsigned) ||
+        sol_argcheck(L, size >= meça(sol_Unsigned) ||
                          len < ((sol_Unsigned)1 << (size * NB)),
                          arg, "string length does not fit in given size");
         /* pack length */
@@ -1791,19 +1791,19 @@ Fixo Inteiro str_unpack (sol_State *L) {
       }
       Caso Kfloat: {
         Real f;
-        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        copywithendian((Caractere *)&f, data + pos, meça(f), h.islittle);
         sol_pushnumber(L, (sol_Number)f);
         Interrompa;
       }
       Caso Knumber: {
         sol_Number f;
-        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        copywithendian((Caractere *)&f, data + pos, meça(f), h.islittle);
         sol_pushnumber(L, f);
         Interrompa;
       }
       Caso Kdouble: {
         Duplo f;
-        copywithendian((Caractere *)&f, data + pos, Meça(f), h.islittle);
+        copywithendian((Caractere *)&f, data + pos, meça(f), h.islittle);
         sol_pushnumber(L, (sol_Number)f);
         Interrompa;
       }

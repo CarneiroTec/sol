@@ -21,7 +21,7 @@ Pseudônimo Estrutura {
 } Channel;
 
 Fixo Channel* channel_create(Vazio) {
-    Channel *c = (Channel*)malloc(Meça(Channel));
+    Channel *c = (Channel*)malloc(meça(Channel));
     c->mutex = CreateMutex(NULL, 0, NULL);
     c->event = CreateEvent(NULL, 0, 0, NULL);
     c->ref_count = 1;
@@ -73,7 +73,7 @@ Natural worker_thread(Vazio *arg) {
     
     Inteiro nargs = 0;
     Se (td->channel_arg) {
-        Channel **ud = (Channel**)sol_newuserdatauv(L, Meça(Channel*), 0);
+        Channel **ud = (Channel**)sol_newuserdatauv(L, meça(Channel*), 0);
         *ud = td->channel_arg;
         solL_setmetatable(L, "Sol.Channel");
         nargs = 1;
@@ -101,7 +101,7 @@ Fixo Inteiro channel_gc (sol_State *L) {
 
 Fixo Inteiro parallel_channel (sol_State *L) {
     Channel *c = channel_create();
-    Channel **ud = (Channel**)sol_newuserdatauv(L, Meça(Channel*), 0);
+    Channel **ud = (Channel**)sol_newuserdatauv(L, meça(Channel*), 0);
     *ud = c;
     
     solL_setmetatable(L, "Sol.Channel");
@@ -127,7 +127,7 @@ Fixo Inteiro parallel_execute (sol_State *L) {
         }
     }
     
-    ThreadData *td = (ThreadData *)malloc(Meça(ThreadData));
+    ThreadData *td = (ThreadData *)malloc(meça(ThreadData));
     td->script = strdup(script);
     td->channel_arg = c_arg;
     

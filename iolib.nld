@@ -146,7 +146,7 @@ Fixo Inteiro l_checkmode (Imutável Caractere *mode) {
 
 
 #Defina IO_PREFIX	"_IO_"
-#Defina IOPREF_LEN	(Meça(IO_PREFIX)/Meça(Caractere) - 1)
+#Defina IOPREF_LEN	(meça(IO_PREFIX)/meça(Caractere) - 1)
 #Defina IO_INPUT	(IO_PREFIX "input")
 #Defina IO_OUTPUT	(IO_PREFIX "output")
 
@@ -198,7 +198,7 @@ Fixo FILE *tofile (sol_State *L) {
 ** handle is in a consistent state.
 */
 Fixo LStream *newprefile (sol_State *L) {
-  LStream *p = (LStream *)sol_newuserdatauv(L, Meça(LStream), 0);
+  LStream *p = (LStream *)sol_newuserdatauv(L, meça(LStream), 0);
   p->closef = NULL;  /* mark file handle as 'closed' */
   solL_setmetatable(L, SOL_FILEHANDLE);
   Retorne p;
@@ -545,7 +545,7 @@ Fixo Vazio read_all (sol_State *L, FILE *f) {
   sol_buffinit(L, &b);
   Faça {  /* read file in chunks of SOL_BUFFERSIZE bytes */
     Caractere *p = sol_prepbuffer(&b);
-    nr = fread(p, Meça(Caractere), SOL_BUFFERSIZE, f);
+    nr = fread(p, meça(Caractere), SOL_BUFFERSIZE, f);
     sol_addsize(&b, nr);
   } Enquanto (nr == SOL_BUFFERSIZE);
   sol_pushresult(&b);  /* close buffer */
@@ -558,7 +558,7 @@ Fixo Inteiro read_chars (sol_State *L, FILE *f, size_t n) {
   sol_Buffer b;
   sol_buffinit(L, &b);
   p = sol_prepbuffsize(&b, n);  /* prepare buffer to read whole block */
-  nr = fread(p, Meça(Caractere), n, f);  /* try to read 'n' chars */
+  nr = fread(p, meça(Caractere), n, f);  /* try to read 'n' chars */
   sol_addsize(&b, nr);
   sol_pushresult(&b);  /* close buffer */
   Retorne (nr > 0);  /* true iff read something */
@@ -675,7 +675,7 @@ Fixo Inteiro g_write (sol_State *L, FILE *f, Inteiro arg) {
     }
     Senão  /* must be a string */
       s = sol_checklstring(L, arg, &len);
-    numbytes = fwrite(s, Meça(Caractere), len, f);
+    numbytes = fwrite(s, meça(Caractere), len, f);
     totalbytes += numbytes;
     Se (numbytes < len) {  /* write Erro? */
       Inteiro n = sol_fileresult(L, 0, NULL);

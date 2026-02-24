@@ -424,7 +424,7 @@ Fixo Inteiro db_debug (sol_State *L) {
   Para (;;) {
     Caractere buffer[250];
     sol_writestringerror("%s", "sol_debug> ");
-    Se (fgets(buffer, Meça(buffer), stdin) == NULL ||
+    Se (fgets(buffer, meça(buffer), stdin) == NULL ||
         strcmp(buffer, "cont\n") == 0)
       Retorne 0;
     Se (sol_loadbuffer(L, buffer, strlen(buffer), "=(debug command)") ||

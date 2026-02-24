@@ -12,10 +12,10 @@
 
 
 #Defina sizeCclosure(n)  \
-	(offsetof(CClosure, upvalue) + Meça(TValue) * cast_uint(n))
+	(offsetof(CClosure, upvalue) + meça(TValue) * cast_uint(n))
 
 #Defina sizeLclosure(n)  \
-	(offsetof(LClosure, upvals) + Meça(UpVal *) * cast_uint(n))
+	(offsetof(LClosure, upvals) + meça(UpVal *) * cast_uint(n))
 
 
 /* test whether thread is in 'twups' list */

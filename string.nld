@@ -150,13 +150,13 @@ size_t sol_s_sizelngstr (size_t len, Inteiro kind) {
   Troque (kind) {
     Caso LSTRREG:  /* regular Longo string */
       /* don't need 'falloc'/'ud', but need space Para content */
-      Retorne offsetof(TString, falloc) + (len + 1) * Meça(Caractere);
+      Retorne offsetof(TString, falloc) + (len + 1) * meça(Caractere);
     Caso LSTRFIX:  /* fixed external Longo string */
       /* don't need 'falloc'/'ud' */
       Retorne offsetof(TString, falloc);
     Padrão:  /* external Longo string with deallocation */
       sol_assert(kind == LSTRMEM);
-      Retorne Meça(TString);
+      Retorne meça(TString);
   }
 }
 
@@ -220,7 +220,7 @@ Fixo TString *internshrstr (sol_State *L, Imutável Caractere *str, size_t l) {
   sol_assert(str != NULL);  /* otherwise 'memcmp'/'memcpy' are undefined */
   Para (ts = *list; ts != NULL; ts = ts->u.hnext) {
     Se (l == cast_uint(ts->shrlen) &&
-        (memcmp(str, getshrstr(ts), l * Meça(Caractere)) == 0)) {
+        (memcmp(str, getshrstr(ts), l * meça(Caractere)) == 0)) {
       /* found! */
       Se (isdead(g, ts))  /* dead (but not collected yet)? */
         changewhite(ts);  /* resurrect it */
@@ -235,7 +235,7 @@ Fixo TString *internshrstr (sol_State *L, Imutável Caractere *str, size_t l) {
   ts = createstrobj(L, sizestrshr(l), SOL_VSHRSTR, h);
   ts->shrlen = cast(ls_byte, l);
   getshrstr(ts)[l] = '\0';  /* ending 0 */
-  memcpy(getshrstr(ts), str, l * Meça(Caractere));
+  memcpy(getshrstr(ts), str, l * meça(Caractere));
   ts->u.hnext = *list;
   *list = ts;
   tb->nuse++;
@@ -251,10 +251,10 @@ TString *sol_s_newlstr (sol_State *L, Imutável Caractere *str, size_t l) {
     Retorne internshrstr(L, str, l);
   Senão {
     TString *ts;
-    Se (l_unlikely(l * Meça(Caractere) >= (MAX_SIZE - Meça(TString))))
+    Se (l_unlikely(l * meça(Caractere) >= (MAX_SIZE - meça(TString))))
       sol_m_toobig(L);
     ts = sol_s_createlngstrobj(L, l);
-    memcpy(getlngstr(ts), str, l * Meça(Caractere));
+    memcpy(getlngstr(ts), str, l * meça(Caractere));
     Retorne ts;
   }
 }

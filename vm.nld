@@ -63,7 +63,7 @@
 ** (maxinteger >> NBM) > 0. (That implies (1 << NBM) <= maxinteger.)
 ** (The shifts are done in parts, to avoid shifting by more than the size
 ** of an integer. In a worst Caso, NBM == 113 Para Longo Duplo and
-** Meça(Longo) == 32.)
+** meça(Longo) == 32.)
 */
 #Se ((((SOL_MAXINTEGER >> (NBM / 4)) >> (NBM / 4)) >> (NBM / 4)) \
 	>> (NBM - (3 * (NBM / 4))))  >  0
@@ -658,7 +658,7 @@ Fixo Vazio copy2buff (StkId top, Inteiro n, Caractere *buff) {
     TString *st = tsvalue(s2v(top - n));
     size_t l;  /* length of string being copied */
     Imutável Caractere *s = getlstr(st, l);
-    memcpy(buff + tl, s, l * Meça(Caractere));
+    memcpy(buff + tl, s, l * meça(Caractere));
     tl += l;
   } Enquanto (--n > 0);
 }
@@ -689,7 +689,7 @@ Vazio sol_v_concat (sol_State *L, Inteiro total) {
       /* collect total length and number of strings */
       Para (n = 1; n < total && tostring(L, s2v(top - n - 1)); n++) {
         size_t l = tsslen(tsvalue(s2v(top - n - 1)));
-        Se (l_unlikely(l >= MAX_SIZE - Meça(TString) - tl)) {
+        Se (l_unlikely(l >= MAX_SIZE - meça(TString) - tl)) {
           L->top.p = top - total;  /* pop strings to avoid wasting stack */
           sol_g_runerror(L, "estouro de comprimento de texto");
         }

@@ -101,7 +101,7 @@ Externo Inteiro sol_printallstack (sol_State *L);
 
 Estrutura L_EXTRA { Inteiro lock; Inteiro *plock; };
 #Esqueça SOL_EXTRASPACE
-#Defina SOL_EXTRASPACE	Meça(Estrutura L_EXTRA)
+#Defina SOL_EXTRASPACE	meça(Estrutura L_EXTRA)
 #Defina getlock(l)	cast(Estrutura L_EXTRA*, sol_getextraspace(l))
 #Defina sol_userstateopen(l)  \
 	(getlock(l)->lock = 0, getlock(l)->plock = &(getlock(l)->lock))

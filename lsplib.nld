@@ -80,7 +80,7 @@ LSPDocument* lsp_add_document(LSPState *lsp, Imutável Caractere *uri, Imutável
     /* Cria novo documento */
     Se (lsp->docCount >= LSP_MAX_DOCS) Retorne NULL;
     doc = &lsp->docs[lsp->docCount++];
-    memset(doc, 0, Meça(LSPDocument));
+    memset(doc, 0, meça(LSPDocument));
     doc->uri = lsp_strdup(uri);
     doc->content = lsp_strdup(content);
     doc->contentLen = strlen(content);
@@ -118,7 +118,7 @@ Fixo Vazio lsp_free_document_variables(LSPDocument *doc) {
 Fixo Vazio lsp_add_symbol(LSPDocument *doc, Imutável Caractere *name, Inteiro kind, Inteiro line) {
     Se (doc->symbolCount >= doc->symbolCapacity) {
         doc->symbolCapacity = doc->symbolCapacity == 0 ? 32 : doc->symbolCapacity * 2;
-        doc->symbols = (LSPSymbol*)realloc(doc->symbols, doc->symbolCapacity * Meça(LSPSymbol));
+        doc->symbols = (LSPSymbol*)realloc(doc->symbols, doc->symbolCapacity * meça(LSPSymbol));
     }
     LSPSymbol *sym = &doc->symbols[doc->symbolCount++];
     sym->name = lsp_strdup(name);
@@ -137,10 +137,10 @@ Fixo LSPVariable* lsp_add_variable(LSPDocument *doc, Imutável Caractere *name, 
     
     Se (doc->variableCount >= doc->variableCapacity) {
         doc->variableCapacity = doc->variableCapacity == 0 ? 32 : doc->variableCapacity * 2;
-        doc->variables = (LSPVariable*)realloc(doc->variables, doc->variableCapacity * Meça(LSPVariable));
+        doc->variables = (LSPVariable*)realloc(doc->variables, doc->variableCapacity * meça(LSPVariable));
     }
     LSPVariable *var = &doc->variables[doc->variableCount++];
-    memset(var, 0, Meça(LSPVariable));
+    memset(var, 0, meça(LSPVariable));
     var->name = lsp_strdup(name);
     var->line = line;
     var->isLocal = 1;
@@ -1371,7 +1371,7 @@ Vazio lsp_load_std_lib(LSPState *lsp) {
 
 SOL_API LSPState* lsp_init(sol_State *L) {
     Se (!L) Retorne NULL;
-    LSPState *lsp = (LSPState*)calloc(1, Meça(LSPState));
+    LSPState *lsp = (LSPState*)calloc(1, meça(LSPState));
     Se (!lsp) Retorne NULL;
     lsp->L = L;
     lsp_load_std_lib(lsp);
@@ -1476,7 +1476,7 @@ SOL_API Vazio lsp_loop(LSPState *lsp) {
             sol_pop(L, 5);
             bufferPos = 0;
         } Senão {
-            Se (bufferPos < Meça(buffer) - 1) {
+            Se (bufferPos < meça(buffer) - 1) {
                 buffer[bufferPos++] = (Caractere)c;
             } Senão {
                 /* Buffer overflow - envia erro e reseta */

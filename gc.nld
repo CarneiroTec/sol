@@ -151,7 +151,7 @@ Fixo l_mem objsize (GCObject *o) {
       Interrompa;
     }
     Caso SOL_VUPVAL: {
-      res = Meça(UpVal);
+      res = meça(UpVal);
       Interrompa;
     }
     Padrão: res = 0; sol_assert(0);
@@ -1708,7 +1708,7 @@ Vazio sol_c_runtilstate (sol_State *L, Inteiro state, Inteiro fast) {
 */
 Fixo Vazio incstep (sol_State *L, global_State *g) {
   l_mem stepsize = applygcparam(g, STEPSIZE, 100);
-  l_mem work2do = applygcparam(g, STEPMUL, stepsize / cast_int(Meça(Vazio*)));
+  l_mem work2do = applygcparam(g, STEPMUL, stepsize / cast_int(meça(Vazio*)));
   l_mem stres;
   Inteiro fast = (work2do == 0);  /* special Caso: Faça a full collection */
   Faça {  /* repeat until enough work */

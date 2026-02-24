@@ -24,7 +24,10 @@
 
 #Se Definido(SOL_USE_WINDOWS)
 #Inclua <windows.h>
+#Inclua <io.h>
+#Inclua <fcntl.h>
 #FimSe
+#Inclua <locale.h>
 
 
 #Se !Definido(SOL_PROGNAME)
@@ -372,7 +375,7 @@ Fixo Inteiro bundle_script (sol_State *L, Imutável Caractere *script, Imutável
   Se (f_out == NULL) { fclose(f_in); Retorne 0; }
 
   /* Copia o interpretador */
-  Enquanto ((n = fread(buff, 1, Meça(buff), f_in)) > 0) {
+  Enquanto ((n = fread(buff, 1, meça(buff), f_in)) > 0) {
     fwrite(buff, 1, n, f_out);
   }
   fclose(f_in);
@@ -616,6 +619,16 @@ Fixo Caractere *sol_readline (Caractere *buff, Imutável Caractere *prompt) {
   }
 }
 
+/* Temporary debug: dump hex bytes of readline input */
+Fixo Vazio debug_hex_dump(Imutável Caractere *label, Imutável Caractere *s) {
+  Inteiro i;
+  fprintf(stderr, "[DEBUG %s] bytes: ", label);
+  Para (i = 0; s[i] != '\0' && i < 40; i++)
+    fprintf(stderr, "%02X ", (Natural Caractere)s[i]);
+  fprintf(stderr, "\n");
+  fflush(stderr);
+}
+
 
 Fixo Vazio sol_saveline (Imutável Caractere *Linha) {
   Se (l_addhist != NULL)  /* is there an 'add_history'? */
@@ -681,7 +694,7 @@ Fixo Imutável Caractere *get_prompt (sol_State *L, Inteiro firstline) {
 
 /* mark in Erro messages Para incomplete statements */
 #Defina EOFMARK		"<eof>"
-#Defina marklen		(Meça(EOFMARK)/Meça(Caractere) - 1)
+#Defina marklen		(meça(EOFMARK)/meça(Caractere) - 1)
 
 
 /*
@@ -738,7 +751,7 @@ Fixo Inteiro addreturn (sol_State *L) {
 
 
 Fixo Vazio checklocal (Imutável Caractere *Linha) {
-  Fixo Imutável size_t szloc = Meça("local") - 1;
+  Fixo Imutável size_t szloc = meça("local") - 1;
   Fixo Imutável Caractere space[] = " \t";
   Linha += strspn(Linha, space);  /* skip spaces */
   Se (strncmp(Linha, "local", szloc) == 0 &&  /* "local"? */
@@ -916,6 +929,14 @@ Fixo Inteiro pInício (sol_State *L) {
 
 Inteiro Início (Inteiro argc, Caractere **argv) {
   Inteiro status, result;
+#Se Definido(SOL_USE_WINDOWS)
+  SetConsoleCP(65001);           /* set console input to UTF-8 */
+  SetConsoleOutputCP(65001);     /* set console output to UTF-8 */
+  _setmode(_fileno(stdin), _O_BINARY);   /* raw byte passthrough for UTF-8 */
+  _setmode(_fileno(stdout), _O_BINARY);
+  _setmode(_fileno(stderr), _O_BINARY);
+#FimSe
+  setlocale(LC_ALL, "");  /* use system locale (UTF-8 on modern systems) */
   sol_State *L = solL_newstate();  /* create state */
   Se (L == NULL) {
     l_message(argv[0], "não foi possível criar estado: memória insuficiente");

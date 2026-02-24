@@ -198,7 +198,7 @@
 #Defina SOL_GCMUL      200
 
 /* How many bytes to allocate before next GC step */
-#Defina SOL_GCSTEPSIZE	(200 * Meça(Table))
+#Defina SOL_GCSTEPSIZE	(200 * meça(Table))
 
 
 #Defina setgcparam(g,p,v)  (g->gcparams[SOL_GCP##p] = sol_o_codeparam(v))

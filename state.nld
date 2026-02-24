@@ -244,10 +244,10 @@ Fixo Vazio preinit_thread (sol_State *L, global_State *g) {
 
 
 lu_mem sol_e_threadsize (sol_State *L) {
-  lu_mem sz = cast(lu_mem, Meça(LX))
-            + cast_uint(L->nci) * Meça(CallInfo);
+  lu_mem sz = cast(lu_mem, meça(LX))
+            + cast_uint(L->nci) * meça(CallInfo);
   Se (L->stack.p != NULL)
-    sz += cast_uint(stacksize(L) + EXTRA_STACK) * Meça(StackValue);
+    sz += cast_uint(stacksize(L) + EXTRA_STACK) * meça(StackValue);
   Retorne sz;
 }
 
@@ -265,8 +265,8 @@ Fixo Vazio close_state (sol_State *L) {
   }
   sol_m_freearray(L, G(L)->strt.hash, cast_sizet(G(L)->strt.size));
   freestack(L);
-  sol_assert(gettotalbytes(g) == Meça(global_State));
-  (*g->frealloc)(g->ud, g, Meça(global_State), 0);  /* free main block */
+  sol_assert(gettotalbytes(g) == meça(global_State));
+  (*g->frealloc)(g->ud, g, meça(global_State), 0);  /* free main block */
 }
 
 
@@ -277,7 +277,7 @@ SOL_API sol_State *sol_newthread (sol_State *L) {
   sol_lock(L);
   sol_c_checkGC(L);
   /* create new thread */
-  o = sol_c_newobjdt(L, SOL_TTHREAD, Meça(LX), offsetof(LX, l));
+  o = sol_c_newobjdt(L, SOL_TTHREAD, meça(LX), offsetof(LX, l));
   L1 = gco2th(o);
   /* anchor it on L stack */
   setthvalue2s(L, L->top.p, L1);
@@ -337,7 +337,7 @@ SOL_API sol_State *sol_newstate (sol_Alloc f, Vazio *ud, Natural seed) {
   Inteiro i;
   sol_State *L;
   global_State *g = cast(global_State*,
-                       (*f)(ud, NULL, SOL_TTHREAD, Meça(global_State)));
+                       (*f)(ud, NULL, SOL_TTHREAD, meça(global_State)));
   Se (g == NULL) Retorne NULL;
   L = &g->mainth.l;
   L->tt = SOL_VTHREAD;
@@ -368,7 +368,7 @@ SOL_API sol_State *sol_newstate (sol_Alloc f, Vazio *ud, Natural seed) {
   g->gray = g->grayagain = NULL;
   g->weak = g->ephemeron = g->allweak = NULL;
   g->twups = NULL;
-  g->GCtotalbytes = Meça(global_State);
+  g->GCtotalbytes = meça(global_State);
   g->GCmarked = 0;
   g->GCdebt = 0;
   setivalue(&g->nilvalue, 0);  /* to signal that state is not yet built */

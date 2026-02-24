@@ -500,7 +500,7 @@ Pseudônimo Estrutura BuffFS {
 Fixo Vazio initbuff (sol_State *L, BuffFS *buff) {
   buff->L = L;
   buff->b = buff->space;
-  buff->buffsize = Meça(buff->space);
+  buff->buffsize = meça(buff->space);
   buff->blen = 0;
   buff->err = 0;
 }
@@ -608,7 +608,7 @@ Imutável Caractere *sol_o_pushvfstring (sol_State *L, Imutável Caractere *fmt,
       }
       Caso 'c': {  /* an 'Inteiro' as a character */
         Caractere c = cast_char(va_arg(argp, Inteiro));
-        addstr2buff(&buff, &c, Meça(Caractere));
+        addstr2buff(&buff, &c, meça(Caractere));
         Interrompa;
       }
       Caso 'd': {  /* an 'Inteiro' */
@@ -677,13 +677,13 @@ Imutável Caractere *sol_o_pushfstring (sol_State *L, Imutável Caractere *fmt, 
 #Defina PRE	"[string \""
 #Defina POS	"\"]"
 
-#Defina addstr(a,b,l)	( memcpy(a,b,(l) * Meça(Caractere)), a += (l) )
+#Defina addstr(a,b,l)	( memcpy(a,b,(l) * meça(Caractere)), a += (l) )
 
 Vazio sol_o_chunkid (Caractere *out, Imutável Caractere *source, size_t srclen) {
   size_t bufflen = SOL_IDSIZE;  /* free space in buffer */
   Se (*source == '=') {  /* 'literal' source */
     Se (srclen <= bufflen)  /* small enough? */
-      memcpy(out, source + 1, srclen * Meça(Caractere));
+      memcpy(out, source + 1, srclen * meça(Caractere));
     Senão {  /* truncate it */
       addstr(out, source + 1, bufflen - 1);
       *out = '\0';
@@ -691,11 +691,11 @@ Vazio sol_o_chunkid (Caractere *out, Imutável Caractere *source, size_t srclen)
   }
   Senão Se (*source == '@') {  /* file name */
     Se (srclen <= bufflen)  /* small enough? */
-      memcpy(out, source + 1, srclen * Meça(Caractere));
+      memcpy(out, source + 1, srclen * meça(Caractere));
     Senão {  /* add '...' before rest of name */
       addstr(out, RETS, LL(RETS));
       bufflen -= LL(RETS);
-      memcpy(out, source + 1 + srclen - bufflen, bufflen * Meça(Caractere));
+      memcpy(out, source + 1 + srclen - bufflen, bufflen * meça(Caractere));
     }
   }
   Senão {  /* string; format as [string "source"] */
@@ -712,7 +712,7 @@ Vazio sol_o_chunkid (Caractere *out, Imutável Caractere *source, size_t srclen)
       addstr(out, source, srclen);
       addstr(out, RETS, LL(RETS));
     }
-    memcpy(out, POS, (LL(POS) + 1) * Meça(Caractere));
+    memcpy(out, POS, (LL(POS) + 1) * meça(Caractere));
   }
 }
 

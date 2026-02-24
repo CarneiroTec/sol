@@ -35,11 +35,11 @@
 ** itself (including final '\0').
 */
 #Defina sizestrshr(l)  \
-	(offsetof(TString, contents) + ((l) + 1) * Meça(Caractere))
+	(offsetof(TString, contents) + ((l) + 1) * meça(Caractere))
 
 
 #Defina sol_s_newliteral(L, s)	(sol_s_newlstr(L, "" s, \
-                                 (Meça(s)/Meça(Caractere))-1))
+                                 (meça(s)/meça(Caractere))-1))
 
 
 /*

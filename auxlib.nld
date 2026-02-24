@@ -124,7 +124,7 @@ Fixo Inteiro lastlevel (sol_State *L) {
 }
 
 
-SOLIB_API Vazio sol_traceback (sol_State *L, sol_State *L1,
+SOLIB_API Vazio solL_traceback (sol_State *L, sol_State *L1,
                                 Imutável Caractere *msg, Inteiro level) {
   sol_Buffer b;
   sol_Debug ar;
@@ -132,15 +132,15 @@ SOLIB_API Vazio sol_traceback (sol_State *L, sol_State *L1,
   Inteiro limit2show = (last - level > LEVELS1 + LEVELS2) ? LEVELS1 : -1;
   sol_buffinit(L, &b);
   Se (msg) {
-    sol_addstring(&b, msg);
+    solL_addstring(&b, msg);
     sol_addchar(&b, '\n');
   }
-  sol_addstring(&b, "rastreamento de pilha:");
+  solL_addstring(&b, "rastreamento de pilha:");
   Enquanto (sol_getstack(L1, level++, &ar)) {
     Se (limit2show-- == 0) {  /* too many levels? */
       Inteiro n = last - level - LEVELS2 + 1;  /* number of levels to skip */
       sol_pushfstring(L, "\n\t...\t(pulando %d níveis)", n);
-      sol_addvalue(&b);  /* add Aviso about skip */
+      solL_addvalue(&b);  /* add Aviso about skip */
       level += n;  /* and skip to last levels */
     }
     Senão {
@@ -149,14 +149,14 @@ SOLIB_API Vazio sol_traceback (sol_State *L, sol_State *L1,
         sol_pushfstring(L, "\n\t%s: em ", ar.short_src);
       Senão
         sol_pushfstring(L, "\n\t%s:%d: em ", ar.short_src, ar.currentline);
-      sol_addvalue(&b);
+      solL_addvalue(&b);
       pushfuncname(L, &ar);
-      sol_addvalue(&b);
+       solL_addvalue(&b);
       Se (ar.istailcall)
-        sol_addstring(&b, "\n\t(...tail calls...)");
+         solL_addstring(&b, "\n\t(...tail calls...)");
     }
   }
-  sol_pushresult(&b);
+   solL_pushresult(&b);
 }
 
 /* }====================================================== */
@@ -168,7 +168,7 @@ SOLIB_API Vazio sol_traceback (sol_State *L, sol_State *L1,
 ** =======================================================
 */
 
-SOLIB_API Inteiro sol_argerror (sol_State *L, Inteiro arg, Imutável Caractere *extramsg) {
+SOLIB_API Inteiro solL_argerror (sol_State *L, Inteiro arg, Imutável Caractere *extramsg) {
   sol_Debug ar;
   Imutável Caractere *argword;
   Se (!sol_getstack(L, 0, &ar))  /* no stack frame? */
@@ -194,22 +194,22 @@ SOLIB_API Inteiro sol_argerror (sol_State *L, Inteiro arg, Imutável Caractere *
 }
 
 
-SOLIB_API Inteiro sol_typeerror (sol_State *L, Inteiro arg, Imutável Caractere *tname) {
+SOLIB_API Inteiro solL_typeerror (sol_State *L, Inteiro arg, Imutável Caractere *tname) {
   Imutável Caractere *msg;
   Imutável Caractere *typearg;  /* name Para the type of the actual argument */
-  Se (sol_getmetafield(L, arg, "__nome") == SOL_TSTRING)
+  Se (solL_getmetafield(L, arg, "__nome") == SOL_TSTRING)
     typearg = sol_tostring(L, -1);  /* use the given type name */
   Senão Se (sol_type(L, arg) == SOL_TLIGHTUSERDATA)
     typearg = "dados de usuário leves";  /* special name Para messages */
   Senão
     typearg = solL_typename(L, arg);  /* standard name */
   msg = sol_pushfstring(L, "esperava %s, recebeu %s", tname, typearg);
-  Retorne sol_argerror(L, arg, msg);
+  Retorne solL_argerror(L, arg, msg);
 }
 
 
 Fixo Vazio tag_error (sol_State *L, Inteiro arg, Inteiro tag) {
-  sol_typeerror(L, arg, sol_typename(L, tag));
+  solL_typeerror(L, arg, sol_typename(L, tag));
 }
 
 
@@ -217,7 +217,7 @@ Fixo Vazio tag_error (sol_State *L, Inteiro arg, Inteiro tag) {
 ** The use of 'sol_pushfstring' ensures this function does not
 ** need reserved stack space when called.
 */
-SOLIB_API Vazio sol_where (sol_State *L, Inteiro level) {
+SOLIB_API Vazio solL_where (sol_State *L, Inteiro level) {
   sol_Debug ar;
   Se (sol_getstack(L, level, &ar)) {  /* check function at level */
     sol_getinfo(L, "Sl", &ar);  /* get info about it */
@@ -238,7 +238,7 @@ SOLIB_API Vazio sol_where (sol_State *L, Inteiro level) {
 SOLIB_API Inteiro solL_error (sol_State *L, Imutável Caractere *fmt, ...) {
   va_list argp;
   va_start(argp, fmt);
-  sol_where(L, 1);
+   solL_where(L, 1);
   sol_pushvfstring(L, fmt, argp);
   va_end(argp);
   sol_concat(L, 2);
@@ -246,7 +246,7 @@ SOLIB_API Inteiro solL_error (sol_State *L, Imutável Caractere *fmt, ...) {
 }
 
 
-SOLIB_API Inteiro sol_fileresult (sol_State *L, Inteiro stat, Imutável Caractere *fname) {
+SOLIB_API Inteiro solL_fileresult (sol_State *L, Inteiro stat, Imutável Caractere *fname) {
   Inteiro en = errno;  /* calls to Sol API may change this value */
   Se (stat) {
     sol_pushboolean(L, 1);
@@ -288,9 +288,9 @@ SOLIB_API Inteiro sol_fileresult (sol_State *L, Inteiro stat, Imutável Caracter
 #FimSe				/* } */
 
 
-SOLIB_API Inteiro sol_execresult (sol_State *L, Inteiro stat) {
+SOLIB_API Inteiro solL_execresult (sol_State *L, Inteiro stat) {
   Se (stat != 0 && errno != 0)  /* Erro with an 'errno'? */
-    Retorne sol_fileresult(L, 0, NULL);
+    Retorne solL_fileresult(L, 0, NULL);
   Senão {
     Imutável Caractere *what = "exit";  /* type of termination */
     l_inspectstat(stat, what);  /* interpret result */
@@ -314,7 +314,7 @@ SOLIB_API Inteiro sol_execresult (sol_State *L, Inteiro stat) {
 ** =======================================================
 */
 
-SOLIB_API Inteiro sol_newmetatable (sol_State *L, Imutável Caractere *tname) {
+SOLIB_API Inteiro solL_newmetatable (sol_State *L, Imutável Caractere *tname) {
   Se (solL_getmetatable(L, tname) != SOL_TNIL)  /* name already in use? */
     Retorne 0;  /* leave previous value on top, but Retorne 0 */
   sol_pop(L, 1);
@@ -333,7 +333,7 @@ SOLIB_API Vazio solL_setmetatable (sol_State *L, Imutável Caractere *tname) {
 }
 
 
-SOLIB_API Vazio *sol_testudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
+SOLIB_API Vazio *solL_testudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
   Vazio *p = sol_touserdata(L, ud);
   Se (p != NULL) {  /* value is a userdata? */
     Se (sol_getmetatable(L, ud)) {  /* does it have a metatable? */
@@ -348,8 +348,8 @@ SOLIB_API Vazio *sol_testudata (sol_State *L, Inteiro ud, Imutável Caractere *t
 }
 
 
-SOLIB_API Vazio *sol_checkudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
-  Vazio *p = sol_testudata(L, ud, tname);
+SOLIB_API Vazio *solL_checkudata (sol_State *L, Inteiro ud, Imutável Caractere *tname) {
+  Vazio *p = solL_testudata(L, ud, tname);
   sol_argexpected(L, p != NULL, ud, tname);
   Retorne p;
 }
@@ -363,7 +363,7 @@ SOLIB_API Vazio *sol_checkudata (sol_State *L, Inteiro ud, Imutável Caractere *
 ** =======================================================
 */
 
-SOLIB_API Inteiro sol_checkoption (sol_State *L, Inteiro arg, Imutável Caractere *def,
+SOLIB_API Inteiro solL_checkoption (sol_State *L, Inteiro arg, Imutável Caractere *def,
                                  Imutável Caractere *Imutável lst[]) {
   Imutável Caractere *name = (def) ? sol_optstring(L, arg, def) :
                              sol_checkstring(L, arg);
@@ -371,7 +371,7 @@ SOLIB_API Inteiro sol_checkoption (sol_State *L, Inteiro arg, Imutável Caracter
   Para (i=0; lst[i]; i++)
     Se (strcmp(lst[i], name) == 0)
       Retorne i;
-  Retorne sol_argerror(L, arg,
+  Retorne solL_argerror(L, arg,
                        sol_pushfstring(L, "opção inválida '%s'", name));
 }
 
@@ -393,37 +393,37 @@ SOLIB_API Vazio solL_checkstack (sol_State *L, Inteiro space, Imutável Caracter
 }
 
 
-SOLIB_API Vazio sol_checktype (sol_State *L, Inteiro arg, Inteiro t) {
+SOLIB_API Vazio solL_checktype (sol_State *L, Inteiro arg, Inteiro t) {
   Se (l_unlikely(sol_type(L, arg) != t))
     tag_error(L, arg, t);
 }
 
 
-SOLIB_API Vazio sol_checkany (sol_State *L, Inteiro arg) {
+SOLIB_API Vazio solL_checkany (sol_State *L, Inteiro arg) {
   Se (l_unlikely(sol_type(L, arg) == SOL_TNONE))
-    sol_argerror(L, arg, "esperava um valor");
+    solL_argerror(L, arg, "esperava um valor");
 }
 
 
-SOLIB_API Imutável Caractere *sol_checklstring (sol_State *L, Inteiro arg, size_t *len) {
+SOLIB_API Imutável Caractere *solL_checklstring (sol_State *L, Inteiro arg, size_t *len) {
   Imutável Caractere *s = sol_tolstring(L, arg, len);
   Se (l_unlikely(!s)) tag_error(L, arg, SOL_TSTRING);
   Retorne s;
 }
 
 
-SOLIB_API Imutável Caractere *sol_optlstring (sol_State *L, Inteiro arg,
-                                        Imutável Caractere *def, size_t *len) {
+SOLIB_API Imutável Caractere *solL_optlstring (sol_State *L, Inteiro arg,
+                                         Imutável Caractere *def, size_t *len) {
   Se (sol_isnoneornil(L, arg)) {
     Se (len)
       *len = (def ? strlen(def) : 0);
     Retorne def;
   }
-  Senão Retorne sol_checklstring(L, arg, len);
+  Senão Retorne solL_checklstring(L, arg, len);
 }
 
 
-SOLIB_API sol_Number sol_checknumber (sol_State *L, Inteiro arg) {
+SOLIB_API sol_Number solL_checknumber (sol_State *L, Inteiro arg) {
   Inteiro isnum;
   sol_Number d = sol_tonumberx(L, arg, &isnum);
   Se (l_unlikely(!isnum))
@@ -432,20 +432,20 @@ SOLIB_API sol_Number sol_checknumber (sol_State *L, Inteiro arg) {
 }
 
 
-SOLIB_API sol_Number sol_optnumber (sol_State *L, Inteiro arg, sol_Number def) {
-  Retorne sol_opt(L, sol_checknumber, arg, def);
+SOLIB_API sol_Number solL_optnumber (sol_State *L, Inteiro arg, sol_Number def) {
+  Retorne sol_opt(L, solL_checknumber, arg, def);
 }
 
 
 Fixo Vazio interror (sol_State *L, Inteiro arg) {
   Se (sol_isnumber(L, arg))
-    sol_argerror(L, arg, "número não tem representação inteira");
+     solL_argerror(L, arg, "número não tem representação inteira");
   Senão
     tag_error(L, arg, SOL_TNUMBER);
 }
 
 
-SOLIB_API sol_Integer sol_checkinteger (sol_State *L, Inteiro arg) {
+SOLIB_API sol_Integer solL_checkinteger (sol_State *L, Inteiro arg) {
   Inteiro isnum;
   sol_Integer d = sol_tointegerx(L, arg, &isnum);
   Se (l_unlikely(!isnum)) {
@@ -455,9 +455,9 @@ SOLIB_API sol_Integer sol_checkinteger (sol_State *L, Inteiro arg) {
 }
 
 
-SOLIB_API sol_Integer sol_optinteger (sol_State *L, Inteiro arg,
-                                                      sol_Integer def) {
-  Retorne sol_opt(L, sol_checkinteger, arg, def);
+SOLIB_API sol_Integer solL_optinteger (sol_State *L, Inteiro arg,
+                                                       sol_Integer def) {
+  Retorne sol_opt(L, solL_checkinteger, arg, def);
 }
 
 /* }====================================================== */
@@ -514,11 +514,11 @@ Fixo Imutável sol_Reg boxmt[] = {  /* box metamethods */
 
 
 Fixo Vazio newbox (sol_State *L) {
-  UBox *box = (UBox *)sol_newuserdatauv(L, Meça(UBox), 0);
+  UBox *box = (UBox *)sol_newuserdatauv(L, meça(UBox), 0);
   box->box = NULL;
   box->bsize = 0;
-  Se (sol_newmetatable(L, "_UBOX*"))  /* creating metatable? */
-    sol_setfuncs(L, boxmt, 0);  /* set its metamethods */
+  Se (solL_newmetatable(L, "_UBOX*"))  /* creating metatable? */
+    solL_setfuncs(L, boxmt, 0);  /* set its metamethods */
   sol_setmetatable(L, -2);
 }
 
@@ -578,7 +578,7 @@ Fixo Caractere *prepbuffsize (sol_Buffer *B, size_t sz, Inteiro boxidx) {
       sol_insert(L, boxidx);  /* move box to its intended position */
       sol_toclose(L, boxidx);
       newbuff = (Caractere *)resizebox(L, boxidx, newsize);
-      memcpy(newbuff, B->b, B->n * Meça(Caractere));  /* copy original content */
+      memcpy(newbuff, B->b, B->n * meça(Caractere));  /* copy original content */
     }
     B->b = newbuff;
     B->size = newsize;
@@ -594,21 +594,21 @@ SOLIB_API Caractere *sol_prepbuffsize (sol_Buffer *B, size_t sz) {
 }
 
 
-SOLIB_API Vazio sol_addlstring (sol_Buffer *B, Imutável Caractere *s, size_t l) {
+SOLIB_API Vazio solL_addlstring (sol_Buffer *B, Imutável Caractere *s, size_t l) {
   Se (l > 0) {  /* avoid 'memcpy' when 's' can be NULL */
     Caractere *b = prepbuffsize(B, l, -1);
-    memcpy(b, s, l * Meça(Caractere));
+    memcpy(b, s, l * meça(Caractere));
     sol_addsize(B, l);
   }
 }
 
 
-SOLIB_API Vazio sol_addstring (sol_Buffer *B, Imutável Caractere *s) {
-  sol_addlstring(B, s, strlen(s));
+SOLIB_API Vazio solL_addstring (sol_Buffer *B, Imutável Caractere *s) {
+  solL_addlstring(B, s, strlen(s));
 }
 
 
-SOLIB_API Vazio sol_pushresult (sol_Buffer *B) {
+SOLIB_API Vazio solL_pushresult (sol_Buffer *B) {
   sol_State *L = B->L;
   checkbufferlevel(B, -1);
   Se (!buffonstack(B))  /* using Fixo buffer? */
@@ -632,9 +632,9 @@ SOLIB_API Vazio sol_pushresult (sol_Buffer *B) {
 }
 
 
-SOLIB_API Vazio sol_pushresultsize (sol_Buffer *B, size_t sz) {
+SOLIB_API Vazio solL_pushresultsize (sol_Buffer *B, size_t sz) {
   sol_addsize(B, sz);
-  sol_pushresult(B);
+  solL_pushresult(B);
 }
 
 
@@ -647,18 +647,18 @@ SOLIB_API Vazio sol_pushresultsize (sol_Buffer *B, size_t sz) {
 ** trigger an emergency GC, so we should not remove the string from the
 ** stack before we have the space guaranteed.)
 */
-SOLIB_API Vazio sol_addvalue (sol_Buffer *B) {
+SOLIB_API Vazio solL_addvalue (sol_Buffer *B) {
   sol_State *L = B->L;
   size_t len;
   Imutável Caractere *s = sol_tolstring(L, -1, &len);
   Caractere *b = prepbuffsize(B, len, -2);
-  memcpy(b, s, len * Meça(Caractere));
+  memcpy(b, s, len * meça(Caractere));
   sol_addsize(B, len);
   sol_pop(L, 1);  /* pop string */
 }
 
 
-SOLIB_API Vazio sol_buffinit (sol_State *L, sol_Buffer *B) {
+SOLIB_API Vazio solL_buffinit (sol_State *L, sol_Buffer *B) {
   B->L = L;
   B->b = B->init.b;
   B->n = 0;
@@ -667,8 +667,8 @@ SOLIB_API Vazio sol_buffinit (sol_State *L, sol_Buffer *B) {
 }
 
 
-SOLIB_API Caractere *sol_buffinitsize (sol_State *L, sol_Buffer *B, size_t sz) {
-  sol_buffinit(L, B);
+SOLIB_API Caractere *solL_buffinitsize (sol_State *L, sol_Buffer *B, size_t sz) {
+  solL_buffinit(L, B);
   Retorne prepbuffsize(B, sz, -1);
 }
 
@@ -686,7 +686,7 @@ SOLIB_API Caractere *sol_buffinitsize (sol_State *L, sol_Buffer *B, size_t sz) {
 ** of a first free index, t[t[1]] is the index of the second element,
 ** etc. A zero signals the end of the list.
 */
-SOLIB_API Inteiro sol_ref (sol_State *L, Inteiro t) {
+SOLIB_API Inteiro solL_ref (sol_State *L, Inteiro t) {
   Inteiro ref;
   Se (sol_isnil(L, -1)) {
     sol_pop(L, 1);  /* remove from stack */
@@ -713,7 +713,7 @@ SOLIB_API Inteiro sol_ref (sol_State *L, Inteiro t) {
 }
 
 
-SOLIB_API Vazio sol_unref (sol_State *L, Inteiro t, Inteiro ref) {
+SOLIB_API Vazio solL_unref (sol_State *L, Inteiro t, Inteiro ref) {
   Se (ref >= 0) {
     t = sol_absindex(L, t);
     sol_rawgeti(L, t, 1);
@@ -752,7 +752,7 @@ Fixo Imutável Caractere *getF (sol_State *L, Vazio *ud, size_t *size) {
        'getF' called 'fread', it might still wait Para user input.
        The next check avoids this problem. */
     Se (feof(lf->f)) Retorne NULL;
-    *size = fread(lf->buff, 1, Meça(lf->buff), lf->f);  /* read block */
+    *size = fread(lf->buff, 1, meça(lf->buff), lf->f);  /* read block */
   }
   Retorne lf->buff;
 }
@@ -805,8 +805,8 @@ Fixo Inteiro skipcomment (FILE *f, Inteiro *cp) {
 }
 
 
-SOLIB_API Inteiro sol_loadfilex (sol_State *L, Imutável Caractere *filename,
-                                             Imutável Caractere *mode) {
+SOLIB_API Inteiro solL_loadfilex (sol_State *L, Imutável Caractere *filename,
+                                              Imutável Caractere *mode) {
   LoadF lf;
   Inteiro status, readstatus;
   Inteiro c;
@@ -864,8 +864,8 @@ Fixo Imutável Caractere *getS (sol_State *L, Vazio *ud, size_t *size) {
 }
 
 
-SOLIB_API Inteiro sol_loadbufferx (sol_State *L, Imutável Caractere *buff, size_t size,
-                                 Imutável Caractere *name, Imutável Caractere *mode) {
+SOLIB_API Inteiro solL_loadbufferx (sol_State *L, Imutável Caractere *buff, size_t size,
+                                  Imutável Caractere *name, Imutável Caractere *mode) {
   LoadS ls;
   ls.s = buff;
   ls.size = size;
@@ -881,7 +881,7 @@ SOLIB_API Inteiro sol_loadstring (sol_State *L, Imutável Caractere *s) {
 
 
 
-SOLIB_API Inteiro sol_getmetafield (sol_State *L, Inteiro obj, Imutável Caractere *event) {
+SOLIB_API Inteiro solL_getmetafield (sol_State *L, Inteiro obj, Imutável Caractere *event) {
   Se (!sol_getmetatable(L, obj))  /* no metatable? */
     Retorne SOL_TNIL;
   Senão {
@@ -897,9 +897,9 @@ SOLIB_API Inteiro sol_getmetafield (sol_State *L, Inteiro obj, Imutável Caracte
 }
 
 
-SOLIB_API Inteiro sol_callmeta (sol_State *L, Inteiro obj, Imutável Caractere *event) {
+SOLIB_API Inteiro solL_callmeta (sol_State *L, Inteiro obj, Imutável Caractere *event) {
   obj = sol_absindex(L, obj);
-  Se (sol_getmetafield(L, obj, event) == SOL_TNIL)  /* no metafield? */
+  Se (solL_getmetafield(L, obj, event) == SOL_TNIL)  /* no metafield? */
     Retorne 0;
   sol_pushvalue(L, obj);
   sol_call(L, 1, 1);
@@ -921,7 +921,7 @@ SOLIB_API sol_Integer solL_len (sol_State *L, Inteiro idx) {
 
 SOLIB_API Imutável Caractere *solL_tolstring (sol_State *L, Inteiro idx, size_t *len) {
   idx = sol_absindex(L,idx);
-  Se (sol_callmeta(L, idx, "__converta_para_texto")) {  /* metafield? */
+  Se (solL_callmeta(L, idx, "__converta_para_texto")) {  /* metafield? */
     Se (!sol_isstring(L, -1))
       solL_error(L, "'__tostring' must Retorne a string");
   }
@@ -943,7 +943,7 @@ SOLIB_API Imutável Caractere *solL_tolstring (sol_State *L, Inteiro idx, size_t
         sol_pushliteral(L, "nulo");
         Interrompa;
       Padrão: {
-        Inteiro tt = sol_getmetafield(L, idx, "__nome");  /* try name */
+        Inteiro tt = solL_getmetafield(L, idx, "__nome");  /* try name */
         Imutável Caractere *kind = (tt == SOL_TSTRING) ? sol_tostring(L, -1) :
                                                  solL_typename(L, idx);
         sol_pushfstring(L, "%s: %p", kind, sol_topointer(L, idx));
@@ -962,7 +962,7 @@ SOLIB_API Imutável Caractere *solL_tolstring (sol_State *L, Inteiro idx, size_t
 ** function gets the 'nup' elements at the top as upvalues.
 ** Returns with only the table at the stack.
 */
-SOLIB_API Vazio sol_setfuncs (sol_State *L, Imutável sol_Reg *l, Inteiro nup) {
+SOLIB_API Vazio solL_setfuncs (sol_State *L, Imutável sol_Reg *l, Inteiro nup) {
   solL_checkstack(L, nup, "muitos upvalues");
   Para (; l->name != NULL; l++) {  /* fill the table with given functions */
     Se (l->func == NULL)  /* placeholder? */
@@ -983,7 +983,7 @@ SOLIB_API Vazio sol_setfuncs (sol_State *L, Imutável sol_Reg *l, Inteiro nup) {
 ** ensure that stack[idx][fname] has a table and push that table
 ** into the stack
 */
-SOLIB_API Inteiro sol_getsubtable (sol_State *L, Inteiro idx, Imutável Caractere *fname) {
+SOLIB_API Inteiro solL_getsubtable (sol_State *L, Inteiro idx, Imutável Caractere *fname) {
   Se (sol_getfield(L, idx, fname) == SOL_TTABLE)
     Retorne 1;  /* table already there */
   Senão {
@@ -1003,9 +1003,9 @@ SOLIB_API Inteiro sol_getsubtable (sol_State *L, Inteiro idx, Imutável Caracter
 ** Se 'glb' is true, also registers the result in the global table.
 ** Leaves resulting module on the top.
 */
-SOLIB_API Vazio sol_requiref (sol_State *L, Imutável Caractere *modname,
+SOLIB_API Vazio solL_requiref (sol_State *L, Imutável Caractere *modname,
                                sol_CFunction openf, Inteiro glb) {
-  sol_getsubtable(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
+  solL_getsubtable(L, SOL_REGISTRYINDEX, SOL_LOADED_TABLE);
   sol_getfield(L, -1, modname);  /* LOADED[modname] */
   Se (!sol_toboolean(L, -1)) {  /* package not already loaded? */
     sol_pop(L, 1);  /* remove field */
@@ -1023,25 +1023,25 @@ SOLIB_API Vazio sol_requiref (sol_State *L, Imutável Caractere *modname,
 }
 
 
-SOLIB_API Vazio sol_addgsub (sol_Buffer *b, Imutável Caractere *s,
+SOLIB_API Vazio solL_addgsub (sol_Buffer *b, Imutável Caractere *s,
                                      Imutável Caractere *p, Imutável Caractere *r) {
   Imutável Caractere *wild;
   size_t l = strlen(p);
   Enquanto ((wild = strstr(s, p)) != NULL) {
-    sol_addlstring(b, s, ct_diff2sz(wild - s));  /* push prefix */
-    sol_addstring(b, r);  /* push replacement in place of pattern */
+    solL_addlstring(b, s, ct_diff2sz(wild - s));  /* push prefix */
+    solL_addstring(b, r);  /* push replacement in place of pattern */
     s = wild + l;  /* Continue after 'p' */
   }
-  sol_addstring(b, s);  /* push last suffix */
+  solL_addstring(b, s);  /* push last suffix */
 }
 
 
-SOLIB_API Imutável Caractere *sol_gsub (sol_State *L, Imutável Caractere *s,
+SOLIB_API Imutável Caractere *solL_gsub (sol_State *L, Imutável Caractere *s,
                                   Imutável Caractere *p, Imutável Caractere *r) {
   sol_Buffer b;
-  sol_buffinit(L, &b);
-  sol_addgsub(&b, s, p, r);
-  sol_pushresult(&b);
+  solL_buffinit(L, &b);
+  solL_addgsub(&b, s, p, r);
+  solL_pushresult(&b);
   Retorne sol_tostring(L, -1);
 }
 
@@ -1134,22 +1134,22 @@ Fixo Vazio warnfon (Vazio *ud, Imutável Caractere *message, Inteiro tocont) {
 ** randomness. Rely on Address Space Layout Randomization (Se present)
 ** and the current time.
 */
-#Se !Definido(sol_makeseed)
+#Se !Definido(l_makeseed)
 
 #Inclua <time.h>
 
 
 /* Size Para the buffer, in bytes */
-#Defina BUFSEEDB	(Meça(Vazio*) + Meça(time_t))
+#Defina BUFSEEDB	(meça(Vazio*) + meça(time_t))
 
 /* Size Para the buffer in Inteiro's, rounded up */
-#Defina BUFSEED		((BUFSEEDB + Meça(Inteiro) - 1) / Meça(Inteiro))
+#Defina BUFSEED		((BUFSEEDB + meça(Inteiro) - 1) / meça(Inteiro))
 
 /*
 ** Copy the contents of variable 'v' into the buffer pointed by 'b'.
 ** (The '&b[0]' disguises 'b' to fix an absurd Aviso from clang.)
 */
-#Defina addbuff(b,v)	(memcpy(&b[0], &(v), Meça(v)), b += Meça(v))
+#Defina addbuff(b,v)	(memcpy(&b[0], &(v), meça(v)), b += meça(v))
 
 
 Fixo Natural Inteiro makeseed (Vazio) {
@@ -1161,7 +1161,7 @@ Fixo Natural Inteiro makeseed (Vazio) {
   addbuff(b, b);  /* local variable's address */
   addbuff(b, t);  /* time */
   /* fill (rare but possible) remain of the buffer with zeros */
-  memset(b, 0, Meça(buff) - BUFSEEDB);
+  memset(b, 0, meça(buff) - BUFSEEDB);
   res = buff[0];
   Para (i = 1; i < BUFSEED; i++)
     res ^= (res >> 3) + (res << 7) + buff[i];
@@ -1171,7 +1171,7 @@ Fixo Natural Inteiro makeseed (Vazio) {
 #FimSe
 
 
-SOLIB_API Natural Inteiro sol_makeseed (sol_State *L) {
+SOLIB_API Natural Inteiro solL_makeseed (sol_State *L) {
   (Vazio)L;  /* unused */
   Retorne makeseed();
 }

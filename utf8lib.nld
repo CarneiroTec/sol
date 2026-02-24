@@ -285,7 +285,7 @@ Fixo Imutável sol_Reg funcs[] = {
 
 SOLMOD_API Inteiro solopen_utf8 (sol_State *L) {
   sol_newlib(L, funcs);
-  sol_pushlstring(L, UTF8PATT, Meça(UTF8PATT)/Meça(Caractere) - 1);
+  sol_pushlstring(L, UTF8PATT, meça(UTF8PATT)/meça(Caractere) - 1);
   sol_setfield(L, -2, "padrão_caractere");
   Retorne 1;
 }

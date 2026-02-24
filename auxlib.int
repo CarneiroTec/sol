@@ -41,82 +41,82 @@ Pseudônimo Estrutura sol_Reg {
 } sol_Reg;
 
 
-#Defina SOL_NUMSIZES	(Meça(sol_Integer)*16 + Meça(sol_Number))
+#Defina SOL_NUMSIZES	(meça(sol_Integer)*16 + meça(sol_Number))
 
 SOLIB_API Vazio (sol_checkversion_) (sol_State *L, sol_Number ver, size_t sz);
 #Defina sol_checkversion(L)  \
 	  sol_checkversion_(L, SOL_VERSION_NUM, SOL_NUMSIZES)
 
-SOLIB_API Inteiro (sol_getmetafield) (sol_State *L, Inteiro obj, Imutável Caractere *e);
-SOLIB_API Inteiro (sol_callmeta) (sol_State *L, Inteiro obj, Imutável Caractere *e);
-SOLIB_API Imutável Caractere *(solL_tolstring) (sol_State *L, Inteiro idx, size_t *len);
-SOLIB_API Inteiro (sol_argerror) (sol_State *L, Inteiro arg, Imutável Caractere *extramsg);
-SOLIB_API Inteiro (sol_typeerror) (sol_State *L, Inteiro arg, Imutável Caractere *tname);
-SOLIB_API Imutável Caractere *(sol_checklstring) (sol_State *L, Inteiro arg,
+SOL_API Inteiro (solL_getmetafield) (sol_State *L, Inteiro obj, Imutável Caractere *e);
+SOL_API Inteiro (solL_callmeta) (sol_State *L, Inteiro obj, Imutável Caractere *e);
+SOL_API Imutável Caractere *(solL_tolstring) (sol_State *L, Inteiro idx, size_t *len);
+SOL_API Inteiro (solL_argerror) (sol_State *L, Inteiro arg, Imutável Caractere *extramsg);
+SOL_API Inteiro (solL_typeerror) (sol_State *L, Inteiro arg, Imutável Caractere *tname);
+SOL_API Imutável Caractere *(solL_checklstring) (sol_State *L, Inteiro arg,
                                                           size_t *l);
-SOLIB_API Imutável Caractere *(sol_optlstring) (sol_State *L, Inteiro arg,
+SOL_API Imutável Caractere *(solL_optlstring) (sol_State *L, Inteiro arg,
                                           Imutável Caractere *def, size_t *l);
-SOLIB_API sol_Number (sol_checknumber) (sol_State *L, Inteiro arg);
-SOLIB_API sol_Number (sol_optnumber) (sol_State *L, Inteiro arg, sol_Number def);
+SOL_API sol_Number (solL_checknumber) (sol_State *L, Inteiro arg);
+SOL_API sol_Number (solL_optnumber) (sol_State *L, Inteiro arg, sol_Number def);
 
-SOLIB_API sol_Integer (sol_checkinteger) (sol_State *L, Inteiro arg);
-SOLIB_API sol_Integer (sol_optinteger) (sol_State *L, Inteiro arg,
+SOL_API sol_Integer (solL_checkinteger) (sol_State *L, Inteiro arg);
+SOL_API sol_Integer (solL_optinteger) (sol_State *L, Inteiro arg,
                                           sol_Integer def);
 
-SOLIB_API Vazio (solL_checkstack) (sol_State *L, Inteiro sz, Imutável Caractere *msg);
-SOLIB_API Vazio (sol_checktype) (sol_State *L, Inteiro arg, Inteiro t);
-SOLIB_API Vazio (sol_checkany) (sol_State *L, Inteiro arg);
+SOL_API Vazio (solL_checkstack) (sol_State *L, Inteiro sz, Imutável Caractere *msg);
+SOL_API Vazio (solL_checktype) (sol_State *L, Inteiro arg, Inteiro t);
+SOL_API Vazio (solL_checkany) (sol_State *L, Inteiro arg);
 
-SOLIB_API Inteiro   (sol_newmetatable) (sol_State *L, Imutável Caractere *tname);
+SOL_API Inteiro   (solL_newmetatable) (sol_State *L, Imutável Caractere *tname);
 SOLIB_API Vazio  (solL_setmetatable) (sol_State *L, Imutável Caractere *tname);
-SOLIB_API Vazio *(sol_testudata) (sol_State *L, Inteiro ud, Imutável Caractere *tname);
-SOLIB_API Vazio *(sol_checkudata) (sol_State *L, Inteiro ud, Imutável Caractere *tname);
+SOL_API Vazio *(solL_testudata) (sol_State *L, Inteiro ud, Imutável Caractere *tname);
+SOL_API Vazio *(solL_checkudata) (sol_State *L, Inteiro ud, Imutável Caractere *tname);
 
-SOLIB_API Vazio (sol_where) (sol_State *L, Inteiro lvl);
+SOL_API Vazio (solL_where) (sol_State *L, Inteiro lvl);
 SOLIB_API Inteiro (solL_error) (sol_State *L, Imutável Caractere *fmt, ...);
 
-SOLIB_API Inteiro (sol_checkoption) (sol_State *L, Inteiro arg, Imutável Caractere *def,
+SOL_API Inteiro (solL_checkoption) (sol_State *L, Inteiro arg, Imutável Caractere *def,
                                    Imutável Caractere *Imutável lst[]);
 
-SOLIB_API Inteiro (sol_fileresult) (sol_State *L, Inteiro stat, Imutável Caractere *fname);
-SOLIB_API Inteiro (sol_execresult) (sol_State *L, Inteiro stat);
+SOL_API Inteiro (solL_fileresult) (sol_State *L, Inteiro stat, Imutável Caractere *fname);
+SOL_API Inteiro (solL_execresult) (sol_State *L, Inteiro stat);
 
 
 /* predefined references */
 #Defina SOL_NOREF       (-2)
 #Defina SOL_REFNIL      (-1)
 
-SOLIB_API Inteiro (sol_ref) (sol_State *L, Inteiro t);
-SOLIB_API Vazio (sol_unref) (sol_State *L, Inteiro t, Inteiro ref);
+SOL_API Inteiro (solL_ref) (sol_State *L, Inteiro t);
+SOL_API Vazio (solL_unref) (sol_State *L, Inteiro t, Inteiro ref);
 
-SOLIB_API Inteiro (sol_loadfilex) (sol_State *L, Imutável Caractere *filename,
+SOL_API Inteiro (solL_loadfilex) (sol_State *L, Imutável Caractere *filename,
                                                Imutável Caractere *mode);
 
-#Defina sol_loadfile(L,f)	sol_loadfilex(L,f,NULL)
+#Defina sol_loadfile(L,f)	solL_loadfilex(L,f,NULL)
 
-SOLIB_API Inteiro (sol_loadbufferx) (sol_State *L, Imutável Caractere *buff, size_t sz,
+SOL_API Inteiro (solL_loadbufferx) (sol_State *L, Imutável Caractere *buff, size_t sz,
                                    Imutável Caractere *name, Imutável Caractere *mode);
 SOLIB_API Inteiro (sol_loadstring) (sol_State *L, Imutável Caractere *s);
 
 SOLIB_API sol_State *(solL_newstate) (Vazio);
 
-SOLIB_API Natural sol_makeseed (sol_State *L);
+SOL_API Natural solL_makeseed (sol_State *L);
 
 SOLIB_API sol_Integer (solL_len) (sol_State *L, Inteiro idx);
 
-SOLIB_API Vazio (sol_addgsub) (sol_Buffer *b, Imutável Caractere *s,
+SOL_API Vazio (solL_addgsub) (sol_Buffer *b, Imutável Caractere *s,
                                      Imutável Caractere *p, Imutável Caractere *r);
-SOLIB_API Imutável Caractere *(sol_gsub) (sol_State *L, Imutável Caractere *s,
+SOL_API Imutável Caractere *(solL_gsub) (sol_State *L, Imutável Caractere *s,
                                     Imutável Caractere *p, Imutável Caractere *r);
 
-SOLIB_API Vazio (sol_setfuncs) (sol_State *L, Imutável sol_Reg *l, Inteiro nup);
+SOL_API Vazio (solL_setfuncs) (sol_State *L, Imutável sol_Reg *l, Inteiro nup);
 
-SOLIB_API Inteiro (sol_getsubtable) (sol_State *L, Inteiro idx, Imutável Caractere *fname);
+SOL_API Inteiro (solL_getsubtable) (sol_State *L, Inteiro idx, Imutável Caractere *fname);
 
-SOLIB_API Vazio (sol_traceback) (sol_State *L, sol_State *L1,
-                                  Imutável Caractere *msg, Inteiro level);
+SOL_API Vazio (solL_traceback) (sol_State *L, sol_State *L1,
+                                   Imutável Caractere *msg, Inteiro level);
 
-SOLIB_API Vazio (sol_requiref) (sol_State *L, Imutável Caractere *modname,
+SOL_API Vazio (solL_requiref) (sol_State *L, Imutável Caractere *modname,
                                  sol_CFunction openf, Inteiro glb);
 
 /*
@@ -127,19 +127,19 @@ SOLIB_API Vazio (sol_requiref) (sol_State *L, Imutável Caractere *modname,
 
 
 #Defina sol_newlibtable(L,l)	\
-  sol_createtable(L, 0, Meça(l)/Meça((l)[0]) - 1)
+  sol_createtable(L, 0, meça(l)/meça((l)[0]) - 1)
 
 #Defina sol_newlib(L,l)  \
-  (sol_checkversion(L), sol_newlibtable(L,l), sol_setfuncs(L,l,0))
+  (sol_checkversion(L), sol_newlibtable(L,l), solL_setfuncs(L,l,0))
 
 #Defina sol_argcheck(L, cond,arg,extramsg)	\
-	((Vazio)(sol_likely(cond) || sol_argerror(L, (arg), (extramsg))))
+	((Vazio)(sol_likely(cond) || solL_argerror(L, (arg), (extramsg))))
 
 #Defina sol_argexpected(L,cond,arg,tname)	\
-	((Vazio)(sol_likely(cond) || sol_typeerror(L, (arg), (tname))))
+	((Vazio)(sol_likely(cond) || solL_typeerror(L, (arg), (tname))))
 
-#Defina sol_checkstring(L,n)	(sol_checklstring(L, (n), NULL))
-#Defina sol_optstring(L,n,d)	(sol_optlstring(L, (n), (d), NULL))
+#Defina sol_checkstring(L,n)	(solL_checklstring(L, (n), NULL))
+#Defina sol_optstring(L,n,d)	(solL_optlstring(L, (n), (d), NULL))
 
 #Defina solL_typename(L,i)	sol_typename(L, sol_type(L,(i)))
 
@@ -153,7 +153,7 @@ SOLIB_API Vazio (sol_requiref) (sol_State *L, Imutável Caractere *modname,
 
 #Defina sol_opt(L,f,n,d)	(sol_isnoneornil(L,(n)) ? (d) : f(L,(n)))
 
-#Defina sol_loadbuffer(L,s,sz,n)	sol_loadbufferx(L,s,sz,n,NULL)
+#Defina sol_loadbuffer(L,s,sz,n)	solL_loadbufferx(L,s,sz,n,NULL)
 
 
 /*
@@ -203,14 +203,14 @@ Estrutura sol_Buffer {
 
 #Defina sol_buffsub(B,s)	((B)->n -= (s))
 
-SOLIB_API Vazio (sol_buffinit) (sol_State *L, sol_Buffer *B);
+SOL_API Vazio (solL_buffinit) (sol_State *L, sol_Buffer *B);
 SOLIB_API Caractere *(sol_prepbuffsize) (sol_Buffer *B, size_t sz);
-SOLIB_API Vazio (sol_addlstring) (sol_Buffer *B, Imutável Caractere *s, size_t l);
-SOLIB_API Vazio (sol_addstring) (sol_Buffer *B, Imutável Caractere *s);
-SOLIB_API Vazio (sol_addvalue) (sol_Buffer *B);
-SOLIB_API Vazio (sol_pushresult) (sol_Buffer *B);
-SOLIB_API Vazio (sol_pushresultsize) (sol_Buffer *B, size_t sz);
-SOLIB_API Caractere *(sol_buffinitsize) (sol_State *L, sol_Buffer *B, size_t sz);
+SOL_API Vazio (solL_addlstring) (sol_Buffer *B, Imutável Caractere *s, size_t l);
+SOL_API Vazio (solL_addstring) (sol_Buffer *B, Imutável Caractere *s);
+SOL_API Vazio (solL_addvalue) (sol_Buffer *B);
+SOL_API Vazio (solL_pushresult) (sol_Buffer *B);
+SOL_API Vazio (solL_pushresultsize) (sol_Buffer *B, size_t sz);
+SOL_API Caractere *(solL_buffinitsize) (sol_State *L, sol_Buffer *B, size_t sz);
 
 #Defina sol_prepbuffer(B)	sol_prepbuffsize(B, SOL_BUFFERSIZE)
 
@@ -259,6 +259,51 @@ Pseudônimo Estrutura sol_Stream {
 #Defina sol_optlong(L,n,d)	((Longo)sol_optinteger(L, (n), (d)))
 
 #FimSe
+/* }============================================================ */
+
+
+/*
+** {============================================================
+** Backward compatibility: map old sol_ names to solL_ names
+** =============================================================
+*/
+#Defina sol_getmetafield     solL_getmetafield
+#Defina sol_callmeta         solL_callmeta
+#Defina sol_argerror         solL_argerror
+#Defina sol_typeerror        solL_typeerror
+#Defina sol_checklstring     solL_checklstring
+#Defina sol_optlstring       solL_optlstring
+#Defina sol_checknumber      solL_checknumber
+#Defina sol_optnumber        solL_optnumber
+#Defina sol_checkinteger     solL_checkinteger
+#Defina sol_optinteger       solL_optinteger
+#Defina sol_checktype        solL_checktype
+#Defina sol_checkany         solL_checkany
+#Defina sol_newmetatable     solL_newmetatable
+#Defina sol_testudata        solL_testudata
+#Defina sol_checkudata       solL_checkudata
+#Defina sol_where            solL_where
+#Defina sol_checkoption      solL_checkoption
+#Defina sol_fileresult       solL_fileresult
+#Defina sol_execresult       solL_execresult
+#Defina sol_ref              solL_ref
+#Defina sol_unref            solL_unref
+#Defina sol_loadfilex        solL_loadfilex
+#Defina sol_loadbufferx      solL_loadbufferx
+#Defina sol_makeseed         solL_makeseed
+#Defina sol_addgsub          solL_addgsub
+#Defina sol_gsub             solL_gsub
+#Defina sol_setfuncs         solL_setfuncs
+#Defina sol_getsubtable      solL_getsubtable
+#Defina sol_traceback        solL_traceback
+#Defina sol_requiref         solL_requiref
+#Defina sol_buffinit         solL_buffinit
+#Defina sol_addlstring       solL_addlstring
+#Defina sol_addstring        solL_addstring
+#Defina sol_addvalue         solL_addvalue
+#Defina sol_pushresult       solL_pushresult
+#Defina sol_pushresultsize   solL_pushresultsize
+#Defina sol_buffinitsize     solL_buffinitsize
 /* }============================================================ */
 
 

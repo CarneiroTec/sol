@@ -48,7 +48,7 @@ LClosure *sol_f_newLclosure (sol_State *L, Inteiro nupvals) {
 Vazio sol_f_initupvals (sol_State *L, LClosure *cl) {
   Inteiro i;
   Para (i = 0; i < cl->nupvalues; i++) {
-    GCObject *o = sol_c_newobj(L, SOL_VUPVAL, Meça(UpVal));
+    GCObject *o = sol_c_newobj(L, SOL_VUPVAL, meça(UpVal));
     UpVal *uv = gco2upv(o);
     uv->v.p = &uv->u.value;  /* make it closed */
     setnilvalue(uv->v.p);
@@ -63,7 +63,7 @@ Vazio sol_f_initupvals (sol_State *L, LClosure *cl) {
 ** open upvalues of 'L' after entry 'prev'.
 **/
 Fixo UpVal *newupval (sol_State *L, StkId level, UpVal **prev) {
-  GCObject *o = sol_c_newobj(L, SOL_VUPVAL, Meça(UpVal));
+  GCObject *o = sol_c_newobj(L, SOL_VUPVAL, meça(UpVal));
   UpVal *uv = gco2upv(o);
   UpVal *next = *prev;
   uv->v.p = s2v(level);  /* current value lives in the stack */
@@ -241,7 +241,7 @@ StkId sol_f_close (sol_State *L, StkId level, TStatus status, Inteiro yy) {
 
 
 Proto *sol_f_newproto (sol_State *L) {
-  GCObject *o = sol_c_newobj(L, SOL_VPROTO, Meça(Proto));
+  GCObject *o = sol_c_newobj(L, SOL_VPROTO, meça(Proto));
   Proto *f = gco2p(o);
   f->k = NULL;
   f->sizek = 0;
@@ -268,15 +268,15 @@ Proto *sol_f_newproto (sol_State *L) {
 
 
 lu_mem sol_f_protosize (Proto *p) {
-  lu_mem sz = cast(lu_mem, Meça(Proto))
-            + cast_uint(p->sizep) * Meça(Proto*)
-            + cast_uint(p->sizek) * Meça(TValue)
-            + cast_uint(p->sizelocvars) * Meça(LocVar)
-            + cast_uint(p->sizeupvalues) * Meça(Upvaldesc);
+  lu_mem sz = cast(lu_mem, meça(Proto))
+            + cast_uint(p->sizep) * meça(Proto*)
+            + cast_uint(p->sizek) * meça(TValue)
+            + cast_uint(p->sizelocvars) * meça(LocVar)
+            + cast_uint(p->sizeupvalues) * meça(Upvaldesc);
   Se (!(p->flag & PF_FIXED)) {
-    sz += cast_uint(p->sizecode) * Meça(Instruction);
-    sz += cast_uint(p->sizelineinfo) * Meça(lu_byte);
-    sz += cast_uint(p->sizeabslineinfo) * Meça(AbsLineInfo);
+    sz += cast_uint(p->sizecode) * meça(Instruction);
+    sz += cast_uint(p->sizelineinfo) * meça(lu_byte);
+    sz += cast_uint(p->sizeabslineinfo) * meça(AbsLineInfo);
   }
   Retorne sz;
 }

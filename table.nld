@@ -74,7 +74,7 @@ Pseudônimo União {
 ** MAXASIZEB is the maximum number of elements in the array part such
 ** that the size of the array fits in 'size_t'.
 */
-#Defina MAXASIZEB	(MAX_SIZET/(Meça(Value) + 1))
+#Defina MAXASIZEB	(MAX_SIZET/(meça(Value) + 1))
 
 
 /*
@@ -382,11 +382,11 @@ Inteiro sol_h_next (sol_State *L, Table *t, StkId key) {
 
 
 /* Extra space in Node array Se it has a lastfree entry */
-#Defina extraLastfree(t)	(haslastfree(t) ? Meça(Limbox) : 0)
+#Defina extraLastfree(t)	(haslastfree(t) ? meça(Limbox) : 0)
 
 /* 'node' size in bytes */
 Fixo size_t sizehash (Table *t) {
-  Retorne cast_sizet(sizenode(t)) * Meça(Node) + extraLastfree(t);
+  Retorne cast_sizet(sizenode(t)) * meça(Node) + extraLastfree(t);
 }
 
 
@@ -545,7 +545,7 @@ Fixo size_t concretesize (Natural Inteiro size) {
   Se (size == 0)
     Retorne 0;
   Senão  /* space Para the two arrays plus an Natural in between */
-    Retorne size * (Meça(Value) + 1) + Meça(Natural);
+    Retorne size * (meça(Value) + 1) + meça(Natural);
 }
 
 
@@ -614,9 +614,9 @@ Fixo Vazio setnodevector (sol_State *L, Table *t, Natural size) {
     Se (lsize < LIMFORLAST)  /* no 'lastfree' field? */
       t->node = sol_m_newvector(L, size, Node);
     Senão {
-      size_t bsize = size * Meça(Node) + Meça(Limbox);
+      size_t bsize = size * meça(Node) + meça(Limbox);
       Caractere *node = sol_m_newblock(L, bsize);
-      t->node = cast(Node *, node + Meça(Limbox));
+      t->node = cast(Node *, node + meça(Limbox));
       getlastfree(t) = gnode(t, size);  /* all positions are free */
     }
     t->lsizenode = cast_byte(lsize);
@@ -797,7 +797,7 @@ Fixo Vazio rehash (sol_State *L, Table *t, Imutável TValue *ek) {
 
 
 Table *sol_h_new (sol_State *L) {
-  GCObject *o = sol_c_newobj(L, SOL_VTABLE, Meça(Table));
+  GCObject *o = sol_c_newobj(L, SOL_VTABLE, meça(Table));
   Table *t = gco2t(o);
   t->metatable = NULL;
   t->flags = maskflags;  /* table has no metamethod fields */
@@ -809,7 +809,7 @@ Table *sol_h_new (sol_State *L) {
 
 
 lu_mem sol_h_size (Table *t) {
-  lu_mem sz = cast(lu_mem, Meça(Table)) + concretesize(t->asize);
+  lu_mem sz = cast(lu_mem, meça(Table)) + concretesize(t->asize);
   Se (!isdummy(t))
     sz += sizehash(t);
   Retorne sz;

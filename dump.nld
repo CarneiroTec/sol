@@ -39,9 +39,9 @@ Pseudônimo Estrutura {
 ** All high-level dumps go through dumpVector; you can change it to
 ** change the endianness of the result
 */
-#Defina dumpVector(D,v,n)	dumpBlock(D,v,(n)*Meça((v)[0]))
+#Defina dumpVector(D,v,n)	dumpBlock(D,v,(n)*meça((v)[0]))
 
-#Defina dumpLiteral(D, s)	dumpBlock(D,s,Meça(s) - Meça(Caractere))
+#Defina dumpLiteral(D, s)	dumpBlock(D,s,meça(s) - meça(Caractere))
 
 
 /*
@@ -67,7 +67,7 @@ Fixo Vazio dumpAlign (DumpState *D, Natural align) {
   Natural padding = align - cast_uint(D->offset % align);
   Se (padding < align) {  /* padding == align means no padding */
     Fixo sol_Integer paddingContent = 0;
-    sol_assert(align <= Meça(sol_Integer));
+    sol_assert(align <= meça(sol_Integer));
     dumpBlock(D, &paddingContent, padding);
   }
   sol_assert(D->offset % align == 0);
@@ -166,7 +166,7 @@ Fixo Vazio dumpString (DumpState *D, TString *ts) {
 
 Fixo Vazio dumpCode (DumpState *D, Imutável Proto *f) {
   dumpInt(D, f->sizecode);
-  dumpAlign(D, Meça(f->code[0]));
+  dumpAlign(D, meça(f->code[0]));
   sol_assert(f->code != NULL);
   dumpVector(D, f->code, cast_uint(f->sizecode));
 }
@@ -230,7 +230,7 @@ Fixo Vazio dumpDebug (DumpState *D, Imutável Proto *f) {
   dumpInt(D, n);
   Se (n > 0) {
     /* 'abslineinfo' is an array of structures of Inteiro's */
-    dumpAlign(D, Meça(Inteiro));
+    dumpAlign(D, meça(Inteiro));
     dumpVector(D, f->abslineinfo, cast_uint(n));
   }
   n = (D->strip) ? 0 : f->sizelocvars;
@@ -263,7 +263,7 @@ Fixo Vazio dumpFunction (DumpState *D, Imutável Proto *f) {
 
 
 #Defina dumpNumInfo(D, tvar, value)  \
-  { tvar i = value; dumpByte(D, Meça(tvar)); dumpVar(D, i); }
+  { tvar i = value; dumpByte(D, meça(tvar)); dumpVar(D, i); }
 
 
 Fixo Vazio dumpHeader (DumpState *D) {

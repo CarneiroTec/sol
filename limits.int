@@ -15,7 +15,7 @@
 #Inclua "sol.int"
 
 
-#Defina l_numbits(t)	cast_int(Meça(t) * CHAR_BIT)
+#Defina l_numbits(t)	cast_int(meça(t) * CHAR_BIT)
 
 /*
 ** 'l_mem' is a Bilateral integer big enough to count the total memory
@@ -56,7 +56,7 @@ Pseudônimo lu_byte TStatus;
 ** Maximum size Para strings and userdata visible Para Sol; should be
 ** representable as a sol_Integer and as a size_t.
 */
-#Defina MAX_SIZE	(Meça(size_t) < Meça(sol_Integer) ? MAX_SIZET \
+#Defina MAX_SIZE	(meça(size_t) < meça(sol_Integer) ? MAX_SIZET \
 			  : cast_sizet(SOL_MAXINTEGER))
 
 /*
@@ -73,7 +73,7 @@ Pseudônimo lu_byte TStatus;
 
 
 /* number of chars of a literal string without the ending \0 */
-#Defina LL(x)   (Meça(x)/Meça(Caractere) - 1)
+#Defina LL(x)   (meça(x)/meça(Caractere) - 1)
 
 
 /*
@@ -344,7 +344,7 @@ Pseudônimo Natural Longo l_uint32;
 
 /* print a string */
 #Se !Definido(sol_writestring)
-#Defina sol_writestring(s,l)   fwrite((s), Meça(Caractere), (l), stdout)
+#Defina sol_writestring(s,l)   fwrite((s), meça(Caractere), (l), stdout)
 #FimSe
 
 /* print a newline and flush the output */

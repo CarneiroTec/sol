@@ -717,7 +717,7 @@
 ** a Sol state with very fast access.
 ** CHANGE it Se you need a different size.
 */
-#Defina SOL_EXTRASPACE		(Meça(Vazio *))
+#Defina SOL_EXTRASPACE		(meça(Vazio *))
 
 
 /*
@@ -732,7 +732,7 @@
 @@ SOL_BUFFERSIZE is the initial buffer size used by the lauxlib
 ** buffer system.
 */
-#Defina SOL_BUFFERSIZE   ((Inteiro)(16 * Meça(Vazio*) * Meça(sol_Number)))
+#Defina SOL_BUFFERSIZE   ((Inteiro)(16 * meça(Vazio*) * meça(sol_Number)))
 
 
 /*

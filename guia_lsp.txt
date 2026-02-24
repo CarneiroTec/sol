@@ -1,9 +1,9 @@
 Guia LSP — baseado no código-fonte
 
 1) Como iniciar
-- Execute o binário principal com a opção `--lsp`. O código chama `lsp_main()` quando a flag `--lsp` está presente (veja `sol.ctec`).
+- Execute o binário principal com a opção `--lsp`. O código chama `lsp_main()` quando a flag `--lsp` está presente (veja `sol.nld`).
 - Exemplo (Windows/tests):
-  `type testes\\testes_ctec\\request_completion.nds | sol.exe --lsp`
+  `type testes\\testes_nld\\request_completion.nds | sol.exe --lsp`
 
 2) Transporte e framing
 - Comunicação via stdin/stdout (modo binário no Windows). Não usa TCP/porta.
@@ -34,6 +34,6 @@ Guia LSP — baseado no código-fonte
 7) Pontos importantes
 - O servidor usa NDS (não JSON/JSON-RPC). Não envie `Content-Length`/HTTP-style framing.
 - Use stdin/stdout e termine cada mensagem com `\0`.
-- Verifique testes em `testes/testes_ctec` para exemplos de requests/response NDS.
+- Verifique testes em `testes/testes_nld` para exemplos de requests/response NDS.
 
 FIM

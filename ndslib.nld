@@ -1,5 +1,5 @@
 /*
-** ndslib.ctec - Biblioteca NDS (Notação de Dados Sol)
+** ndslib.nld - Biblioteca NDS (Notação de Dados Sol)
 ** Fornece funções para ler, analisar, converter e exportar dados NDS
 */
 

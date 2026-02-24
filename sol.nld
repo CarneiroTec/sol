@@ -22,6 +22,10 @@
 #Inclua "limits.int"
 #Inclua "lsp.int"
 
+#Se Definido(SOL_USE_WINDOWS)
+#Inclua <windows.h>
+#FimSe
+
 
 #Se !Definido(SOL_PROGNAME)
 #Defina SOL_PROGNAME		"sol"
@@ -37,6 +41,10 @@
 Fixo sol_State *globalL = NULL;
 
 Fixo Imutável Caractere *progname = SOL_PROGNAME;
+
+Fixo Imutável Caractere *outputname = "saida.exe";
+
+#Defina SOL_BUNDLE_SIG "SOLB"
 
 
 #Se Definido(SOL_USE_POSIX)   /* { */
@@ -102,6 +110,8 @@ Fixo Vazio print_usage (Imutável Caractere *badoption) {
   "  -W        ativa avisos\n"
   "  --        para de processar opções\n"
   "  -         executa entrada padrão como script\n"
+  "  -b        gera um executável a partir do script\n"
+  "  -o nome   especifica o nome do arquivo de saída (padrão: saida.exe)\n"
   "  --help    mostra esta mensagem de ajuda\n"
   "  --ajuda   mostra esta mensagem de ajuda\n"
   "  --versao  mostra informações da versão\n"
@@ -283,6 +293,109 @@ Fixo Inteiro handle_script (sol_State *L, Caractere **argv) {
 #Defina has_E		16	/* -E */
 #Defina has_help	32	/* --help */
 #Defina has_lsp		64	/* --lsp */
+#Defina has_build	128	/* -b */
+
+
+
+Fixo Inteiro run_bundle (sol_State *L, Caractere **argv, Inteiro argc) {
+  FILE *f;
+  Caractere path[512];
+  Caractere sig[4];
+  sol_Integer size;
+  
+  #Se Definido(SOL_USE_WINDOWS)
+  Se (GetModuleFileNameA(NULL, path, 512) == 0) Retorne 0;
+  #Senão
+  /* POSIX path detection would go here */
+  Retorne 0;
+  #FimSe
+
+  f = fopen(path, "rb");
+  Se (f == NULL) Retorne 0;
+
+  fseek(f, -12, SEEK_END); /* 8 bytes size + 4 bytes sig */
+  Se (fread(&size, 1, 8, f) != 8) { fclose(f); Retorne 0; }
+  Se (fread(sig, 1, 4, f) != 4) { fclose(f); Retorne 0; }
+
+  Se (memcmp(sig, SOL_BUNDLE_SIG, 4) != 0) { fclose(f); Retorne 0; }
+
+  /* Encontrou bundle! */
+  fseek(f, -(12 + size), SEEK_END);
+  {
+    Caractere *buff = cast(Caractere *, malloc(cast_sizet(size)));
+    Se (buff == NULL) { fclose(f); Retorne 0; }
+    Se (fread(buff, 1, cast_sizet(size), f) != cast_sizet(size)) { 
+      free(buff); fclose(f); Retorne 0; 
+    }
+    fclose(f);
+    Se (sol_loadbuffer(L, buff, cast_sizet(size), path) != SOL_OK) {
+        free(buff);
+        Retorne report(L, SOL_ERRRUN);
+    }
+    free(buff);
+  }
+  
+  createargtable(L, argv, argc, 0);  /* Force script = 0 Para bundle */
+  {
+    Inteiro n = pushargs(L);
+    Retorne report(L, docall(L, n, SOL_MULTRET)) == SOL_OK;
+  }
+}
+
+
+Fixo Inteiro bundle_writer (sol_State *L, Imutável Vazio *p, size_t sz, Vazio *ud) {
+  (Vazio)L;
+  Retorne (fwrite(p, 1, sz, cast(FILE*, ud)) == sz) ? 0 : 1;
+}
+
+
+Fixo Inteiro bundle_script (sol_State *L, Imutável Caractere *script, Imutável Caractere *output) {
+  FILE *f_in, *f_out;
+  Caractere self_path[512];
+  Caractere buff[4096];
+  size_t n;
+  sol_Integer start_pos, end_pos, bytecode_size;
+
+  Se (sol_loadfile(L, script) != SOL_OK) Retorne report(L, SOL_ERRFILE);
+
+  #Se Definido(SOL_USE_WINDOWS)
+  Se (GetModuleFileNameA(NULL, self_path, 512) == 0) Retorne 0;
+  #Senão
+  sol_writestringerror("%s", "erro: plataforma não suportada para geração de executável\n");
+  Retorne 0;
+  #FimSe
+
+  f_in = fopen(self_path, "rb");
+  Se (f_in == NULL) Retorne 0;
+
+  f_out = fopen(output, "wb");
+  Se (f_out == NULL) { fclose(f_in); Retorne 0; }
+
+  /* Copia o interpretador */
+  Enquanto ((n = fread(buff, 1, Meça(buff), f_in)) > 0) {
+    fwrite(buff, 1, n, f_out);
+  }
+  fclose(f_in);
+
+  /* Posição inicial do bytecode */
+  start_pos = cast(sol_Integer, ftell(f_out));
+  
+  /* Dump bytecode */
+  Se (sol_dump(L, bundle_writer, f_out, 0) != 0) {
+    fclose(f_out);
+    Retorne 0;
+  }
+
+  end_pos = cast(sol_Integer, ftell(f_out));
+  bytecode_size = end_pos - start_pos;
+
+  /* Escreve rodapé */
+  fwrite(&bytecode_size, 1, 8, f_out);
+  fwrite(SOL_BUNDLE_SIG, 1, 4, f_out);
+
+  fclose(f_out);
+  Retorne 1;
+}
 
 
 /*
@@ -342,13 +455,16 @@ Fixo Inteiro collectargs (Caractere **argv, Inteiro *first) {
           Retorne has_error;  /* invalid option */
         args |= has_v;
         Interrompa;
-      Caso 'e':
-        args |= has_e;  /* FALLTHROUGH */
-      Caso 'l':  /* both options need an argument */
-        Se (argv[i][2] == '\0') {  /* no concatenated argument? */
-          i++;  /* try next 'argv' */
-          Se (argv[i] == NULL || argv[i][0] == '-')
-            Retorne has_error;  /* no next argument or it is another option */
+      Caso 'b':
+        args |= has_build;
+        Interrompa;
+      Caso 'o':
+        Se (argv[i][2] == '\0') {
+          i++;
+          Se (argv[i] == NULL || argv[i][0] == '-') Retorne has_error;
+          outputname = argv[i];
+        } Senão {
+          outputname = argv[i] + 2;
         }
         Interrompa;
       Padrão:  /* invalid option */
@@ -384,6 +500,11 @@ Fixo Inteiro runargs (sol_State *L, Caractere **argv, Inteiro n) {
       }
       Caso 'W':
         sol_warning(L, "@on", 0);  /* warnings on */
+        Interrompa;
+      Caso 'b':
+        Interrompa;
+      Caso 'o':
+        Se (argv[i][2] == '\0') i++;
         Interrompa;
     }
   }
@@ -751,13 +872,31 @@ Fixo Inteiro pInício (sol_State *L) {
   createargtable(L, argv, argc, script);  /* create table 'arg' */
   sol_gc(L, SOL_GCRESTART);  /* start GC... */
   sol_gc(L, SOL_GCGEN);  /* ...in generational mode */
+  
+  Se (run_bundle(L, argv, argc)) {
+    Retorne 1;
+  }
+
   Se (!(args & has_E)) {  /* no option '-E'? */
     Se (handle_luainit(L) != SOL_OK)  /* run SOL_INIT */
       Retorne 0;  /* Erro running SOL_INIT */
   }
   Se (!runargs(L, argv, optlim))  /* execute arguments -e and -l */
     Retorne 0;  /* something failed */
-  Se (script > 0) {  /* execute Início script (Se there is one) */
+  Se (args & has_build) {
+    Se (script > 0) {
+      Se (bundle_script(L, argv[script], outputname)) {
+        sol_pushboolean(L, 1);
+        Retorne 1;
+      }
+      Senão Retorne 0;
+    }
+    Senão {
+        sol_writestringerror("%s", "erro: -b precisa de um script\n");
+        Retorne 0;
+    }
+  }
+  Senão Se (script > 0) {  /* execute Início script (Se there is one) */
     Se (handle_script(L, argv + script) != SOL_OK)
       Retorne 0;  /* interrupt in Caso of Erro */
   }

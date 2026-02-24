@@ -4,8 +4,8 @@
 # Trate arquivos .sol como texto
 *.sol text eol=lf
 
-# Trate arquivos .ctec e .int como texto
-*.ctec text eol=lf
+# Trate arquivos .nld e .int como texto
+*.nld text eol=lf
 *.int text eol=lf
 
 # Trate arquivos de documentação como texto
@@ -27,7 +27,7 @@
 *.o -merge
 
 # Marque arquivos de teste como texto
-testes_ctec/* text
+testes_nld/* text
 
 # Proteja Makefile contra conversão de final de linha
 Makefile text eol=lf

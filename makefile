@@ -75,7 +75,7 @@ LIB_O=	baselib.o dblib.o iolib.o mathlib.o oslib.o tablib.o strlib.o \
 	utf8lib.o loadlib.o corolib.o init.o
 
 # Windows-specific settings
-CC= ctec
+CC= nld
 CFLAGS=
 AR= ar rcs
 RANLIB= ranlib
@@ -217,7 +217,7 @@ clean:
 	-$(RM) *.exe *.a *.o 2>nul
 
 depend:
-	@$(CC) $(CFLAGS) -MM *.ctec
+	@$(CC) $(CFLAGS) -MM *.nld
 
 echo:
 	@echo CC = $(CC)
@@ -231,7 +231,7 @@ echo:
 	@echo DL = $(DL)
 
 # Compilation rules
-%.o: %.ctec
+%.o: %.nld
 	$(CC) -c -o $@ $< $(CFLAGS) $(MYCFLAGS)
 
 %.o: %.c
@@ -243,90 +243,90 @@ $(ALL_O): makefile tests.int
 # Generated manually based on original makefile but adapted for new names
 # Note: Assuming includes are also renamed to .int manually in this list
 
-api.o: api.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+api.o: api.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int debug.int do.int func.int gc.int string.int \
  table.int undump.int vm.int
-auxlib.o: auxlib.ctec prefix.int sol.int sol_conf.int auxlib.int limits.int
-baselib.o: baselib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+auxlib.o: auxlib.nld prefix.int sol.int sol_conf.int auxlib.int limits.int
+baselib.o: baselib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-code.o: code.ctec prefix.int sol.int sol_conf.int code.int lex.int object.int \
+code.o: code.nld prefix.int sol.int sol_conf.int code.int lex.int object.int \
  limits.int zio.int mem.int opcodes.int parser.int debug.int state.int tm.int \
  do.int gc.int string.int table.int vm.int opnames.int
-corolib.o: corolib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+corolib.o: corolib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-ctype.o: ctype.ctec prefix.int ctype.int sol.int sol_conf.int limits.int
-dblib.o: dblib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
-debug.o: debug.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+ctype.o: ctype.nld prefix.int ctype.int sol.int sol_conf.int limits.int
+dblib.o: dblib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
+debug.o: debug.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int code.int lex.int opcodes.int parser.int \
  debug.int do.int func.int string.int gc.int table.int vm.int
-do.o: do.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+do.o: do.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int debug.int do.int func.int gc.int opcodes.int \
  parser.int string.int table.int undump.int vm.int
-dump.o: dump.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+dump.o: dump.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int gc.int table.int undump.int
-func.o: func.ctec prefix.int sol.int sol_conf.int debug.int state.int object.int \
+func.o: func.nld prefix.int sol.int sol_conf.int debug.int state.int object.int \
  limits.int tm.int zio.int mem.int do.int func.int gc.int
-gc.o: gc.ctec prefix.int sol.int sol_conf.int debug.int state.int object.int \
+gc.o: gc.nld prefix.int sol.int sol_conf.int debug.int state.int object.int \
  limits.int tm.int zio.int mem.int do.int func.int gc.int lex.int string.int \
  table.int
-init.o: init.ctec prefix.int sol.int sol_conf.int solib.int auxlib.int limits.int
-iolib.o: iolib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
-lex.o: lex.ctec prefix.int sol.int sol_conf.int ctype.int limits.int debug.int \
+init.o: init.nld prefix.int sol.int sol_conf.int solib.int auxlib.int limits.int
+iolib.o: iolib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
+lex.o: lex.nld prefix.int sol.int sol_conf.int ctype.int limits.int debug.int \
  state.int object.int tm.int zio.int mem.int do.int gc.int lex.int parser.int \
  string.int table.int
-mathlib.o: mathlib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+mathlib.o: mathlib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-mem.o: mem.ctec prefix.int sol.int sol_conf.int debug.int state.int object.int \
+mem.o: mem.nld prefix.int sol.int sol_conf.int debug.int state.int object.int \
  limits.int tm.int zio.int mem.int do.int gc.int
-loadlib.o: loadlib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+loadlib.o: loadlib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-object.o: object.ctec prefix.int sol.int sol_conf.int ctype.int limits.int \
+object.o: object.nld prefix.int sol.int sol_conf.int ctype.int limits.int \
  debug.int state.int object.int tm.int zio.int mem.int do.int string.int gc.int \
  vm.int
-opcodes.o: opcodes.ctec prefix.int opcodes.int limits.int sol.int sol_conf.int \
+opcodes.o: opcodes.nld prefix.int opcodes.int limits.int sol.int sol_conf.int \
  object.int
-oslib.o: oslib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
-parser.o: parser.ctec prefix.int sol.int sol_conf.int code.int lex.int object.int \
+oslib.o: oslib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
+parser.o: parser.nld prefix.int sol.int sol_conf.int code.int lex.int object.int \
  limits.int zio.int mem.int opcodes.int parser.int debug.int state.int tm.int \
  do.int func.int string.int gc.int table.int
-state.o: state.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+state.o: state.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int debug.int do.int func.int gc.int lex.int \
  string.int table.int
-string.o: string.ctec prefix.int sol.int sol_conf.int debug.int state.int \
+string.o: string.nld prefix.int sol.int sol_conf.int debug.int state.int \
  object.int limits.int tm.int zio.int mem.int do.int string.int gc.int
-strlib.o: strlib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+strlib.o: strlib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-table.o: table.ctec prefix.int sol.int sol_conf.int debug.int state.int object.int \
+table.o: table.nld prefix.int sol.int sol_conf.int debug.int state.int object.int \
  limits.int tm.int zio.int mem.int do.int gc.int string.int table.int vm.int
-tablib.o: tablib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+tablib.o: tablib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-tests.o: tests.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+tests.o: tests.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int auxlib.int code.int lex.int opcodes.int \
  parser.int ctype.int debug.int do.int func.int opnames.int string.int gc.int \
  table.int solib.int
-tm.o: tm.ctec prefix.int sol.int sol_conf.int debug.int state.int object.int \
+tm.o: tm.nld prefix.int sol.int sol_conf.int debug.int state.int object.int \
  limits.int tm.int zio.int mem.int do.int gc.int string.int table.int vm.int
-sol.o: sol.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int lsp.int
-lsplib.o: lsplib.ctec prefix.int sol.int sol_conf.int auxlib.int lsp.int
-undump.o: undump.ctec prefix.int sol.int sol_conf.int debug.int state.int \
+sol.o: sol.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int lsp.int
+lsplib.o: lsplib.nld prefix.int sol.int sol_conf.int auxlib.int lsp.int
+undump.o: undump.nld prefix.int sol.int sol_conf.int debug.int state.int \
  object.int limits.int tm.int zio.int mem.int do.int func.int string.int gc.int \
  table.int undump.int
-utf8lib.o: utf8lib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int \
+utf8lib.o: utf8lib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int \
  limits.int
-vm.o: vm.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+vm.o: vm.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int debug.int do.int func.int gc.int opcodes.int \
  string.int table.int vm.int jumptab.int
-zio.o: zio.ctec prefix.int sol.int sol_conf.int api.int limits.int state.int \
+zio.o: zio.nld prefix.int sol.int sol_conf.int api.int limits.int state.int \
  object.int tm.int zio.int mem.int
 
-redelib.o: gps/fonte/redelib.ctec sol.int auxlib.int solib.int
+redelib.o: gps/fonte/redelib.nld sol.int auxlib.int solib.int
 	$(CC) -c -o $@ $< $(CFLAGS) $(MYCFLAGS) -I.
 
 
-testlib.o: testlib.ctec sol.int auxlib.int solib.int
+testlib.o: testlib.nld sol.int auxlib.int solib.int
 	$(CC) -c -o $@ $< $(CFLAGS) $(MYCFLAGS)
 
-biblioteca_assincronia.o: biblioteca_assincronia.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
+biblioteca_assincronia.o: biblioteca_assincronia.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
 
-ndslib.o: ndslib.ctec prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
+ndslib.o: ndslib.nld prefix.int sol.int sol_conf.int auxlib.int solib.int limits.int
 
